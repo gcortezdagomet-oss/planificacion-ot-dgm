@@ -465,6 +465,44 @@
       .users-table { min-width:620px; }
     }
 
+    /* ===== AJUSTE MÓVIL 2: más aire para Calendario y Dashboard ===== */
+    @media (max-width: 700px) {
+      /* Calendario: celdas más legibles y menos elementos apretados */
+      #tab-calendar .card { padding:14px !important; }
+      #tab-calendar #cal-today-card { padding:12px !important; margin-bottom:16px !important; }
+      #tab-calendar #cal-today-card > div { gap:8px !important; }
+      #tab-calendar .cal-grid { gap:5px !important; }
+      #tab-calendar .cal-day { min-height:82px !important; padding:6px 4px !important; gap:5px !important; border-radius:8px; }
+      #tab-calendar .cal-day-num { font-size:.72rem !important; }
+      #tab-calendar .cal-day-badge { font-size:.56rem !important; padding:2px 4px !important; max-width:100%; }
+      #tab-calendar .cal-feriado-tag { font-size:.49rem !important; padding:2px 3px !important; }
+      #tab-calendar .cal-legend { gap:8px 12px !important; margin-bottom:14px !important; font-size:.66rem !important; }
+      #tab-calendar #cal-day-detail { margin-top:18px !important; padding-top:14px; border-top:2px solid var(--border); }
+      #tab-calendar #cal-day-detail table { font-size:.72rem; }
+      #tab-calendar #cal-day-detail td, #tab-calendar #cal-day-detail th { padding:7px 5px !important; }
+      #tab-calendar > .card > div:first-child { align-items:stretch !important; }
+      #tab-calendar > .card > div:first-child .btn { width:100%; }
+      #tab-calendar > .card > div:nth-of-type(3) { align-items:stretch !important; }
+      #tab-calendar > .card > div:nth-of-type(3) > div { width:100%; justify-content:center; }
+      #tab-calendar > .card > div:nth-of-type(3) > div + div { width:100%; justify-content:center; }
+
+      /* Dashboard: cada bloque queda claramente separado */
+      #tab-stats .card { padding:14px !important; }
+      #tab-stats .stats-section-title { margin:24px 0 12px !important; padding-top:16px !important; font-size:.9rem !important; }
+      #tab-stats .stats-section-title:first-of-type { margin-top:4px !important; padding-top:0 !important; }
+      #tab-stats .kpi-grid { gap:10px !important; margin-bottom:18px !important; }
+      #tab-stats .kpi-card { min-height:76px !important; display:flex; flex-direction:column; justify-content:center; }
+      #tab-stats .grid { display:grid !important; grid-template-columns:1fr !important; gap:14px !important; }
+      #tab-stats .grid > div { padding:14px !important; border-radius:10px !important; box-shadow:var(--shadow-sm); }
+      #tab-stats .grid > div h3 { margin-bottom:12px !important; font-size:.9rem !important; }
+      #tab-stats .stat-bar-row { gap:7px !important; margin-bottom:10px !important; align-items:center; }
+      #tab-stats .stat-bar-row > span:first-child { flex-basis:92px !important; }
+      #tab-stats .stat-bar-track { min-width:0; }
+      #tab-stats .stats-filter-row { gap:8px !important; padding:10px; background:var(--bg); border:1px solid var(--border); border-radius:10px; }
+      #tab-stats .stats-filter-row label { font-size:.65rem !important; }
+      #tab-stats #stats-periodo-count { display:block; width:100%; text-align:center; padding-top:2px; }
+    }
+
     @media print {
       @page { size: letter portrait; margin: 6mm; }
       /* Página nombrada usada solo para reportes (ver #preview-modal.is-report
@@ -473,6 +511,10 @@
       @page reporte { size: letter landscape; margin: 6mm; }
       html, body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; height: auto !important; }
       .container { display: none !important; }
+      /* La barra de sesión (usuario/rol/cerrar sesión) vive fuera de .container
+         en el HTML, así que la regla de arriba no la oculta: sin esto, se
+         imprimía pegada arriba del documento, fuera del formato de la OT. */
+      #user-session-bar { display: none !important; }
       /* Solo el modal de vista previa debe imprimirse. Cualquier otro modal
          (p.ej. el de configuración de reporte) debe permanecer oculto aunque
          tenga la misma clase .modal-overlay. */
@@ -571,6 +613,88 @@
     #user-session-bar .user-badge { background:#fff; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:.78rem; color:var(--text-muted); }
     #user-session-bar .role-badge { font-weight:700; color:var(--primary); }
     body.auth-locked > .container { visibility:hidden; }
+
+/* ===== AJUSTE FINAL MÓVIL: historial, calendario y dashboard ===== */
+@media (max-width: 700px) {
+  .history-search-wrap {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 5px 6px 5px 12px !important;
+    min-height: 52px !important;
+    position: relative;
+    z-index: 5;
+  }
+  .history-search-wrap .history-search-icon {
+    font-size: 1.15rem !important;
+    flex: 0 0 auto !important;
+  }
+  .history-search-wrap input#search-op {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 42px !important;
+    padding: 8px 6px !important;
+    margin: 0 !important;
+    font-size: 16px !important;
+    line-height: 1.2 !important;
+    -webkit-appearance: none;
+  }
+  .history-search-wrap input#search-op::-webkit-search-cancel-button {
+    -webkit-appearance: auto;
+  }
+  .history-clear-btn {
+    min-width: 42px !important;
+    min-height: 42px !important;
+    font-size: 18px !important;
+    flex: 0 0 42px !important;
+  }
+  #deadline-filter-group {
+    margin-top: 8px !important;
+    gap: 7px !important;
+  }
+  #deadline-filter-group .deadline-filter-btn {
+    min-height: 42px !important;
+    padding: 8px 12px !important;
+    font-size: .78rem !important;
+  }
+
+  /* Separación visual en Dashboard */
+  #tab-stats .stats-filter-row {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    margin-bottom: 14px !important;
+  }
+  #tab-stats .kpi-grid {
+    margin-top: 12px !important;
+    row-gap: 12px !important;
+  }
+  #tab-stats .kpi-card {
+    min-height: 82px !important;
+    padding: 12px !important;
+  }
+
+  /* Calendario más respirado en móvil */
+  #tab-calendar .cal-grid {
+    gap: 4px !important;
+  }
+  #tab-calendar .cal-day {
+    min-height: 84px !important;
+    padding: 7px 5px !important;
+    gap: 5px !important;
+  }
+  #tab-calendar .cal-weekday {
+    font-size: .62rem !important;
+  }
+}
+
 </style>
 <style id="dagomet-users-style">
   #users-modal { display:none; } #users-modal.open { display:flex; }
@@ -932,7 +1056,7 @@ body.read-only-mode button[onclick*="toggleEstadoGuia("] { display:none !importa
         <div style="margin-bottom: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
           <div class="history-search-wrap" style="flex:1; min-width:260px; display:flex; gap:8px; align-items:center;">
             <span class="history-search-icon">🔎</span>
-            <input type="text" id="search-op" placeholder="Buscar N° OP (o cliente, parte, estado...)" oninput="renderOPsTable()" autocomplete="off" aria-label="Buscar en historial de OPs">
+            <input type="search" id="search-op" placeholder="Buscar N° OP..." oninput="renderOPsTable()" onkeyup="renderOPsTable()" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="search" aria-label="Buscar por número de OP, cliente, parte o estado">
             <button type="button" class="btn btn-secondary btn-sm history-clear-btn" onclick="clearOPSearch()" title="Limpiar búsqueda">✕</button>
           </div>
           <div class="deadline-filter-group" id="deadline-filter-group">
@@ -1042,7 +1166,10 @@ body.read-only-mode button[onclick*="toggleEstadoGuia("] { display:none !importa
             <button class="btn btn-secondary btn-sm" onclick="changeCalMonth(1)">▶</button>
             <button class="btn btn-secondary btn-sm" onclick="goToCalToday()">Hoy</button>
           </div>
-          <button class="btn btn-success btn-sm" onclick="imprimirReporteMes()">📊 Imprimir reporte del mes</button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+            <button class="btn btn-success btn-sm" onclick="imprimirReporteSemana()">📅 Imprimir reporte semanal</button>
+            <button class="btn btn-success btn-sm" onclick="imprimirReporteMes()">📊 Imprimir reporte del mes</button>
+          </div>
         </div>
 
         <div class="cal-legend">
@@ -4338,6 +4465,28 @@ body.read-only-mode button[onclick*="toggleEstadoGuia("] { display:none !importa
 
     function imprimirReporteDia(dateStr) {
       openReportColumnPicker(getOPsByDate(dateStr), 'Reporte de Entregas del Día', formatDateWithDayUpper(dateStr));
+    }
+
+    function imprimirReporteSemana() {
+      // Reporte de semana laboral: LUNES A VIERNES.
+      // Si hay un día seleccionado, se usa como referencia; si no, hoy.
+      const referencia = calSelectedDate || todayKey();
+      const base = new Date(`${referencia}T12:00:00`);
+      const diaSemana = (base.getDay() + 6) % 7; // lunes=0 ... domingo=6
+      const lunes = new Date(base);
+      lunes.setDate(base.getDate() - diaSemana);
+      const viernes = new Date(lunes);
+      viernes.setDate(lunes.getDate() + 4);
+
+      const desde = dateKey(lunes.getFullYear(), lunes.getMonth(), lunes.getDate());
+      const hasta = dateKey(viernes.getFullYear(), viernes.getMonth(), viernes.getDate());
+      const list = db.ots.filter(o => {
+        const entrega = String(o.entrega || '');
+        return entrega >= desde && entrega <= hasta;
+      }).sort((a,b) => String(a.entrega || '').localeCompare(String(b.entrega || '')) || String(a.numero || '').localeCompare(String(b.numero || '')));
+
+      const rango = `${formatDateWithDayUpper(desde)} al ${formatDateWithDayUpper(hasta)}`;
+      openReportColumnPicker(list, 'Reporte Semanal (Lunes a Viernes) de Entregas', rango);
     }
 
     function imprimirReporteMes() {
