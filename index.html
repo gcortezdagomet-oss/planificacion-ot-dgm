@@ -397,6 +397,74 @@
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+
+    /* ===== MEJORAS: búsqueda de OP + dashboard por estado + móvil ===== */
+    .history-search-wrap { background:#fff; border:1px solid var(--border-strong); border-radius:8px; padding:3px 5px 3px 10px; box-sizing:border-box; box-shadow:var(--shadow-sm); }
+    .history-search-wrap:focus-within { border-color:var(--primary); box-shadow:0 0 0 3px rgba(38,53,129,.10); }
+    .history-search-icon { font-size:.95rem; flex:0 0 auto; }
+    .history-search-wrap input { border:0 !important; outline:0 !important; box-shadow:none !important; min-width:0 !important; width:100%; padding:8px 4px !important; margin:0 !important; background:transparent; }
+    .history-clear-btn { flex:0 0 auto; padding:6px 8px !important; box-shadow:none !important; }
+    .op-number-filter { border:0; background:transparent; color:var(--primary); font-weight:800; cursor:pointer; padding:4px 7px; border-radius:6px; font:inherit; }
+    .op-number-filter:hover { background:var(--primary-light); text-decoration:underline; }
+    .stats-status-filter-label { font-size:.72rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.4px; }
+    #stats-estado { width:auto; min-width:190px; }
+
+    @media (max-width: 700px) {
+      body { padding:8px; font-size:14px; }
+      .container { width:100%; }
+      header { padding:12px; border-radius:10px; }
+      .header-logo { width:42px !important; height:42px !important; }
+      .header-titles h1 { font-size:1rem !important; line-height:1.2; }
+      .header-subtitle { font-size:.7rem; }
+      #new-op-btn { width:100%; justify-content:center; }
+      #user-session-bar { justify-content:stretch; }
+      #user-session-bar .user-badge { font-size:.7rem; }
+      .nav-tabs { display:flex; flex-wrap:nowrap !important; overflow-x:auto; gap:6px; padding:6px; -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
+      .nav-tabs .tab-btn { flex:0 0 auto; min-width:max-content !important; width:auto !important; padding:9px 12px; font-size:.75rem; white-space:nowrap; }
+      .card { padding:12px !important; border-radius:10px; }
+      .card h2 { font-size:1rem; }
+      .grid { grid-template-columns:1fr !important; }
+      .history-search-wrap { min-width:100% !important; width:100%; }
+      #deadline-filter-group { width:100%; overflow-x:auto; flex-wrap:nowrap; padding-bottom:2px; }
+      #deadline-filter-group .deadline-filter-btn { flex:0 0 auto; white-space:nowrap; }
+      .stats-filter-row { align-items:stretch; }
+      .stats-filter-row label.stats-status-filter-label { display:flex; align-items:center; }
+      #stats-periodo, #stats-estado, .stats-filter-row > .btn { width:100%; min-width:0; }
+      .kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:8px !important; }
+      .kpi-card { padding:10px !important; min-height:0; }
+      .kpi-num { font-size:1.35rem !important; }
+      .kpi-label { font-size:.65rem !important; }
+      .kpi-sub { font-size:.58rem !important; }
+      .stat-bar-row { gap:6px; }
+      .stat-bar-row > span:first-child { flex-basis:110px !important; }
+      .stat-bar-label { font-size:.7rem; }
+      #tab-list table { display:block; width:100%; border:0; }
+      #tab-list table thead { display:none; }
+      #tab-list table tbody, #tab-list table tr { display:block; width:100%; }
+      #tab-list table tr { margin:0 0 10px; padding:10px; border:1px solid var(--border); border-radius:9px; background:#fff; box-shadow:var(--shadow-sm); box-sizing:border-box; }
+      #tab-list table td { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:7px 2px; border:0; border-bottom:1px solid #eef2f7; text-align:right; min-width:0; }
+      #tab-list table td:last-child { border-bottom:0; flex-wrap:wrap; justify-content:flex-start; }
+      #tab-list table td::before { content:''; color:var(--text-muted); font-size:.67rem; font-weight:800; text-transform:uppercase; text-align:left; flex:0 0 82px; }
+      #tab-list table td:nth-child(1)::before { content:'OP'; }
+      #tab-list table td:nth-child(2)::before { content:'Parte'; }
+      #tab-list table td:nth-child(3)::before { content:'Estado'; }
+      #tab-list table td:nth-child(4)::before { content:'Planificador'; }
+      #tab-list table td:nth-child(5)::before { content:'Cliente'; }
+      #tab-list table td:nth-child(6)::before { content:'Área'; }
+      #tab-list table td:nth-child(7)::before { content:'Entrega'; }
+      #tab-list table td:nth-child(8)::before { content:'Prioridad'; }
+      #tab-list table td:nth-child(9)::before { content:'Soldadura'; }
+      #tab-list table td:nth-child(10)::before { content:'Acciones'; }
+      #tab-list table td:nth-child(10) > * { margin:2px 0; }
+      #tab-list table td:nth-child(10) .sort-arrows { order:10; width:100%; }
+      #tab-list table td:nth-child(10) .btn { font-size:.68rem; padding:6px 8px; }
+      #tab-calendar .cal-grid { font-size:.68rem; gap:3px !important; }
+      #tab-calendar .cal-cell { min-height:70px !important; padding:4px !important; }
+      #tab-calendar .cal-day-number { font-size:.7rem; }
+      .modal-content { width:calc(100vw - 18px) !important; max-width:none !important; margin:9px; }
+      .users-table { min-width:620px; }
+    }
+
     @media print {
       @page { size: letter portrait; margin: 6mm; }
       /* Página nombrada usada solo para reportes (ver #preview-modal.is-report
@@ -862,7 +930,11 @@ body.read-only-mode button[onclick*="toggleEstadoGuia("] { display:none !importa
           <button class="btn btn-success" onclick="exportToCSV()">📊 Exportar a Excel (CSV)</button>
         </div>
         <div style="margin-bottom: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-          <input type="text" id="search-op" placeholder="🔍 Buscar por N° OP, Parte, Cliente, Área, Estado o Planificador..." oninput="renderOPsTable()" style="flex:1; min-width:220px;">
+          <div class="history-search-wrap" style="flex:1; min-width:260px; display:flex; gap:8px; align-items:center;">
+            <span class="history-search-icon">🔎</span>
+            <input type="text" id="search-op" placeholder="Buscar N° OP (o cliente, parte, estado...)" oninput="renderOPsTable()" autocomplete="off" aria-label="Buscar en historial de OPs">
+            <button type="button" class="btn btn-secondary btn-sm history-clear-btn" onclick="clearOPSearch()" title="Limpiar búsqueda">✕</button>
+          </div>
           <div class="deadline-filter-group" id="deadline-filter-group">
             <button type="button" class="deadline-filter-btn active" data-filtro="todas" onclick="setFiltroPlazo('todas')">Todas</button>
             <button type="button" class="deadline-filter-btn filtro-vencida" data-filtro="vencidas" onclick="setFiltroPlazo('vencidas')">🔴 Vencidas <span id="count-vencidas" class="deadline-filter-count">0</span></button>
@@ -1028,6 +1100,17 @@ body.read-only-mode button[onclick*="toggleEstadoGuia("] { display:none !importa
             <option value="trimestre">Últimos 3 meses</option>
             <option value="anio">Este año</option>
           </select>
+          <label class="stats-status-filter-label" for="stats-estado">Estado de OP:</label>
+          <select id="stats-estado" onchange="renderStats()" aria-label="Filtrar Dashboard por estado de OP">
+            <option value="TODOS">Todos los estados</option>
+            <option value="EN CURSO">EN CURSO</option>
+            <option value="EN PAUSA">EN PAUSA</option>
+            <option value="POR INSPECCIONAR">POR INSPECCIONAR</option>
+            <option value="TERMINADA">TERMINADA</option>
+            <option value="DESPACHADA">DESPACHADA</option>
+            <option value="ANULADA">ANULADA</option>
+          </select>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="clearStatsFilters()">✕ Limpiar filtros</button>
           <span id="stats-periodo-count" style="font-size:.78rem;color:var(--text-muted);"></span>
         </div>
 
@@ -3235,6 +3318,33 @@ body.read-only-mode button[onclick*="toggleEstadoGuia("] { display:none !importa
       renderOPsTable();
     }
 
+    function clearOPSearch() {
+      const input = $('search-op');
+      if (input) { input.value = ''; input.focus(); }
+      filtroPlazo = 'todas';
+      const group = $('deadline-filter-group');
+      if (group) group.querySelectorAll('.deadline-filter-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.filtro === 'todas'));
+      renderOPsTable();
+    }
+
+    function filterHistoryByOP(numero) {
+      const input = $('search-op');
+      if (!input) return;
+      input.value = String(numero || '').trim();
+      filtroPlazo = 'todas';
+      const group = $('deadline-filter-group');
+      if (group) group.querySelectorAll('.deadline-filter-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.filtro === 'todas'));
+      renderOPsTable();
+      input.focus();
+      input.select();
+    }
+
+    function clearStatsFilters() {
+      if ($('stats-periodo')) $('stats-periodo').value = 'mes';
+      if ($('stats-estado')) $('stats-estado').value = 'TODOS';
+      renderStats();
+    }
+
     function renderOPsTable() {
       const tbody = $('ops-table-body');
       const query = normalizeStr($('search-op') ? $('search-op').value : '');
@@ -3303,7 +3413,7 @@ body.read-only-mode button[onclick*="toggleEstadoGuia("] { display:none !importa
         const rowClass = getDeadlineClass(o.entrega, o.estadoOp);
         return `
           <tr class="${rowClass}">
-            <td><b>OP ${o.numero ? esc(o.numero) : '<i style="color:#94a3b8;">Sin N°</i>'}</b></td>
+            <td>${o.numero ? `<button type="button" class="op-number-filter" onclick="filterHistoryByOP('${String(o.numero).replace(/'/g, "\\'")}')" title="Filtrar por esta OP">OP ${esc(o.numero)}</button>` : '<i style="color:#94a3b8;">Sin N°</i>'}</td>
             <td><span style="font-weight:700; color:#dc2626;">${esc(o.parteOp || '-')}</span></td>
             <td>${getStatusBadge(o.estadoOp)}</td>
             <td><span style="background:var(--primary-light); color:var(--primary); padding: 2px 6px; border-radius: 4px; font-weight:700;">${esc(o.planificador||'GCC')}</span></td>
@@ -3568,8 +3678,12 @@ body.read-only-mode button[onclick*="toggleEstadoGuia("] { display:none !importa
     }
 
     function renderStats() {
-      // ---------- Bloque "en vivo": alertas y carga actual (no depende del periodo) ----------
-      const otsActivas = db.ots.filter(o => !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
+      const estadoFiltro = $('stats-estado') ? $('stats-estado').value : 'TODOS';
+      const matchesEstado = o => estadoFiltro === 'TODOS' || String(o.estadoOp || 'EN CURSO').trim().toUpperCase() === estadoFiltro;
+      const otsFiltradasEstado = db.ots.filter(matchesEstado);
+
+      // ---------- Bloque "en vivo": alertas y carga actual ----------
+      const otsActivas = otsFiltradasEstado.filter(o => !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
 
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
@@ -3611,8 +3725,8 @@ body.read-only-mode button[onclick*="toggleEstadoGuia("] { display:none !importa
       // ---------- Bloque "por periodo": totales, prioridad y desgloses ----------
       const rango = getPeriodoRange();
       const otsPeriodo = rango
-        ? db.ots.filter(o => o.createdAt && o.createdAt >= rango.desde.getTime() && o.createdAt <= rango.hasta.getTime())
-        : db.ots;
+        ? otsFiltradasEstado.filter(o => o.createdAt && o.createdAt >= rango.desde.getTime() && o.createdAt <= rango.hasta.getTime())
+        : otsFiltradasEstado;
 
       $('stats-periodo-count').innerText = `${otsPeriodo.length} de ${db.ots.length} OP(s) totales`;
 
