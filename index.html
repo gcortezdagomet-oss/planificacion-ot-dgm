@@ -316,6 +316,8 @@
     .deadline-filter-btn.active[data-filtro="vencidas"] { background: #dc2626; }
     .deadline-filter-btn.active[data-filtro="porvencer"] { background: #d97706; }
     .deadline-filter-btn.active .deadline-filter-count { background: rgba(255,255,255,0.25); }
+    .deadline-filter-btn.soldadura-filter-btn.active { background:#b91c1c; color:#fff; border-color:#b91c1c; }
+    .deadline-filter-btn.soldadura-filter-btn.active .deadline-filter-count { background:rgba(255,255,255,0.25); }
 
     /* ---------- Calendario de entregas ---------- */
     .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
@@ -740,8 +742,8 @@
   #planta-date { font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:capitalize; }
   .planta-legend { margin-bottom:18px; }
 
-  .planta-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:16px; align-items:start; }
-  .planta-area-card { border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--surface); display:flex; flex-direction:column; max-height:min(70vh, 640px); }
+  .planta-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:12px; align-items:start; }
+  .planta-area-card { border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--surface); display:flex; flex-direction:column; }
   .planta-area-header { background:var(--primary); color:#fff; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-shrink:0; }
   .planta-area-header .planta-area-name { font-weight:800; font-size:.85rem; letter-spacing:.2px; text-transform:uppercase; }
   .planta-area-header .planta-area-count { background:rgba(255,255,255,0.22); border-radius:999px; padding:2px 10px; font-size:.78rem; font-weight:700; flex-shrink:0; }
@@ -749,18 +751,15 @@
   /* La lista de OP hace scroll propio dentro de la tarjeta: así, cuando un
      área tiene muchas OP, la tarjeta no crece sin límite ni desordena la
      grilla, y el texto de cada OP se mantiene igual de legible. */
-  .planta-op-list { display:flex; flex-direction:column; overflow-y:auto; flex:1 1 auto; scrollbar-width:thin; scrollbar-color:var(--border-strong) transparent; }
-  .planta-op-list::-webkit-scrollbar { width:8px; }
-  .planta-op-list::-webkit-scrollbar-track { background:transparent; }
-  .planta-op-list::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:8px; }
-  .planta-op-list::-webkit-scrollbar-thumb:hover { background:var(--text-faint); }
-  .planta-op-row { padding:10px 14px; border-top:1px solid var(--border); border-left:4px solid var(--border-strong); display:flex; flex-direction:column; gap:4px; }
+  .planta-op-list { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); align-items:start; }
+  .planta-op-row { padding:7px 9px; border-top:1px solid var(--border); border-left:3px solid var(--border-strong); display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .planta-op-row:nth-child(odd) { border-right:1px solid var(--border); }
   .planta-op-row.deadline-vencido { background-color:#fef2f2; border-left-color:#dc2626; }
   .planta-op-row.deadline-proximo { background-color:#fffbeb; border-left-color:#f59e0b; }
   .planta-op-row-top { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
-  .planta-op-numero { font-weight:800; color:var(--primary-dark); font-size:.95rem; }
-  .planta-op-entrega { font-size:.72rem; font-weight:700; color:var(--text-muted); }
-  .planta-op-trabajo { font-size:.82rem; color:var(--text); line-height:1.35; }
+  .planta-op-numero { font-weight:800; color:var(--primary-dark); font-size:.84rem; }
+  .planta-op-entrega { font-size:.66rem; font-weight:700; color:var(--text-muted); white-space:nowrap; }
+  .planta-op-trabajo { font-size:.72rem; color:var(--text); line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .planta-op-trabajo i { color:var(--text-faint); font-style:italic; }
   .planta-op-meta { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
 
@@ -782,12 +781,13 @@
   body.tv-mode #tab-planta #planta-clock { color:#fff; font-size:2.4rem; }
   body.tv-mode #tab-planta #planta-date { color:#94a3b8; font-size:1rem; }
   body.tv-mode #tab-planta .planta-legend { color:#cbd5e1; font-size:.85rem; }
-  body.tv-mode #tab-planta .planta-grid { gap:20px; }
-  body.tv-mode #tab-planta .planta-area-card { background:#111c33; border-color:#1e293b; max-height:82vh; }
+  body.tv-mode #tab-planta .planta-grid { gap:12px; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); }
+  body.tv-mode #tab-planta .planta-area-card { background:#111c33; border-color:#1e293b; }
   body.tv-mode #tab-planta .planta-area-header { padding:14px 18px; }
   body.tv-mode #tab-planta .planta-area-header .planta-area-name { font-size:1.15rem; }
   body.tv-mode #tab-planta .planta-area-header .planta-area-count { font-size:1rem; }
-  body.tv-mode #tab-planta .planta-op-row { padding:16px 18px; border-top-color:#1e293b; }
+  body.tv-mode #tab-planta .planta-op-list { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  body.tv-mode #tab-planta .planta-op-row { padding:10px 12px; border-top-color:#1e293b; }
   body.tv-mode #tab-planta .planta-op-row.deadline-vencido { background-color:#3a1414; }
   body.tv-mode #tab-planta .planta-op-row.deadline-proximo { background-color:#3a2f10; }
   body.tv-mode #tab-planta .planta-op-numero { font-size:1.35rem; color:#fff; }
@@ -802,6 +802,8 @@
     .planta-toolbar { flex-direction:column; align-items:stretch; }
     .planta-toolbar-right { justify-content:space-between; }
     .planta-grid { grid-template-columns:1fr; }
+    .planta-op-list { grid-template-columns:1fr; }
+    .planta-op-row:nth-child(odd) { border-right:0; }
   }
 </style>
 <style id="dagomet-global-search-style">
@@ -1257,6 +1259,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
             <button type="button" class="deadline-filter-btn filtro-vencida" data-filtro="vencidas" onclick="setFiltroPlazo('vencidas')">🔴 Vencidas <span id="count-vencidas" class="deadline-filter-count">0</span></button>
             <button type="button" class="deadline-filter-btn filtro-proxima" data-filtro="porvencer" onclick="setFiltroPlazo('porvencer')">🟡 Por vencer (2d) <span id="count-porvencer" class="deadline-filter-count">0</span></button>
             <button type="button" class="deadline-filter-btn" data-filtro="encurso" onclick="setFiltroPlazo('encurso')">🟦 En curso <span id="count-encurso" class="deadline-filter-count">0</span></button>
+            <button type="button" class="deadline-filter-btn soldadura-filter-btn" data-filtro-soldadura="si" onclick="setFiltroSoldadura('si')">⚠️ Soldadura externa <span id="count-soldadura" class="deadline-filter-count">0</span></button>
           </div>
           <span id="sort-entrega-indicator" style="display:none; font-size:.78rem; font-weight:700; color:var(--primary); align-items:center; gap:6px;">
             📅 Ordenado por fecha de entrega
@@ -3830,6 +3833,13 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       renderOPsTable();
     }
 
+    function setFiltroSoldadura(valor) {
+      filtroSoldadura = valor === 'si' ? 'si' : 'todas';
+      const btn = document.querySelector('[data-filtro-soldadura="si"]');
+      if (btn) btn.classList.toggle('active', filtroSoldadura === 'si');
+      renderOPsTable();
+    }
+
     function setFiltroPlazo(valor) {
       filtroPlazo = valor;
       const group = $('deadline-filter-group');
@@ -3845,6 +3855,9 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       const input = $('search-op');
       if (input) { input.value = ''; input.focus(); }
       filtroPlazo = 'todas';
+      filtroSoldadura = 'todas';
+      const soldBtn = document.querySelector('[data-filtro-soldadura="si"]');
+      if (soldBtn) soldBtn.classList.remove('active');
       const group = $('deadline-filter-group');
       if (group) group.querySelectorAll('.deadline-filter-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.filtro === 'todas'));
       renderOPsTable();
@@ -3855,6 +3868,9 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       if (!input) return;
       input.value = String(numero || '').trim();
       filtroPlazo = 'todas';
+      filtroSoldadura = 'todas';
+      const soldBtn = document.querySelector('[data-filtro-soldadura="si"]');
+      if (soldBtn) soldBtn.classList.remove('active');
       const group = $('deadline-filter-group');
       if (group) group.querySelectorAll('.deadline-filter-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.filtro === 'todas'));
       renderOPsTable();
@@ -4056,6 +4072,10 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         const area = normalizeStr(o.area);
         const plan = normalizeStr(o.planificador);
         const oc = normalizeStr(o.ocCliente);
+        const requiereSoldadura = (o.soldadura || 'NO').toUpperCase() === 'SI';
+        // También permite escribir "soldadura", "soldadura externa" o "externa"
+        // directamente en el buscador.
+        if ((query.includes('soldadura') || query === 'externa') && requiereSoldadura) return true;
         if (num.includes(query) || parte.includes(query) || est.includes(query) || cli.includes(query) || area.includes(query) || plan.includes(query) || oc.includes(query)) return true;
         return (o.materiales || []).some(m => normalizeStr(m.material).includes(query) || normalizeStr(m.descripcion).includes(query));
       };
@@ -4066,11 +4086,14 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       const countVencidas = otsConQuery.filter(o => getDeadlineClass(o.entrega, o.estadoOp) === 'deadline-vencido').length;
       const countPorVencer = otsConQuery.filter(o => getDeadlineClass(o.entrega, o.estadoOp) === 'deadline-proximo').length;
       const countEnCurso = otsConQuery.filter(o => String(o.estadoOp || 'EN CURSO').trim().toUpperCase() === 'EN CURSO').length;
+      const countSoldadura = otsConQuery.filter(o => (o.soldadura || 'NO').toUpperCase() === 'SI').length;
       if ($('count-vencidas')) $('count-vencidas').innerText = countVencidas;
       if ($('count-porvencer')) $('count-porvencer').innerText = countPorVencer;
       if ($('count-encurso')) $('count-encurso').innerText = countEnCurso;
+      if ($('count-soldadura')) $('count-soldadura').innerText = countSoldadura;
 
       let filteredOTs = otsConQuery.filter(o => {
+        if (filtroSoldadura === 'si' && (o.soldadura || 'NO').toUpperCase() !== 'SI') return false;
         if (filtroPlazo === 'todas') return true;
         if (filtroPlazo === 'encurso') return String(o.estadoOp || 'EN CURSO').trim().toUpperCase() === 'EN CURSO';
         const cls = getDeadlineClass(o.entrega, o.estadoOp);
