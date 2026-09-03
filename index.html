@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     :root {
       --primary: #263581;
@@ -370,6 +371,7 @@
 
     /* ---------- Stats: barras horizontales ---------- */
     .stat-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+    .stat-bar-action { flex: 0 0 auto; white-space: nowrap; }
     .stat-bar-label { flex: 0 0 150px; font-size: 0.78rem; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .stat-bar-track { flex: 1; background: var(--bg); border-radius: 5px; height: 15px; overflow: hidden; border: 1px solid var(--border); }
     .stat-bar-fill { height: 100%; border-radius: 5px 0 0 5px; background: var(--primary); transition: width 0.3s ease; }
@@ -1314,6 +1316,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
                 Solo en curso
               </label>
             </div>
+            <div style="font-size:.7rem; color:var(--text-muted); margin-bottom:8px;">📄 Usa el botón junto a cada cliente para generar su reporte de historial completo (PDF o Excel).</div>
             <div id="stats-client-list"></div>
           </div>
         </div>
@@ -1514,6 +1517,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         <h3 style="margin: 0; color: var(--primary);">Vista Previa de Impresión (Formato Horizontal)</h3>
         <div style="display: flex; gap: 8px;">
           <button class="btn btn-success btn-sm" id="modal-download-btn">📄 Descargar PDF</button>
+          <button class="btn btn-info btn-sm" id="modal-download-excel-btn" style="display:none;">📊 Descargar Excel</button>
           <button class="btn btn-warning btn-sm" onclick="window.print()">🖨️ Imprimir</button>
           <button class="btn btn-danger btn-sm" onclick="closePreviewModal()">✕ Cerrar</button>
         </div>
@@ -3941,11 +3945,13 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         const labelHtml = opts.badge
           ? `<span class="badge-status status-${normalizeStr(label).replace(/\s+/g, '-').replace('ó','o')}" style="font-size:.65rem;">${esc(label)}</span>`
           : `<span class="stat-bar-label" title="${esc(label)}">${esc(label)}</span>`;
+        const actionHtml = opts.rowAction ? opts.rowAction(label, v) : '';
         return `
           <div class="stat-bar-row" title="${esc(tooltip)}">
             ${opts.badge ? `<span style="flex:0 0 150px;">${labelHtml}</span>` : labelHtml}
             <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%;"></div></div>
             <span class="stat-bar-count">${v.count}</span>
+            ${actionHtml}
           </div>`;
       }).join('');
     }
@@ -4076,7 +4082,9 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         clientCounts[c].count++;
         clientCounts[c].ops.push(o.numero);
       });
-      renderStatBars('stats-client-list', clientCounts);
+      renderStatBars('stats-client-list', clientCounts, {
+        rowAction: (label) => `<button type="button" class="btn btn-info btn-sm stat-bar-action" title="Generar reporte del historial completo de este cliente" data-cliente="${esc(label)}" onclick="event.stopPropagation(); imprimirReporteCliente(this.dataset.cliente)">📄 Reporte</button>`
+      });
     }
 
     // =====================================================================
@@ -4550,6 +4558,9 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       docElement.style.boxShadow = 'none';
       previewContainer.appendChild(docElement);
       $('modal-download-btn').onclick = () => generateReportPDF(list, titulo, subtitulo, cols);
+      const excelBtn = $('modal-download-excel-btn');
+      excelBtn.style.display = '';
+      excelBtn.onclick = () => exportReportToExcel(list, titulo, cols);
       $('preview-modal').classList.add('is-report');
       $('preview-modal').style.display = 'flex';
     }
@@ -4623,6 +4634,60 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       }
     }
 
+    // Valor "plano" (texto/número, sin badges ni HTML) de una columna de
+    // reporte para una OP. Se usa para la exportación a Excel, donde no
+    // tienen sentido los badges de color que sí se usan en el PDF/pantalla.
+    function getReportColumnRawValue(o, key) {
+      switch (key) {
+        case 'numero': return o.numero || 'S/N';
+        case 'entrega': return formatDateWithDayUpper(o.entrega);
+        case 'cliente': return o.cliente || '-';
+        case 'area': return o.area || '-';
+        case 'maquina': return o.maquina || '-';
+        case 'estadoOp': return o.estadoOp || 'EN CURSO';
+        case 'prioridad': return o.prioridad || 'NORMAL';
+        case 'planificador': return o.planificador || 'GCC';
+        case 'ocCliente': return o.ocCliente || '-';
+        case 'folio': return o.folio || '-';
+        case 'cantidadTotal': return o.cantidadTotal || '-';
+        case 'piezas': return o.piezas || '-';
+        case 'kilos': return Math.round((o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0));
+        case 'trabajo': return o.instrucciones || '-';
+        default: return '';
+      }
+    }
+
+    function exportReportToExcel(list, titulo, columnKeys) {
+      if (typeof XLSX === 'undefined') {
+        alert('No se pudo cargar el generador de Excel. Compruebe su conexión a Internet y vuelva a intentarlo.');
+        return;
+      }
+      const cols = (columnKeys && columnKeys.length ? columnKeys : loadReportColumnsSelection())
+        .map(k => REPORT_COLUMNS.find(c => c.key === k))
+        .filter(Boolean);
+      const activeCols = cols.length ? cols : REPORT_COLUMNS.filter(c => REPORT_COLUMNS_DEFAULT.includes(c.key));
+
+      const ordenados = [...list].sort((a, b) => String(a.entrega || '').localeCompare(String(b.entrega || '')) || String(a.numero || '').localeCompare(String(b.numero || '')));
+
+      const data = ordenados.map(o => {
+        const row = {};
+        activeCols.forEach(c => { row[c.label] = getReportColumnRawValue(o, c.key); });
+        return row;
+      });
+
+      try {
+        const ws = XLSX.utils.json_to_sheet(data);
+        ws['!cols'] = activeCols.map(c => ({ wch: Math.max(10, Math.round((c.weight || 8) * 1.6)) }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
+        const filename = `Reporte_${titulo.replace(/[^a-zA-Z0-9]+/g, '_')}.xlsx`;
+        XLSX.writeFile(wb, filename);
+      } catch (error) {
+        console.error('Error al generar el reporte Excel:', error);
+        alert('No fue posible generar el Excel del reporte. Detalle: ' + (error?.message || error));
+      }
+    }
+
     function imprimirReporteHoy() {
       const hoy = todayKey();
       openReportColumnPicker(getOPsByDate(hoy), 'Reporte de Entregas de Hoy', formatDateWithDayUpper(hoy));
@@ -4658,6 +4723,17 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       const prefix = `${calYear}-${pad2(calMonth + 1)}-`;
       const list = db.ots.filter(o => String(o.entrega || '').startsWith(prefix));
       openReportColumnPicker(list, 'Reporte de Entregas del Mes', `${CAL_MESES[calMonth]} ${calYear}`);
+    }
+
+    // Reporte de historial completo de un cliente (todas sus OPs, de cualquier
+    // fecha y estado), pensado para responder rápido cuando un cliente
+    // pregunta "¿cómo van mis OPs?". El usuario puede filtrar por estado y
+    // elegir columnas en el mismo selector que usan los demás reportes.
+    function imprimirReporteCliente(clienteLabel) {
+      const cliente = (clienteLabel || '').trim();
+      if (!cliente) return;
+      const list = db.ots.filter(o => (o.cliente || '').trim() === cliente);
+      openReportColumnPicker(list, `Historial de OPs — ${cliente}`, `${list.length} OP(s) en el historial de este cliente`);
     }
 
 
@@ -5786,6 +5862,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
           btn.innerHTML = originalText;
         }
       };
+      $('modal-download-excel-btn').style.display = 'none';
       $('preview-modal').classList.remove('is-report');
       $('preview-modal').style.display = 'flex';
     }
@@ -5800,6 +5877,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       previewContainer.appendChild(docElement);
 
       $('modal-download-btn').onclick = () => generatePDF(id);
+      $('modal-download-excel-btn').style.display = 'none';
       $('preview-modal').classList.remove('is-report');
       $('preview-modal').style.display = 'flex';
     }
