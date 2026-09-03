@@ -131,6 +131,13 @@
     #th-entrega:hover { color: var(--primary); }
     #th-entrega-arrow { font-size:.8rem; opacity:.7; }
     .material-duplicate { outline: 2px solid var(--warning) !important; background:#fffbeb !important; }
+    /* Adjuntos de documentación (Supabase Storage) */
+    .doc-attach-row { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+    .doc-attach-chips { display:flex; flex-wrap:wrap; gap:6px; flex-basis:100%; }
+    .doc-chip { display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--border-strong); border-radius:14px; padding:4px 10px; font-size:0.78rem; color:var(--text); }
+    .doc-chip-name { max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .doc-chip-btn { border:none; background:transparent; cursor:pointer; padding:0 2px; font-size:0.85rem; line-height:1; }
+    .doc-chip-remove { color:var(--danger); }
     /* Campos que deben revisarse/modificarse en cada OP */
     .campo-revisar { border: 2px solid #f59e0b !important; background: #fffbeb !important; }
     .label-revisar { color: #b45309 !important; }
@@ -1000,12 +1007,34 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
           </div>
           <div class="field" style="grid-column: span 2;">
             <label>Documentación de Fabricación</label>
-            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;">
-              <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docPlanoAdjunto" value="PLANO ADJUNTO" style="display:none;"><span class="doc-selector" data-for="docPlanoAdjunto">PLANO ADJUNTO</span></label>
-              <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docPlantillaCliente" value="PLANTILLA CLIENTE" style="display:none;"><span class="doc-selector" data-for="docPlantillaCliente">PLANTILLA CLIENTE</span></label>
-              <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docCroquisAdjunto" value="CROQUIS ADJUNTO" style="display:none;"><span class="doc-selector" data-for="docCroquisAdjunto">CROQUIS ADJUNTO</span></label>
-              <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docMuestraCliente" value="MUESTRA CLIENTE" style="display:none;"><span class="doc-selector" data-for="docMuestraCliente">MUESTRA CLIENTE</span></label>
-              <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docSinDocumentacion" value="SIN DOCUMENTACIÓN" style="display:none;"><span class="doc-selector" data-for="docSinDocumentacion">SIN DOCUMENTACIÓN</span></label>
+            <div style="display:flex; flex-direction:column; gap:12px; margin-top:4px;">
+              <div class="doc-attach-row" data-doc-id="docPlanoAdjunto">
+                <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docPlanoAdjunto" value="PLANO ADJUNTO" style="display:none;"><span class="doc-selector" data-for="docPlanoAdjunto">PLANO ADJUNTO</span></label>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="$('file-docPlanoAdjunto').click()">📎 Adjuntar archivo</button>
+                <input type="file" id="file-docPlanoAdjunto" style="display:none;" onchange="uploadDocAdjunto('docPlanoAdjunto', this)">
+                <div class="doc-attach-chips" id="chips-docPlanoAdjunto"></div>
+              </div>
+              <div class="doc-attach-row" data-doc-id="docPlantillaCliente">
+                <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docPlantillaCliente" value="PLANTILLA CLIENTE" style="display:none;"><span class="doc-selector" data-for="docPlantillaCliente">PLANTILLA CLIENTE</span></label>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="$('file-docPlantillaCliente').click()">📎 Adjuntar archivo</button>
+                <input type="file" id="file-docPlantillaCliente" style="display:none;" onchange="uploadDocAdjunto('docPlantillaCliente', this)">
+                <div class="doc-attach-chips" id="chips-docPlantillaCliente"></div>
+              </div>
+              <div class="doc-attach-row" data-doc-id="docCroquisAdjunto">
+                <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docCroquisAdjunto" value="CROQUIS ADJUNTO" style="display:none;"><span class="doc-selector" data-for="docCroquisAdjunto">CROQUIS ADJUNTO</span></label>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="$('file-docCroquisAdjunto').click()">📎 Adjuntar archivo</button>
+                <input type="file" id="file-docCroquisAdjunto" style="display:none;" onchange="uploadDocAdjunto('docCroquisAdjunto', this)">
+                <div class="doc-attach-chips" id="chips-docCroquisAdjunto"></div>
+              </div>
+              <div class="doc-attach-row" data-doc-id="docMuestraCliente">
+                <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docMuestraCliente" value="MUESTRA CLIENTE" style="display:none;"><span class="doc-selector" data-for="docMuestraCliente">MUESTRA CLIENTE</span></label>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="$('file-docMuestraCliente').click()">📎 Adjuntar archivo</button>
+                <input type="file" id="file-docMuestraCliente" style="display:none;" onchange="uploadDocAdjunto('docMuestraCliente', this)">
+                <div class="doc-attach-chips" id="chips-docMuestraCliente"></div>
+              </div>
+              <div class="doc-attach-row" data-doc-id="docSinDocumentacion">
+                <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docSinDocumentacion" value="SIN DOCUMENTACIÓN" style="display:none;"><span class="doc-selector" data-for="docSinDocumentacion">SIN DOCUMENTACIÓN</span></label>
+              </div>
             </div>
           </div>
           <div class="field" style="grid-column: span 2;">
@@ -1857,6 +1886,106 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       if (sin && sin.checked) ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente'].forEach(id => { if ($(id)) $(id).checked=false; });
       else if (sin && ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente'].some(id => $(id) && $(id).checked)) sin.checked=false;
       ids.forEach(id => { const input=$(id), span=document.querySelector('.doc-selector[data-for="'+id+'"]'); if(input&&span) span.classList.toggle('active',input.checked); });
+    }
+
+    // ===== ADJUNTOS DE DOCUMENTACIÓN (Supabase Storage) =====
+    // Bucket dedicado a planos, plantillas, croquis y muestras adjuntas por OP.
+    // Debe existir en Supabase Storage (crear como bucket PRIVADO) con políticas
+    // que permitan INSERT/SELECT/DELETE a usuarios autenticados.
+    const DOC_ATTACH_BUCKET = 'documentos-op';
+    const DOC_ATTACH_IDS = ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente'];
+    let formDocumentosAdjuntos = {};
+
+    function sanitizeFileName(name) {
+      return (name || 'archivo').replace(/[^a-zA-Z0-9._-]/g, '_');
+    }
+
+    async function uploadDocAdjunto(docId, inputEl) {
+      const file = inputEl.files[0];
+      inputEl.value = '';
+      if (!file) return;
+      const sb = window.dagometSupabase;
+      if (!sb) { alert('No hay conexión con Supabase.'); return; }
+
+      const numero = (($('numero') || {}).value || 'SIN_NUMERO').trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g, '_') || 'SIN_NUMERO';
+      const path = `${numero}/${docId}/${Date.now()}_${sanitizeFileName(file.name)}`;
+
+      const chipsEl = $('chips-' + docId);
+      const tempMsg = document.createElement('span');
+      tempMsg.textContent = '⏳ Subiendo...';
+      tempMsg.className = 'doc-chip';
+      if (chipsEl) chipsEl.appendChild(tempMsg);
+
+      try {
+        const { error } = await sb.storage.from(DOC_ATTACH_BUCKET).upload(path, file, { upsert: false, contentType: file.type || 'application/octet-stream' });
+        if (error) throw error;
+        if (!Array.isArray(formDocumentosAdjuntos[docId])) formDocumentosAdjuntos[docId] = [];
+        formDocumentosAdjuntos[docId].push({ path, name: file.name, size: file.size, uploadedAt: Date.now() });
+        // Al adjuntar un archivo, se marca automáticamente su checkbox de documentación.
+        if ($(docId)) { $(docId).checked = true; syncDocumentacionButtons(); }
+        markFormDirty();
+      } catch (err) {
+        console.error('Error al subir archivo:', err);
+        alert('No se pudo subir el archivo: ' + (err.message || err));
+      } finally {
+        renderDocAdjuntos(docId);
+      }
+    }
+
+    async function removeDocAdjunto(docId, idx) {
+      const lista = formDocumentosAdjuntos[docId] || [];
+      const item = lista[idx];
+      if (!item) return;
+      if (!confirm(`¿Quitar el archivo "${item.name}"?`)) return;
+      const sb = window.dagometSupabase;
+      try {
+        if (sb) await sb.storage.from(DOC_ATTACH_BUCKET).remove([item.path]);
+      } catch (err) {
+        console.error('Error al eliminar archivo en la nube:', err);
+      }
+      lista.splice(idx, 1);
+      markFormDirty();
+      renderDocAdjuntos(docId);
+    }
+
+    async function verDocAdjunto(docId, idx) {
+      const item = (formDocumentosAdjuntos[docId] || [])[idx];
+      const sb = window.dagometSupabase;
+      if (!item || !sb) return;
+      try {
+        const { data, error } = await sb.storage.from(DOC_ATTACH_BUCKET).createSignedUrl(item.path, 3600);
+        if (error) throw error;
+        window.open(data.signedUrl, '_blank');
+      } catch (err) {
+        alert('No se pudo abrir el archivo: ' + (err.message || err));
+      }
+    }
+
+    function renderDocAdjuntos(docId) {
+      const chipsEl = $('chips-' + docId);
+      if (!chipsEl) return;
+      const lista = formDocumentosAdjuntos[docId] || [];
+      const soloLectura = window.dagometCurrentProfile?.rol === 'read_only';
+      chipsEl.innerHTML = lista.map((f, i) => `
+        <span class="doc-chip">
+          📄 <span class="doc-chip-name" title="${esc(f.name)}">${esc(f.name)}</span>
+          <button type="button" class="doc-chip-btn" onclick="verDocAdjunto('${docId}', ${i})" title="Ver archivo">👁️</button>
+          ${soloLectura ? '' : `<button type="button" class="doc-chip-btn doc-chip-remove" onclick="removeDocAdjunto('${docId}', ${i})" title="Quitar">✕</button>`}
+        </span>
+      `).join('');
+    }
+
+    function renderAllDocAdjuntos() {
+      DOC_ATTACH_IDS.forEach(renderDocAdjuntos);
+    }
+
+    function getDocumentosAdjuntos() {
+      return JSON.parse(JSON.stringify(formDocumentosAdjuntos));
+    }
+
+    function setDocumentosAdjuntos(valores) {
+      formDocumentosAdjuntos = (valores && typeof valores === 'object') ? JSON.parse(JSON.stringify(valores)) : {};
+      renderAllDocAdjuntos();
     }
 
     // ==========================================================================
@@ -3120,6 +3249,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       $('folio').value = '';
       $('instrucciones').value = '';
       setDocumentacionFabricacion([]);
+      setDocumentosAdjuntos({});
       $('comentarios').value = '';
       $('prioridad').value = 'NORMAL';
       $('materialDe').value = 'CLIENTE';
@@ -3195,6 +3325,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         soldaduraSeguimiento: ($('soldadura').value || 'NO').toUpperCase() === 'SI' ? getSoldaduraSeguimiento() : null,
         instrucciones: $('instrucciones').value,
         documentacionFabricacion: getDocumentacionFabricacion(),
+        documentosAdjuntos: getDocumentosAdjuntos(),
         comentarios: $('comentarios').value,
         responsableTrabajo: selectedResponsables,
         responsableRevision: $('responsableRevision').value,
@@ -3266,6 +3397,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       $('instrucciones').value = o.instrucciones || '';
       $('instrucciones').value = o.instrucciones || '';
       setDocumentacionFabricacion(o.documentacionFabricacion || []);
+      setDocumentosAdjuntos(o.documentosAdjuntos || {});
       $('comentarios').value = o.comentarios || '';
       $('fechaInicio').value = o.fechaInicio || '';
       $('horaInicio').value = o.horaInicio || '';
@@ -3330,6 +3462,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       $('curvas').value = o.curvas || '';
       $('instrucciones').value = o.instrucciones || '';
       setDocumentacionFabricacion(o.documentacionFabricacion || []);
+      setDocumentosAdjuntos({}); // La OP duplicada no hereda los archivos de la original.
       $('comentarios').value = o.comentarios || '';
       $('fechaInicio').value = '';
       $('horaInicio').value = '';
