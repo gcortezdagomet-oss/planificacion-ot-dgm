@@ -3864,6 +3864,12 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
     // Filtro rápido de plazo en el historial: 'todas' | 'vencidas' | 'porvencer'.
     let filtroPlazo = 'todas';
 
+    // Filtro rápido de soldadura externa en el historial: 'todas' | 'si'.
+    // FIX: esta variable se usaba (renderOPsTable, setFiltroSoldadura, clearOPSearch,
+    // filterHistoryByOP) pero nunca se declaraba, lo que producía
+    // "ReferenceError: filtroSoldadura is not defined" y rompía la carga de la app.
+    let filtroSoldadura = 'todas';
+
     // Orden por fecha de entrega en el historial (no afecta el orden manual guardado en db.ots).
     // col: null (orden manual) | 'entrega'. dir: 1 = más atrasadas primero, -1 = más lejanas primero.
     let sortOP = { col: null, dir: 1 };
