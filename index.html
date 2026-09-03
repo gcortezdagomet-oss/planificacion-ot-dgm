@@ -381,6 +381,11 @@
     .chart-card .chart-hint { font-size:.68rem; color:var(--text-muted); margin-bottom:8px; }
     .chart-card canvas { max-height: 230px; }
     .chart-card .chart-canvas-wrap { position: relative; height: 230px; }
+    .chart-card-header { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:4px; }
+    .chart-card-header h3 { margin:0; }
+    .chart-card-actions { display:flex; gap:6px; flex-shrink:0; }
+    .chart-action-btn { padding:5px 10px !important; font-size:.85rem !important; line-height:1; box-shadow:none !important; }
+    #chart-modal-canvas-wrap { position:relative; height:min(60vh, 520px); }
     .trend-card canvas { max-height: 110px; }
     .trend-card .chart-canvas-wrap { position: relative; height: 110px; }
     .chart-empty { display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-faint); font-size:.8rem; font-style:italic; text-align:center; padding:0 10px; }
@@ -735,13 +740,20 @@
   #planta-date { font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:capitalize; }
   .planta-legend { margin-bottom:18px; }
 
-  .planta-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:16px; }
-  .planta-area-card { border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--surface); display:flex; flex-direction:column; }
-  .planta-area-header { background:var(--primary); color:#fff; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .planta-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:16px; align-items:start; }
+  .planta-area-card { border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--surface); display:flex; flex-direction:column; max-height:min(70vh, 640px); }
+  .planta-area-header { background:var(--primary); color:#fff; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-shrink:0; }
   .planta-area-header .planta-area-name { font-weight:800; font-size:.85rem; letter-spacing:.2px; text-transform:uppercase; }
   .planta-area-header .planta-area-count { background:rgba(255,255,255,0.22); border-radius:999px; padding:2px 10px; font-size:.78rem; font-weight:700; flex-shrink:0; }
   .planta-area-empty { padding:16px 14px; color:var(--text-faint); font-size:.85rem; font-style:italic; }
-  .planta-op-list { display:flex; flex-direction:column; }
+  /* La lista de OP hace scroll propio dentro de la tarjeta: así, cuando un
+     área tiene muchas OP, la tarjeta no crece sin límite ni desordena la
+     grilla, y el texto de cada OP se mantiene igual de legible. */
+  .planta-op-list { display:flex; flex-direction:column; overflow-y:auto; flex:1 1 auto; scrollbar-width:thin; scrollbar-color:var(--border-strong) transparent; }
+  .planta-op-list::-webkit-scrollbar { width:8px; }
+  .planta-op-list::-webkit-scrollbar-track { background:transparent; }
+  .planta-op-list::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:8px; }
+  .planta-op-list::-webkit-scrollbar-thumb:hover { background:var(--text-faint); }
   .planta-op-row { padding:10px 14px; border-top:1px solid var(--border); border-left:4px solid var(--border-strong); display:flex; flex-direction:column; gap:4px; }
   .planta-op-row.deadline-vencido { background-color:#fef2f2; border-left-color:#dc2626; }
   .planta-op-row.deadline-proximo { background-color:#fffbeb; border-left-color:#f59e0b; }
@@ -771,7 +783,7 @@
   body.tv-mode #tab-planta #planta-date { color:#94a3b8; font-size:1rem; }
   body.tv-mode #tab-planta .planta-legend { color:#cbd5e1; font-size:.85rem; }
   body.tv-mode #tab-planta .planta-grid { gap:20px; }
-  body.tv-mode #tab-planta .planta-area-card { background:#111c33; border-color:#1e293b; }
+  body.tv-mode #tab-planta .planta-area-card { background:#111c33; border-color:#1e293b; max-height:82vh; }
   body.tv-mode #tab-planta .planta-area-header { padding:14px 18px; }
   body.tv-mode #tab-planta .planta-area-header .planta-area-name { font-size:1.15rem; }
   body.tv-mode #tab-planta .planta-area-header .planta-area-count { font-size:1rem; }
@@ -1483,12 +1495,24 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
 
         <div class="grid">
           <div class="chart-card">
-            <h3>OPs por Estado</h3>
+            <div class="chart-card-header">
+              <h3>OPs por Estado</h3>
+              <div class="chart-card-actions no-print">
+                <button type="button" class="btn btn-secondary btn-sm chart-action-btn" onclick="expandirChart('chart-estado','OPs por Estado')" title="Ver más grande">⛶ Expandir</button>
+                <button type="button" class="btn btn-secondary btn-sm chart-action-btn" onclick="imprimirChart('chart-estado','OPs por Estado')" title="Imprimir este gráfico">🖨️ Imprimir</button>
+              </div>
+            </div>
             <div class="chart-hint">Clic en un tramo para verlas en el Historial</div>
             <div class="chart-canvas-wrap"><canvas id="chart-estado"></canvas></div>
           </div>
           <div class="chart-card">
-            <h3>OPs por Área</h3>
+            <div class="chart-card-header">
+              <h3>OPs por Área</h3>
+              <div class="chart-card-actions no-print">
+                <button type="button" class="btn btn-secondary btn-sm chart-action-btn" onclick="expandirChart('chart-area','OPs por Área')" title="Ver más grande">⛶ Expandir</button>
+                <button type="button" class="btn btn-secondary btn-sm chart-action-btn" onclick="imprimirChart('chart-area','OPs por Área')" title="Imprimir este gráfico">🖨️ Imprimir</button>
+              </div>
+            </div>
             <div class="chart-hint">Clic en una barra para verlas en el Historial</div>
             <div class="chart-canvas-wrap"><canvas id="chart-area"></canvas></div>
           </div>
@@ -4412,6 +4436,62 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       });
     }
 
+    // =====================================================================
+    // EXPANDIR / IMPRIMIR gráficos del dashboard (Estado OP y OP por Área).
+    // Reutiliza el modal de "Vista Previa de Impresión" que ya existe para
+    // los reportes (#preview-modal / #modal-preview-container), así se
+    // aprovecha el mismo botón "Imprimir" y las mismas reglas @media print.
+    // =====================================================================
+    function construirConfigGrafico(canvasId) {
+      const original = dashboardCharts[canvasId];
+      if (!original) return null;
+      const cfg = original.config;
+      const data = JSON.parse(JSON.stringify(cfg.data)); // copia independiente de la del gráfico chico
+      const esDona = cfg.type === 'doughnut';
+      const options = {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        cutout: esDona ? '62%' : undefined,
+        indexAxis: cfg.options.indexAxis,
+        plugins: {
+          legend: {
+            display: true,
+            position: esDona ? 'right' : undefined,
+            labels: { boxWidth: 14, font: { size: 13, family: 'Inter' }, padding: 14 }
+          }
+        }
+      };
+      if (!esDona) options.plugins.legend.display = false;
+      if (cfg.options.scales) {
+        options.scales = {
+          x: cfg.options.scales.x ? { beginAtZero: true, ticks: { precision: 0, font: { size: 13 } } } : undefined,
+          y: cfg.options.scales.y ? { ticks: { font: { size: 13, family: 'Inter' } } } : undefined
+        };
+      }
+      return { type: cfg.type, data, options };
+    }
+
+    function abrirModalGrafico(canvasId, titulo, imprimirAlAbrir) {
+      const cfg = construirConfigGrafico(canvasId);
+      const container = $('modal-preview-container');
+      if (!cfg || !container) { alert('Todavía no hay datos para mostrar en este gráfico.'); return; }
+      container.innerHTML = `
+        <div style="width:100%; max-width:820px;">
+          <h3 style="margin:0 0 16px; color:var(--primary); text-align:center;">${esc(titulo)}</h3>
+          <div id="chart-modal-canvas-wrap"><canvas id="chart-modal-canvas"></canvas></div>
+        </div>`;
+      // El gráfico solo se imprime; oculta "Descargar PDF/Excel" (son de los reportes de OP).
+      $('modal-download-btn').style.display = 'none';
+      $('modal-download-excel-btn').style.display = 'none';
+      $('preview-modal').classList.remove('is-report');
+      $('preview-modal').style.display = 'flex';
+      if (dashboardCharts['chart-modal-canvas']) { dashboardCharts['chart-modal-canvas'].destroy(); }
+      dashboardCharts['chart-modal-canvas'] = new Chart($('chart-modal-canvas').getContext('2d'), cfg);
+      if (imprimirAlAbrir) setTimeout(() => window.print(), 300); // deja que el gráfico termine de dibujarse antes de imprimir
+    }
+
+    function expandirChart(canvasId, titulo) { abrirModalGrafico(canvasId, titulo, false); }
+    function imprimirChart(canvasId, titulo) { abrirModalGrafico(canvasId, titulo, true); }
+
     // Mini gráfico de línea con la cantidad de OPs creadas en cada una de las
     // últimas 10 semanas, para dar una lectura rápida de tendencia (¿subiendo
     // o bajando la carga de trabajo?) que antes no existía en el dashboard.
@@ -6739,7 +6819,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input), #app-root textarea, #app-root select').forEach(el => { el.disabled = true; });
       document.querySelectorAll('#app-root button').forEach(btn => {
         const t=(btn.textContent||'').toLowerCase();
-        const allow=btn.classList.contains('tab-btn') || btn.classList.contains('tv-control-btn') || btn.id === 'global-search-clear' || /imprimir|pdf|descargar respaldo/.test(t);
+        const allow=btn.classList.contains('tab-btn') || btn.classList.contains('tv-control-btn') || btn.id === 'global-search-clear' || /imprimir|pdf|descargar respaldo|expandir/.test(t);
         if(!allow) btn.disabled=true;
       });
     }
