@@ -1797,7 +1797,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         <div style="display: flex; gap: 8px;">
           <button class="btn btn-success btn-sm" id="modal-download-btn">📄 Descargar PDF</button>
           <button class="btn btn-info btn-sm" id="modal-download-excel-btn" style="display:none;">📊 Descargar Excel</button>
-          <button class="btn btn-warning btn-sm" onclick="window.print()">🖨️ Imprimir</button>
+          <button class="btn btn-warning btn-sm" id="modal-print-btn" onclick="window.print()">🖨️ Imprimir</button>
           <button class="btn btn-danger btn-sm" onclick="closePreviewModal()">✕ Cerrar</button>
         </div>
       </div>
@@ -2260,6 +2260,59 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
 
     function renderAllDocAdjuntos() {
       DOC_ATTACH_IDS.forEach(renderDocAdjuntos);
+    }
+
+    // ==========================================================================
+    // Ver adjuntos (planos, plantillas, croquis, muestras) de una OP ya guardada
+    // desde la vista previa de impresión, sin pasar por el formulario de edición.
+    // Se usa así el usuario de SOLO LECTURA puede ver los planos de una OP aunque
+    // no tenga acceso al formulario ni a imprimir/descargar.
+    // ==========================================================================
+    const DOC_ATTACH_LABELS = {
+      docPlanoAdjunto: '📐 Plano adjunto',
+      docPlantillaCliente: '📄 Plantilla cliente',
+      docCroquisAdjunto: '✏️ Croquis adjunto',
+      docMuestraCliente: '🧾 Muestra cliente'
+    };
+
+    async function verDocAdjuntoDeOP(opId, docId, idx) {
+      const o = db.ots.find(x => x.id === opId);
+      const item = o && o.documentosAdjuntos && (o.documentosAdjuntos[docId] || [])[idx];
+      const sb = window.dagometSupabase;
+      if (!item || !sb) return;
+      try {
+        const { data, error } = await sb.storage.from(DOC_ATTACH_BUCKET).createSignedUrl(item.path, 3600);
+        if (error) throw error;
+        window.open(data.signedUrl, '_blank');
+      } catch (err) {
+        alert('No se pudo abrir el archivo: ' + (err.message || err));
+      }
+    }
+
+    // Construye el bloque (fuera del documento imprimible, marcado no-print)
+    // con los adjuntos de la OP para que se puedan ver desde la vista previa.
+    function buildDocAdjuntosPreviewBlock(o) {
+      const adjuntos = o && o.documentosAdjuntos;
+      const idsConArchivos = DOC_ATTACH_IDS.filter(id => adjuntos && (adjuntos[id] || []).length);
+      const wrap = document.createElement('div');
+      wrap.className = 'no-print';
+      wrap.style.cssText = 'width:100%; max-width:900px; margin-top:14px; padding:12px 16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;';
+      if (!idsConArchivos.length) {
+        wrap.innerHTML = '<div style="font-size:.78rem; color:var(--text-muted);">Esta OP no tiene documentación adjunta (planos, plantillas, croquis o muestras).</div>';
+        return wrap;
+      }
+      wrap.innerHTML = `<div style="font-size:.78rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.3px; margin-bottom:8px;">Documentación adjunta</div>` +
+        idsConArchivos.map(docId => `
+          <div style="margin-bottom:8px;">
+            <div style="font-size:.75rem; font-weight:600; color:#334155; margin-bottom:4px;">${DOC_ATTACH_LABELS[docId] || docId}</div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              ${(adjuntos[docId] || []).map((f, i) => `
+                <button type="button" class="btn btn-secondary btn-sm" onclick="verDocAdjuntoDeOP('${o.id}', '${docId}', ${i})" title="Ver archivo">👁️ ${esc(f.name)}</button>
+              `).join('')}
+            </div>
+          </div>
+        `).join('');
+      return wrap;
     }
 
     function getDocumentosAdjuntos() {
@@ -4660,6 +4713,8 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       // El gráfico solo se imprime; oculta "Descargar PDF/Excel" (son de los reportes de OP).
       $('modal-download-btn').style.display = 'none';
       $('modal-download-excel-btn').style.display = 'none';
+      // Restaura el botón Imprimir por si quedó oculto de una vista previa de OP anterior.
+      $('modal-print-btn').style.display = '';
       // Se marca como 'is-report' para que use la misma página de impresión
       // horizontal ("reporte", hoja carta apaisada) que usan los reportes de OP,
       // en vez del formato vertical pensado para las OTs individuales.
@@ -5610,6 +5665,10 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       const docElement = buildReportDOM(list, titulo, subtitulo, cols);
       docElement.style.boxShadow = 'none';
       previewContainer.appendChild(docElement);
+      // Restaura imprimir/descargar por si quedaron ocultos de una vista previa
+      // de OP anterior (esa restricción es solo para la vista de una OP individual).
+      $('modal-download-btn').style.display = '';
+      $('modal-print-btn').style.display = '';
       $('modal-download-btn').onclick = () => generateReportPDF(list, titulo, subtitulo, cols);
       const excelBtn = $('modal-download-excel-btn');
       excelBtn.style.display = '';
@@ -6917,6 +6976,9 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         }
       };
       $('modal-download-excel-btn').style.display = 'none';
+      const soloLecturaActual = window.dagometCurrentProfile?.rol === 'read_only';
+      $('modal-download-btn').style.display = soloLecturaActual ? 'none' : '';
+      $('modal-print-btn').style.display = soloLecturaActual ? 'none' : '';
       $('preview-modal').classList.remove('is-report', 'is-chart');
       $('preview-modal').style.display = 'flex';
     }
@@ -6924,12 +6986,20 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
     function previewPDF(id) {
       const o = db.ots.find(x => x.id === id); if(!o) return;
       const previewContainer = $('modal-preview-container');
+      previewContainer.style.flexDirection = 'column';
       previewContainer.innerHTML = '';
       
       const docElement = buildDocumentDOM(o);
       docElement.style.boxShadow = 'none';
       previewContainer.appendChild(docElement);
+      // El usuario de SOLO LECTURA puede ver la OP y sus planos/adjuntos, pero
+      // no debe poder imprimirla ni descargarla: este bloque queda fuera del
+      // documento imprimible (clase no-print) para que nunca salga en el PDF.
+      previewContainer.appendChild(buildDocAdjuntosPreviewBlock(o));
 
+      const soloLectura = window.dagometCurrentProfile?.rol === 'read_only';
+      $('modal-download-btn').style.display = soloLectura ? 'none' : '';
+      $('modal-print-btn').style.display = soloLectura ? 'none' : '';
       $('modal-download-btn').onclick = () => generatePDF(id);
       $('modal-download-excel-btn').style.display = 'none';
       $('preview-modal').classList.remove('is-report', 'is-chart');
