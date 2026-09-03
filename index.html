@@ -3499,13 +3499,35 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       alert(`OP duplicada con éxito. Se le asignó el número ${$('numero').value}. Actualiza la fecha de entrega y guárdala.`);
     }
 
-    function deleteOP(id) {
+    async function deleteOP(id) {
       const op = db.ots.find(x => x.id === id);
       if (!op) return;
       if (confirm(`¿Seguro que deseas eliminar la OP N° ${op.numero || ''} ${op.parteOp || ''}?`)) {
+        await borrarAdjuntosDeOP(op);
         db.ots = db.ots.filter(x => x.id !== id);
         saveDB();
         renderOPsTable();
+      }
+    }
+
+    // Borra en Supabase Storage todos los archivos adjuntos guardados en
+    // o.documentosAdjuntos. Se usa al eliminar una OP completa para no dejar
+    // archivos huérfanos en el bucket.
+    async function borrarAdjuntosDeOP(o) {
+      const sb = window.dagometSupabase;
+      const adjuntos = o && o.documentosAdjuntos;
+      if (!sb || !adjuntos || typeof adjuntos !== 'object') return;
+      const paths = Object.values(adjuntos)
+        .filter(Array.isArray)
+        .flat()
+        .map(f => f && f.path)
+        .filter(Boolean);
+      if (!paths.length) return;
+      try {
+        const { error } = await sb.storage.from(DOC_ATTACH_BUCKET).remove(paths);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Error al borrar adjuntos de la OP en la nube:', err);
       }
     }
 
