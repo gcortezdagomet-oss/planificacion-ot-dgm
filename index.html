@@ -582,16 +582,24 @@
         width: 260mm !important;
         max-width: 260mm !important;
       }
-      /* Impresión individual de gráficos: una sola hoja carta horizontal.
-         Se evita el min-height:100vh y la altura relativa del modal, que podía
-         empujar el gráfico a una segunda página en algunos navegadores. */
+      /* Impresión individual de gráficos: una sola hoja carta horizontal,
+         centrada igual que los reportes. Antes se usaba display:block sin
+         centrar porque el centrado con flex + min-height:100vh empujaba el
+         gráfico a una segunda hoja en algunos navegadores; la causa real era
+         el 100vh (se calcula mal en impresión, a veces más alto que la hoja
+         física). Se soluciona centrando con una altura fija en milímetros
+         (201.9mm = 215.9mm de hoja carta apaisada - 2x7mm de margen de
+         @page chartPage), que sí es consistente al imprimir. */
       #preview-modal.is-chart {
         page: chartPage !important;
       }
       #preview-modal.is-chart #modal-preview-container {
-        display: block !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
         width: 100% !important;
-        height: auto !important;
+        height: 195mm !important;
         min-height: 0 !important;
         overflow: hidden !important;
         page-break-after: avoid !important;
