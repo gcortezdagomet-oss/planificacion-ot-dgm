@@ -705,6 +705,74 @@
 }
 
 </style>
+<style id="dagomet-planta-style">
+  /* ===== VISTA DE PLANTA / MODO TV ===== */
+  .planta-toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:6px; }
+  .planta-toolbar-left { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .planta-period-toggle { display:flex; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:4px; }
+  .planta-period-btn { background:transparent; color:var(--text-muted); box-shadow:none; }
+  .planta-period-btn.active { background:var(--primary); color:#fff; }
+  .planta-toolbar-right { display:flex; align-items:center; gap:16px; }
+  .planta-clock-wrap { display:flex; flex-direction:column; align-items:flex-end; line-height:1.15; }
+  #planta-clock { font-size:1.5rem; font-weight:800; color:var(--primary-dark); font-variant-numeric:tabular-nums; }
+  #planta-date { font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:capitalize; }
+  .planta-legend { margin-bottom:18px; }
+
+  .planta-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:16px; }
+  .planta-area-card { border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--surface); display:flex; flex-direction:column; }
+  .planta-area-header { background:var(--primary); color:#fff; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .planta-area-header .planta-area-name { font-weight:800; font-size:.85rem; letter-spacing:.2px; text-transform:uppercase; }
+  .planta-area-header .planta-area-count { background:rgba(255,255,255,0.22); border-radius:999px; padding:2px 10px; font-size:.78rem; font-weight:700; flex-shrink:0; }
+  .planta-area-empty { padding:16px 14px; color:var(--text-faint); font-size:.85rem; font-style:italic; }
+  .planta-op-list { display:flex; flex-direction:column; }
+  .planta-op-row { padding:10px 14px; border-top:1px solid var(--border); border-left:4px solid var(--border-strong); display:flex; flex-direction:column; gap:4px; }
+  .planta-op-row.deadline-vencido { background-color:#fef2f2; border-left-color:#dc2626; }
+  .planta-op-row.deadline-proximo { background-color:#fffbeb; border-left-color:#f59e0b; }
+  .planta-op-row-top { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+  .planta-op-numero { font-weight:800; color:var(--primary-dark); font-size:.95rem; }
+  .planta-op-entrega { font-size:.72rem; font-weight:700; color:var(--text-muted); }
+  .planta-op-cliente { font-size:.82rem; color:var(--text); }
+  .planta-op-meta { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+
+  /* ---- Modo TV: pantalla completa, tipografía grande, sin distracciones ---- */
+  /* El fondo/padding en body cubren el caso en que el navegador (p.ej. iOS Safari)
+     no soporte la Fullscreen API sobre un div cualquiera: la vista igual se agranda. */
+  body.tv-mode { background:#0b1220; padding:0; }
+  body.tv-mode > .container > header,
+  body.tv-mode > .container > .nav-tabs,
+  body.tv-mode #user-session-bar { display:none !important; }
+  body.tv-mode .container { max-width:100%; padding:0; }
+  body.tv-mode .tab-content { display:none !important; }
+  body.tv-mode #tab-planta { display:block !important; }
+  body.tv-mode #tab-planta .planta-card { border-radius:0; border:none; min-height:100vh; padding:26px 34px; background:#0b1220; box-shadow:none; }
+  body.tv-mode #tab-planta h2 { color:#fff; font-size:1.7rem; }
+  body.tv-mode #tab-planta .planta-period-btn { color:#cbd5e1; font-size:.95rem; padding:10px 20px; }
+  body.tv-mode #tab-planta .planta-period-toggle { background:#111c33; border-color:#1e293b; }
+  body.tv-mode #tab-planta #planta-fullscreen-btn { font-size:.9rem; padding:10px 18px; }
+  body.tv-mode #tab-planta #planta-clock { color:#fff; font-size:2.4rem; }
+  body.tv-mode #tab-planta #planta-date { color:#94a3b8; font-size:1rem; }
+  body.tv-mode #tab-planta .planta-legend { color:#cbd5e1; font-size:.85rem; }
+  body.tv-mode #tab-planta .planta-grid { gap:20px; }
+  body.tv-mode #tab-planta .planta-area-card { background:#111c33; border-color:#1e293b; }
+  body.tv-mode #tab-planta .planta-area-header { padding:14px 18px; }
+  body.tv-mode #tab-planta .planta-area-header .planta-area-name { font-size:1.15rem; }
+  body.tv-mode #tab-planta .planta-area-header .planta-area-count { font-size:1rem; }
+  body.tv-mode #tab-planta .planta-op-row { padding:16px 18px; border-top-color:#1e293b; }
+  body.tv-mode #tab-planta .planta-op-row.deadline-vencido { background-color:#3a1414; }
+  body.tv-mode #tab-planta .planta-op-row.deadline-proximo { background-color:#3a2f10; }
+  body.tv-mode #tab-planta .planta-op-numero { font-size:1.35rem; color:#fff; }
+  body.tv-mode #tab-planta .planta-op-entrega { font-size:.9rem; color:#cbd5e1; }
+  body.tv-mode #tab-planta .planta-op-cliente { font-size:1.05rem; color:#e2e8f0; }
+  body.tv-mode #tab-planta .planta-area-empty { color:#64748b; }
+  body.tv-mode #tab-planta .badge-status,
+  body.tv-mode #tab-planta .badge-prio { font-size:.8rem; padding:5px 12px; }
+
+  @media (max-width: 700px) {
+    .planta-toolbar { flex-direction:column; align-items:stretch; }
+    .planta-toolbar-right { justify-content:space-between; }
+    .planta-grid { grid-template-columns:1fr; }
+  }
+</style>
 <style id="dagomet-users-style">
   #users-modal { display:none; } #users-modal.open { display:flex; }
   #users-modal .modal-content { max-width: 920px; }
@@ -787,6 +855,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       <button class="tab-btn active" data-tab-id="tab-list" onclick="switchTab('tab-list')">Historial de OPs</button>
       <button class="tab-btn" data-tab-id="tab-guias" onclick="switchTab('tab-guias')">📦 Guías de Material</button>
       <button class="tab-btn" data-tab-id="tab-calendar" onclick="switchTab('tab-calendar')">📅 Calendario</button>
+      <button class="tab-btn" data-tab-id="tab-planta" onclick="switchTab('tab-planta')">🖥️ Vista de Planta</button>
       <button class="tab-btn" data-tab-id="tab-stats" onclick="switchTab('tab-stats')">Dashboard / Estadísticas</button>
       <button class="tab-btn" data-tab-id="tab-db" onclick="switchTab('tab-db')">Base de Datos</button>
     </div>
@@ -1221,6 +1290,40 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       </div>
     </div>
 
+    <!-- TAB: VISTA DE PLANTA / MODO TV -->
+    <div id="tab-planta" class="tab-content">
+      <div class="card planta-card">
+        <div class="planta-toolbar">
+          <div class="planta-toolbar-left">
+            <h2 style="margin:0;">🖥️ Vista de Planta</h2>
+            <div class="planta-period-toggle">
+              <button class="btn btn-sm tv-control-btn planta-period-btn active" data-periodo="hoy" onclick="setPlantaPeriodo('hoy')">Hoy</button>
+              <button class="btn btn-sm tv-control-btn planta-period-btn" data-periodo="semana" onclick="setPlantaPeriodo('semana')">Esta Semana</button>
+            </div>
+          </div>
+          <div class="planta-toolbar-right">
+            <div class="planta-clock-wrap">
+              <span id="planta-clock">--:--</span>
+              <span id="planta-date">-</span>
+            </div>
+            <button class="btn btn-info btn-sm tv-control-btn" id="planta-fullscreen-btn" onclick="togglePlantaFullscreen()">⛶ Modo TV</button>
+          </div>
+        </div>
+
+        <div class="cal-legend planta-legend">
+          <div class="cal-legend-item"><span class="cal-legend-swatch" style="background:#fef2f2; border-color:#dc2626;"></span> Vencida</div>
+          <div class="cal-legend-item"><span class="cal-legend-swatch" style="background:#fffbeb; border-color:#f59e0b;"></span> Por vencer (≤2 días)</div>
+          <div class="cal-legend-item"><span class="cal-legend-swatch" style="background:#fff; border-color:var(--border-strong);"></span> En plazo</div>
+        </div>
+
+        <div id="planta-empty" style="display:none; text-align:center; color:var(--text-muted); padding:40px 0; font-size:1.1rem;">
+          No hay OPs programadas para este periodo. 🎉
+        </div>
+
+        <div id="planta-grid" class="planta-grid"></div>
+      </div>
+    </div>
+
     <!-- TAB 3: DASHBOARD Y ESTADÍSTICAS -->
     <div id="tab-stats" class="tab-content">
       <div class="card">
@@ -1581,7 +1684,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       if(cloudBtn) cloudBtn.style.display = profile?.rol==='admin' ? '' : 'none';
       if(isReadOnly){
         document.querySelectorAll('.tab-btn[data-tab-id]').forEach(btn=>{
-          const allowed=['tab-list','tab-calendar','tab-stats'].includes(btn.dataset.tabId);
+          const allowed=['tab-list','tab-calendar','tab-planta','tab-stats'].includes(btn.dataset.tabId);
           btn.style.display=allowed?'':'none';
         });
         // Los usuarios de solo lectura parten siempre en Historial.
@@ -2138,7 +2241,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
 
     function switchTab(tabId) {
       if (window.dagometCurrentProfile?.rol === 'read_only' &&
-          !['tab-list','tab-calendar','tab-stats'].includes(tabId)) {
+          !['tab-list','tab-calendar','tab-planta','tab-stats'].includes(tabId)) {
         tabId = 'tab-list';
       }
       const currentActive = document.querySelector('.tab-content.active');
@@ -2157,6 +2260,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       if(tabId === 'tab-guias') renderGuiasTable();
       if(tabId === 'tab-stats') renderStats();
       if(tabId === 'tab-calendar') renderCalendarTab();
+      if(tabId === 'tab-planta') renderPlantaTab();
       if(tabId === 'tab-db') renderMasterLists();
     }
 
@@ -4101,6 +4205,157 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
     function todayKey() { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
     function dateKey(y, m, d) { return `${y}-${pad2(m+1)}-${pad2(d)}`; }
     function getOPsByDate(dateStr) { return db.ots.filter(o => o.entrega === dateStr); }
+
+    // =====================================================================
+    // VISTA DE PLANTA / MODO TV
+    // Pantalla de solo lectura pensada para un monitor en el taller: muestra
+    // las OPs con entrega hoy o esta semana, agrupadas por área. Se auto-
+    // refresca para reflejar cambios hechos por otros usuarios.
+    // =====================================================================
+    let plantaPeriodo = 'hoy';
+    let plantaClockTimer = null;
+    let plantaRefreshTimer = null;
+
+    function renderPlantaTab() {
+      renderPlantaClock();
+      renderPlantaGrid();
+      if (!plantaClockTimer) plantaClockTimer = setInterval(renderPlantaClock, 1000);
+      if (!plantaRefreshTimer) plantaRefreshTimer = setInterval(() => { if (isPlantaTabActive()) renderPlantaGrid(); }, 60000);
+    }
+
+    function isPlantaTabActive() {
+      const tab = $('tab-planta');
+      return !!(tab && tab.classList.contains('active'));
+    }
+
+    function renderPlantaClock() {
+      if (!isPlantaTabActive()) return;
+      const now = new Date();
+      const hh = pad2(now.getHours()), mm = pad2(now.getMinutes()), ss = pad2(now.getSeconds());
+      const clockEl = $('planta-clock'), dateEl = $('planta-date');
+      if (clockEl) clockEl.textContent = `${hh}:${mm}:${ss}`;
+      if (dateEl) dateEl.textContent = now.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
+    }
+
+    function setPlantaPeriodo(periodo) {
+      plantaPeriodo = periodo;
+      document.querySelectorAll('.planta-period-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.periodo === periodo);
+      });
+      renderPlantaGrid();
+    }
+
+    // Devuelve el rango [inicio, fin] (claves YYYY-MM-DD) del periodo activo.
+    // 'hoy' = solo hoy. 'semana' = lunes a domingo de la semana actual.
+    function getPlantaRango() {
+      const now = new Date();
+      if (plantaPeriodo === 'hoy') {
+        const k = todayKey();
+        return [k, k];
+      }
+      const dow = now.getDay(); // 0=domingo..6=sábado
+      const offsetLunes = dow === 0 ? -6 : 1 - dow;
+      const lunes = addDaysCL(now, offsetLunes);
+      const domingo = addDaysCL(lunes, 6);
+      return [dkFromDate(lunes), dkFromDate(domingo)];
+    }
+
+    function renderPlantaGrid() {
+      const grid = $('planta-grid');
+      const emptyMsg = $('planta-empty');
+      if (!grid) return;
+
+      const [desde, hasta] = getPlantaRango();
+      const opsPeriodo = db.ots.filter(o => {
+        if (!o.entrega) return false;
+        const estado = String(o.estadoOp || 'EN CURSO').trim().toUpperCase();
+        if (estado === 'ANULADA') return false;
+        return o.entrega >= desde && o.entrega <= hasta;
+      });
+
+      if (opsPeriodo.length === 0) {
+        grid.innerHTML = '';
+        if (emptyMsg) emptyMsg.style.display = 'block';
+        return;
+      }
+      if (emptyMsg) emptyMsg.style.display = 'none';
+
+      const areasConDatos = Array.isArray(db.areas) ? db.areas.slice() : [];
+      // Incluye también cualquier área "libre" (no catalogada) que tenga OPs en el periodo.
+      opsPeriodo.forEach(o => { const a = o.area || 'SIN ÁREA'; if (!areasConDatos.includes(a)) areasConDatos.push(a); });
+
+      grid.innerHTML = areasConDatos.map(area => {
+        const opsArea = opsPeriodo
+          .filter(o => (o.area || 'SIN ÁREA') === area)
+          .sort((a, b) => (a.entrega || '').localeCompare(b.entrega || ''));
+
+        const filas = opsArea.length
+          ? opsArea.map(o => {
+              const cls = getDeadlineClass(o.entrega, String(o.estadoOp || 'EN CURSO').trim().toUpperCase());
+              const responsables = Array.isArray(o.responsableTrabajo) ? o.responsableTrabajo.join(', ') : '';
+              return `
+                <div class="planta-op-row ${cls}">
+                  <div class="planta-op-row-top">
+                    <span class="planta-op-numero">OP ${esc(o.numero || '-')}</span>
+                    <span class="planta-op-entrega">📅 ${esc(formatDateCL(o.entrega))}</span>
+                  </div>
+                  ${o.cliente ? `<div class="planta-op-cliente">${esc(o.cliente)}</div>` : ''}
+                  <div class="planta-op-meta">
+                    ${getStatusBadge(o.estadoOp)}
+                    ${getPriorityBadge(o.prioridad)}
+                    ${o.maquina ? `<span style="font-size:.75rem; color:var(--text-muted);">🛠️ ${esc(o.maquina)}</span>` : ''}
+                    ${responsables ? `<span style="font-size:.75rem; color:var(--text-muted);">👤 ${esc(responsables)}</span>` : ''}
+                  </div>
+                </div>`;
+            }).join('')
+          : `<div class="planta-area-empty">Sin OPs en este periodo</div>`;
+
+        return `
+          <div class="planta-area-card">
+            <div class="planta-area-header">
+              <span class="planta-area-name">${esc(area)}</span>
+              <span class="planta-area-count">${opsArea.length}</span>
+            </div>
+            <div class="planta-op-list">${filas}</div>
+          </div>`;
+      }).join('');
+    }
+
+    function formatDateCL(dateStr) {
+      if (!dateStr) return '-';
+      const parts = String(dateStr).split('-');
+      if (parts.length !== 3) return dateStr;
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+
+    // Bandera propia (no depende solo de document.fullscreenElement) porque en
+    // navegadores sin soporte de Fullscreen API para divs (p. ej. iOS Safari)
+    // igual queremos poder activar/desactivar el modo TV "agrandado" por CSS.
+    let plantaTvModeOn = false;
+
+    function togglePlantaFullscreen() {
+      const el = $('tab-planta');
+      plantaTvModeOn = !plantaTvModeOn;
+      if (plantaTvModeOn) {
+        document.body.classList.add('tv-mode');
+        if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+      } else {
+        document.body.classList.remove('tv-mode');
+        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      }
+      const btn = $('planta-fullscreen-btn');
+      if (btn) btn.textContent = plantaTvModeOn ? '⛶ Salir de Modo TV' : '⛶ Modo TV';
+    }
+
+    // Si el usuario sale del pantalla-completa nativo con Esc, sincroniza el modo TV.
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement && plantaTvModeOn) {
+        plantaTvModeOn = false;
+        document.body.classList.remove('tv-mode');
+        const btn = $('planta-fullscreen-btn');
+        if (btn) btn.textContent = '⛶ Modo TV';
+      }
+    });
 
     // =====================================================================
     // FERIADOS DE CHILE
@@ -6056,7 +6311,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       document.querySelectorAll('#app-root input:not([type="hidden"]), #app-root textarea, #app-root select').forEach(el => { el.disabled = true; });
       document.querySelectorAll('#app-root button').forEach(btn => {
         const t=(btn.textContent||'').toLowerCase();
-        const allow=btn.classList.contains('tab-btn') || /imprimir|pdf|descargar respaldo/.test(t);
+        const allow=btn.classList.contains('tab-btn') || btn.classList.contains('tv-control-btn') || /imprimir|pdf|descargar respaldo/.test(t);
         if(!allow) btn.disabled=true;
       });
     }
