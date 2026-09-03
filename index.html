@@ -1411,13 +1411,17 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         </div>
 
         <h3 style="margin-top: 25px;">Respaldo y Restauración</h3>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
           <button class="btn btn-secondary" onclick="downloadBackup()">📥 Descargar Respaldo (JSON)</button>
           <label class="btn btn-warning" style="margin: 0; cursor: pointer;">
             📤 Cargar Respaldo (JSON)
             <input type="file" id="import-json" accept=".json" style="display: none;" onchange="importBackup(event)">
           </label>
           <button class="btn btn-danger" onclick="restoreDefaultDB()">⚠️ Restablecer Valores por Defecto</button>
+        </div>
+        <div style="background: var(--bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-top: 14px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+          <button class="btn btn-primary btn-sm" id="cloud-backup-btn" onclick="backupToCloud({manual:true})">☁️ Respaldar ahora en la nube</button>
+          <span id="cloud-backup-status" style="font-size:.82rem;color:var(--text-muted);">Sin información de respaldos en la nube todavía.</span>
         </div>
       </div>
     </div>
@@ -1540,6 +1544,8 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
     const applyRoleRestrictions=(profile)=>{
       const isReadOnly=profile?.rol==='read_only';
       document.body.classList.toggle('read-only-mode',isReadOnly);
+      const cloudBtn=document.getElementById('cloud-backup-btn');
+      if(cloudBtn) cloudBtn.style.display = profile?.rol==='admin' ? '' : 'none';
       if(isReadOnly){
         document.querySelectorAll('.tab-btn[data-tab-id]').forEach(btn=>{
           const allowed=['tab-list','tab-calendar','tab-stats'].includes(btn.dataset.tabId);
@@ -5657,26 +5663,86 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       try { localStorage.setItem('dagomet_last_backup', String(Date.now())); } catch (err) { /* no crítico */ }
     }
 
-    // Recuerda periódicamente hacer un respaldo manual, ya que todos los datos
-    // viven únicamente en este navegador (sin servidor ni nube de por medio).
-    function checkBackupReminder() {
+    // ===== Respaldo automático en la nube (Supabase Storage) =====
+    // Requiere un bucket privado (por defecto 'respaldos') con políticas RLS
+    // que solo permitan leer/escribir a perfiles con rol = 'admin'.
+    const CLOUD_BACKUP_BUCKET = 'respaldos';
+    const HORAS_ENTRE_BACKUPS_AUTO = 24;
+
+    function nombreArchivoBackupHoy() {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `dagomet_backup_${yyyy}-${mm}-${dd}.json`;
+    }
+
+    function renderCloudBackupStatus(mensaje, esError = false) {
+      const el = $('cloud-backup-status');
+      if (!el) return;
+      el.textContent = mensaje;
+      el.style.color = esError ? 'var(--danger)' : 'var(--text-muted)';
+    }
+
+    function formatearFechaHora(ts) {
+      try { return new Date(ts).toLocaleString('es-CL'); } catch (_) { return String(ts); }
+    }
+
+    // Sube el estado completo de la base a Storage. `manual=true` ignora el
+    // límite de frecuencia y lo dispara aunque ya se haya respaldado hoy.
+    async function backupToCloud({ manual = false } = {}) {
+      const sb = window.dagometSupabase;
+      const btn = $('cloud-backup-btn');
+      if (!sb || !window.dagometCurrentUser) {
+        if (manual) renderCloudBackupStatus('No hay conexión con Supabase.', true);
+        return false;
+      }
+      if (window.dagometCurrentProfile?.rol !== 'admin') {
+        if (manual) renderCloudBackupStatus('Solo un administrador puede respaldar en la nube.', true);
+        return false;
+      }
+      if (!Array.isArray(db.ots) || db.ots.length === 0) {
+        if (manual) renderCloudBackupStatus('No hay datos para respaldar todavía.', true);
+        return false;
+      }
+
+      if (btn) { btn.disabled = true; btn.dataset.originalText = btn.dataset.originalText || btn.textContent; btn.textContent = '⏳ Respaldando...'; }
       try {
-        if (!Array.isArray(db.ots) || db.ots.length === 0) return; // nada que respaldar aún
-        const DIAS_ENTRE_AVISOS = 7;
-        const unDiaMs = 24 * 60 * 60 * 1000;
+        const fileName = nombreArchivoBackupHoy();
+        const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+        const { error } = await sb.storage
+          .from(CLOUD_BACKUP_BUCKET)
+          .upload(fileName, blob, { upsert: true, contentType: 'application/json', cacheControl: '0' });
+        if (error) throw error;
         const ahora = Date.now();
-        const ultimoBackup = Number(localStorage.getItem('dagomet_last_backup')) || 0;
-        const ultimoAviso = Number(localStorage.getItem('dagomet_last_backup_reminder')) || 0;
-        const diasSinBackup = (ahora - ultimoBackup) / unDiaMs;
-        const diasSinAviso = (ahora - ultimoAviso) / unDiaMs;
-        if (diasSinBackup < DIAS_ENTRE_AVISOS || diasSinAviso < 1) return;
-        localStorage.setItem('dagomet_last_backup_reminder', String(ahora));
-        const mensaje = ultimoBackup
-          ? `Han pasado ${Math.floor(diasSinBackup)} días desde tu último respaldo.\n\nRecuerda que todas las OT quedan guardadas solo en este navegador. ¿Quieres descargar un respaldo ahora?`
-          : `Todavía no has descargado ningún respaldo de tus datos.\n\nTodas las OT quedan guardadas solo en este navegador: si se borra el historial o cambias de equipo, se pierden. ¿Quieres descargar un respaldo ahora?`;
-        if (confirm(mensaje)) downloadBackup();
+        try { localStorage.setItem('dagomet_last_cloud_backup', String(ahora)); } catch (_) {}
+        renderCloudBackupStatus(`☁️ Último respaldo en la nube: ${formatearFechaHora(ahora)} (${fileName})`);
+        return true;
       } catch (err) {
-        console.error('Error al verificar recordatorio de respaldo:', err);
+        console.error('Error al respaldar en la nube:', err);
+        renderCloudBackupStatus(`⚠️ Falló el respaldo en la nube: ${err.message || err}`, true);
+        return false;
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = btn.dataset.originalText || '☁️ Respaldar ahora en la nube'; }
+      }
+    }
+
+    // Se ejecuta al cargar la app: si ya pasaron 24h desde el último respaldo
+    // automático conocido, sube uno nuevo en silencio (sin interrumpir al usuario).
+    async function checkCloudBackup() {
+      try {
+        const ultimoConocido = Number(localStorage.getItem('dagomet_last_cloud_backup')) || 0;
+        if (ultimoConocido) renderCloudBackupStatus(`☁️ Último respaldo en la nube: ${formatearFechaHora(ultimoConocido)}`);
+
+        if (window.dagometCurrentProfile?.rol !== 'admin') return; // solo el admin dispara el automático
+        if (!Array.isArray(db.ots) || db.ots.length === 0) return;
+
+        const horasSinBackup = (Date.now() - ultimoConocido) / (60 * 60 * 1000);
+        if (horasSinBackup < HORAS_ENTRE_BACKUPS_AUTO) return;
+
+        await backupToCloud({ manual: false });
+      } catch (err) {
+        console.error('Error al verificar respaldo en la nube:', err);
       }
     }
 
@@ -5748,7 +5814,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       loadSelects();
       newOP();
       renderGuiasTable();
-      setTimeout(checkBackupReminder, 1200);
+      setTimeout(checkCloudBackup, 1200);
       applyReadOnlyPermissions();
     };
 
