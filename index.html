@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
   <style>
     :root {
       --primary: #263581;
@@ -366,8 +367,21 @@
     .stats-filter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
     .stats-filter-row label { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
     .stats-filter-row select { width: auto; min-width: 180px; }
-    .stats-section-title { color: var(--primary-dark); font-size: 1rem; font-weight: 700; margin: 26px 0 12px 0; padding-top: 14px; border-top: 1px solid var(--border); }
+    .stats-section-title { color: var(--primary-dark); font-size: 1rem; font-weight: 700; margin: 26px 0 12px 0; padding-top: 14px; border-top: 1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
     .stats-section-title:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+    .stats-live-pulse { display:inline-flex; align-items:center; gap:6px; font-size:.66rem; font-weight:700; color:var(--text-muted); text-transform:none; letter-spacing:0; }
+    .stats-live-dot { width:8px; height:8px; border-radius:50%; background:#10b981; box-shadow:0 0 0 0 rgba(16,185,129,.6); animation: statsPulse 2s infinite; }
+    @keyframes statsPulse { 0% { box-shadow:0 0 0 0 rgba(16,185,129,.55); } 70% { box-shadow:0 0 0 7px rgba(16,185,129,0); } 100% { box-shadow:0 0 0 0 rgba(16,185,129,0); } }
+    .kpi-delta { display:inline-block; font-size:.62rem; font-weight:800; margin-left:6px; padding:1px 6px; border-radius:8px; vertical-align:middle; }
+    .kpi-delta.up { background:#dcfce7; color:#15803d; }
+    .kpi-delta.down { background:#fee2e2; color:#b91c1c; }
+    .kpi-delta.flat { background:#f1f5f9; color:var(--text-muted); }
+    .chart-card { background: var(--surface); padding: 16px 18px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+    .chart-card h3 { margin: 0 0 4px 0; }
+    .chart-card .chart-hint { font-size:.68rem; color:var(--text-muted); margin-bottom:8px; }
+    .chart-card canvas { max-height: 230px; }
+    .trend-card { background: var(--surface); padding: 14px 18px 6px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow-sm); margin-bottom: 20px; }
+    .trend-card canvas { max-height: 110px; }
 
     /* ---------- Stats: barras horizontales ---------- */
     .stat-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
@@ -1390,7 +1404,10 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       <div class="card">
         <h2>Resumen de Producción & Estadísticas</h2>
 
-        <div class="stats-section-title">🚨 Alertas y carga actual (en vivo, no depende del periodo)</div>
+        <div class="stats-section-title">
+          🚨 Alertas y carga actual
+          <span class="stats-live-pulse"><span class="stats-live-dot"></span>EN VIVO · se actualiza solo</span>
+        </div>
         <div class="kpi-grid">
           <div class="kpi-card" style="border-top-color: #dc2626;">
             <div class="kpi-num" id="kpi-vencidas" style="color:#dc2626;">0</div>
@@ -1403,7 +1420,6 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
           <div class="kpi-card" style="border-top-color: var(--primary);">
             <div class="kpi-num" id="kpi-kilos">0</div>
             <div class="kpi-label">Kilos en Producción</div>
-            <div class="kpi-sub">OPs activas (no terminadas/despachadas/anuladas)</div>
           </div>
           <div class="kpi-card" style="border-top-color: #991b1b;">
             <div class="kpi-num" id="kpi-soldadura" style="color:#991b1b;">0</div>
@@ -1413,13 +1429,16 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
           <div class="kpi-card" style="border-top-color: #0369a1;">
             <div class="kpi-num" id="kpi-diasplazo" style="color:#0369a1;">0</div>
             <div class="kpi-label">Plazo Promedio (días)</div>
-            <div class="kpi-sub">OPs activas, de creación a entrega</div>
           </div>
+        </div>
+
+        <div class="trend-card">
+          <canvas id="chart-tendencia" height="34"></canvas>
         </div>
 
         <div class="stats-section-title">📊 Resumen por periodo</div>
         <div class="stats-filter-row">
-          <label for="stats-periodo">Periodo (según fecha de creación de la OP):</label>
+          <label for="stats-periodo">Periodo:</label>
           <select id="stats-periodo" onchange="renderStats()">
             <option value="todo">Todo el historial</option>
             <option value="mes" selected>Este mes</option>
@@ -1460,19 +1479,22 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         </div>
 
         <div class="grid">
-          <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <h3 style="margin-top:0;">OPs por Estado</h3>
-            <div id="stats-status-list"></div>
+          <div class="chart-card">
+            <h3>OPs por Estado</h3>
+            <div class="chart-hint">Clic en un tramo para verlas en el Historial</div>
+            <canvas id="chart-estado"></canvas>
           </div>
-          <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <h3 style="margin-top:0;">OPs por Área</h3>
-            <div id="stats-area-list"></div>
+          <div class="chart-card">
+            <h3>OPs por Área</h3>
+            <div class="chart-hint">Clic en una barra para verlas en el Historial</div>
+            <canvas id="chart-area"></canvas>
           </div>
-          <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <h3 style="margin-top:0;">OPs por Planificador</h3>
-            <div id="stats-planner-list"></div>
+          <div class="chart-card">
+            <h3>OPs por Planificador</h3>
+            <div class="chart-hint">Clic en una barra para verlas en el Historial</div>
+            <canvas id="chart-planificador"></canvas>
           </div>
-          <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+          <div class="chart-card">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:2px;">
               <h3 style="margin:0;">OPs por Cliente</h3>
               <label style="display:flex; align-items:center; gap:5px; font-size:.68rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.3px; cursor:pointer;" title="Excluye OPs Terminadas, Despachadas y Anuladas">
@@ -1480,8 +1502,12 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
                 Solo en curso
               </label>
             </div>
-            <div style="font-size:.7rem; color:var(--text-muted); margin-bottom:8px;">📄 Usa el botón junto a cada cliente para generar su reporte de historial completo (PDF o Excel).</div>
-            <div id="stats-client-list"></div>
+            <div class="chart-hint">Clic en una barra para ver sus OPs en el Historial</div>
+            <canvas id="chart-cliente"></canvas>
+            <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
+              <select id="stats-cliente-reporte-select" style="flex:1;"><option value="">📄 Generar reporte de cliente…</option></select>
+              <button type="button" class="btn btn-info btn-sm" onclick="const c=$('stats-cliente-reporte-select').value; if(c) imprimirReporteCliente(c);">Generar</button>
+            </div>
           </div>
         </div>
       </div>
@@ -2323,6 +2349,15 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       if(tabId === 'tab-calendar') renderCalendarTab();
       if(tabId === 'tab-planta') renderPlantaTab();
       if(tabId === 'tab-db') renderMasterLists();
+      toggleDashboardAutoRefresh(tabId === 'tab-stats');
+    }
+
+    // Mientras el Dashboard está a la vista, se refresca solo cada 40s para
+    // reflejar cambios hechos por otros usuarios sin que haya que recargar.
+    let dashboardRefreshTimer = null;
+    function toggleDashboardAutoRefresh(activo) {
+      if (dashboardRefreshTimer) { clearInterval(dashboardRefreshTimer); dashboardRefreshTimer = null; }
+      if (activo) dashboardRefreshTimer = setInterval(() => { if (document.getElementById('tab-stats')?.classList.contains('active')) renderStats(); }, 40000);
     }
 
     function setupClientAutocomplete() {
@@ -4266,36 +4301,157 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
     // Estados que se consideran "cerrados" (no cuentan como carga activa ni como atraso).
     const ESTADOS_CERRADOS = ['TERMINADA', 'DESPACHADA', 'ANULADA'];
 
-    // Dibuja una lista de barras horizontales dentro de un contenedor,
-    // ordenadas de mayor a menor cantidad.
-    // countsObj: { label: { count, ops: [numeroOP, ...] } }
-    // Al pasar el mouse sobre cada fila/pestaña se muestra (vía title) el listado de N° de OP que la componen.
-    function renderStatBars(containerId, countsObj, opts) {
-      opts = opts || {};
-      const entries = Object.entries(countsObj).filter(([, v]) => (opts.showZero ? true : v.count >= 0));
+    // =====================================================================
+    // GRÁFICOS DEL DASHBOARD (Chart.js)
+    // Reemplazan las antiguas listas de barras de texto por gráficos
+    // interactivos: doughnut para Estado y barras horizontales para Área,
+    // Planificador y Cliente. Cada segmento/barra es clicable y salta al
+    // Historial (tab-list) ya filtrado por esa etiqueta.
+    // =====================================================================
+    const ESTADO_COLORS = {
+      'EN CURSO': '#0369a1', 'EN PAUSA': '#b91c1c', 'POR INSPECCIONAR': '#b45309',
+      'TERMINADA': '#15803d', 'DESPACHADA': '#6b21a8', 'ANULADA': '#94a3b8'
+    };
+    const CHART_PALETTE = ['#263581', '#e75d0d', '#0891b2', '#15803d', '#b45309', '#6b21a8', '#b91c1c', '#0369a1', '#64748b', '#059669'];
+    const dashboardCharts = {};
+
+    function cssVar(v) {
+      if (!v.startsWith('var(')) return v;
+      return getComputedStyle(document.documentElement).getPropertyValue(v.slice(4, -1)).trim() || '#263581';
+    }
+
+    function drillDownOP(label) {
+      // Un clic en un tramo/barra del dashboard lleva directo al Historial
+      // filtrado por esa etiqueta (estado, área, planificador o cliente).
+      switchTab('tab-list');
+      filterHistoryByOP(label === 'SIN ÁREA' || label === 'SIN CLIENTE' ? '' : label);
+    }
+
+    function renderDonutChart(canvasId, countsObj, colorMap) {
+      const canvas = $(canvasId);
+      if (!canvas) return;
+      if (dashboardCharts[canvasId]) dashboardCharts[canvasId].destroy();
+      const entries = Object.entries(countsObj).filter(([, v]) => v.count > 0);
       if (entries.length === 0) {
-        $(containerId).innerHTML = '<div class="stat-empty">Sin datos en el periodo seleccionado.</div>';
+        dashboardCharts[canvasId] = null;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         return;
       }
-      entries.sort((a, b) => b[1].count - a[1].count);
-      const max = Math.max(1, ...entries.map(([, v]) => v.count));
-      $(containerId).innerHTML = entries.map(([label, v]) => {
-        const pct = Math.round((v.count / max) * 100);
-        const opsList = (v.ops || []).map(n => n || 'S/N');
-        const opsPreview = opsList.slice(0, 25).map(n => 'OP ' + n).join(', ') + (opsList.length > 25 ? ` … (+${opsList.length - 25} más)` : '');
-        const tooltip = opsList.length ? `${label}: ${opsPreview}` : `${label}: sin OPs en este periodo`;
-        const labelHtml = opts.badge
-          ? `<span class="badge-status status-${normalizeStr(label).replace(/\s+/g, '-').replace('ó','o')}" style="font-size:.65rem;">${esc(label)}</span>`
-          : `<span class="stat-bar-label" title="${esc(label)}">${esc(label)}</span>`;
-        const actionHtml = opts.rowAction ? opts.rowAction(label, v) : '';
-        return `
-          <div class="stat-bar-row" title="${esc(tooltip)}">
-            ${opts.badge ? `<span style="flex:0 0 150px;">${labelHtml}</span>` : labelHtml}
-            <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%;"></div></div>
-            <span class="stat-bar-count">${v.count}</span>
-            ${actionHtml}
-          </div>`;
-      }).join('');
+      const labels = entries.map(([l]) => l);
+      const data = entries.map(([, v]) => v.count);
+      const colors = labels.map((l, i) => (colorMap && colorMap[l]) || CHART_PALETTE[i % CHART_PALETTE.length]);
+      dashboardCharts[canvasId] = new Chart(canvas.getContext('2d'), {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: '#fff', borderWidth: 2 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '62%',
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 11, font: { size: 10.5, family: 'Inter' }, padding: 10 } } },
+          onClick: (evt, elements) => { if (elements.length) drillDownOP(labels[elements[0].index]); },
+          onHover: (evt, elements) => { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; }
+        }
+      });
+    }
+
+    function renderBarChart(canvasId, countsObj, color, limit) {
+      const canvas = $(canvasId);
+      if (!canvas) return;
+      if (dashboardCharts[canvasId]) dashboardCharts[canvasId].destroy();
+      let entries = Object.entries(countsObj).sort((a, b) => b[1].count - a[1].count);
+      let restantes = 0;
+      if (limit && entries.length > limit) {
+        restantes = entries.slice(limit).reduce((a, [, v]) => a + v.count, 0);
+        entries = entries.slice(0, limit);
+      }
+      if (entries.length === 0) {
+        dashboardCharts[canvasId] = null;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+      const labels = entries.map(([l]) => l + (l.length > 22 ? '' : ''));
+      const data = entries.map(([, v]) => v.count);
+      canvas.parentElement.querySelectorAll('.chart-more-note').forEach(n => n.remove());
+      if (restantes > 0) {
+        const note = document.createElement('div');
+        note.className = 'chart-more-note';
+        note.style.cssText = 'font-size:.68rem;color:var(--text-muted);margin-top:6px;';
+        note.textContent = `+ ${restantes} OP(s) más en otros clientes fuera del top ${limit}.`;
+        canvas.insertAdjacentElement('afterend', note);
+      }
+      dashboardCharts[canvasId] = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: { labels, datasets: [{ data, backgroundColor: cssVar(color), borderRadius: 5, maxBarThickness: 22 }] },
+        options: {
+          indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } } }, y: { ticks: { font: { size: 10.5, family: 'Inter' } } } },
+          onClick: (evt, elements) => { if (elements.length) drillDownOP(labels[elements[0].index]); },
+          onHover: (evt, elements) => { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; }
+        }
+      });
+    }
+
+    // Mini gráfico de línea con la cantidad de OPs creadas en cada una de las
+    // últimas 10 semanas, para dar una lectura rápida de tendencia (¿subiendo
+    // o bajando la carga de trabajo?) que antes no existía en el dashboard.
+    function renderTrendChart() {
+      const canvas = $('chart-tendencia');
+      if (!canvas) return;
+      if (dashboardCharts['chart-tendencia']) dashboardCharts['chart-tendencia'].destroy();
+
+      const SEMANAS = 10;
+      const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+      const inicioSemanaActual = new Date(hoy);
+      inicioSemanaActual.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7)); // lunes de esta semana
+
+      const buckets = [];
+      for (let i = SEMANAS - 1; i >= 0; i--) {
+        const desde = new Date(inicioSemanaActual); desde.setDate(desde.getDate() - i * 7);
+        const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 7);
+        buckets.push({ desde, hasta, count: 0 });
+      }
+      db.ots.forEach(o => {
+        if (!o.createdAt) return;
+        const b = buckets.find(bk => o.createdAt >= bk.desde.getTime() && o.createdAt < bk.hasta.getTime());
+        if (b) b.count++;
+      });
+
+      const labels = buckets.map(b => `${pad2(b.desde.getDate())}/${pad2(b.desde.getMonth() + 1)}`);
+      const data = buckets.map(b => b.count);
+
+      dashboardCharts['chart-tendencia'] = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: { labels, datasets: [{
+          label: 'OPs creadas / semana', data, borderColor: '#263581', backgroundColor: 'rgba(38,53,129,0.08)',
+          fill: true, tension: 0.35, pointRadius: 2.5, pointBackgroundColor: '#263581', borderWidth: 2
+        }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => `Semana del ${items[0].label}` } } },
+          scales: { x: { ticks: { font: { size: 9.5 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9.5 } } } }
+        }
+      });
+    }
+
+    // Compara el total de OPs del periodo actual contra el mismo largo de
+    // tiempo inmediatamente anterior, y devuelve una insignia ▲/▼ lista para
+    // insertar junto al KPI. Si el periodo es "todo el historial" no aplica.
+    function deltaVsPeriodoAnterior(rango, otsFiltradasEstado, totalActual) {
+      if (!rango) return '';
+      const duracionMs = rango.hasta.getTime() - rango.desde.getTime();
+      const desdeAnterior = new Date(rango.desde.getTime() - duracionMs);
+      const hastaAnterior = new Date(rango.desde.getTime() - 1);
+      const totalAnterior = otsFiltradasEstado.filter(o => o.createdAt && o.createdAt >= desdeAnterior.getTime() && o.createdAt <= hastaAnterior.getTime()).length;
+
+      if (totalAnterior === 0) {
+        return totalActual > 0 ? ` <span class="kpi-delta up">▲ nuevo</span>` : '';
+      }
+      const pct = Math.round(((totalActual - totalAnterior) / totalAnterior) * 100);
+      if (pct === 0) return ` <span class="kpi-delta flat">= vs. periodo anterior</span>`;
+      const cls = pct > 0 ? 'up' : 'down';
+      const arrow = pct > 0 ? '▲' : '▼';
+      return ` <span class="kpi-delta ${cls}" title="Periodo anterior: ${totalAnterior} OP(s)">${arrow} ${Math.abs(pct)}%</span>`;
     }
 
     // Determina el rango de fechas [desde, hasta] según el periodo elegido.
@@ -4375,7 +4531,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       const alta = otsPeriodo.filter(o => o.prioridad === 'ALTA').length;
       const urgente = otsPeriodo.filter(o => o.prioridad === 'URGENTE').length;
 
-      $('kpi-total').innerText = total;
+      $('kpi-total').innerHTML = total + deltaVsPeriodoAnterior(rango, otsFiltradasEstado, total);
       $('kpi-normal').innerText = normal;
       $('kpi-alta').innerText = alta;
       $('kpi-urgente').innerText = urgente;
@@ -4391,7 +4547,6 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         statusCounts[estado].count++;
         statusCounts[estado].ops.push(o.numero);
       });
-      renderStatBars('stats-status-list', statusCounts, { showZero: true, badge: true });
 
       const areaCounts = {};
       otsPeriodo.forEach(o => {
@@ -4400,7 +4555,6 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         areaCounts[a].count++;
         areaCounts[a].ops.push(o.numero);
       });
-      renderStatBars('stats-area-list', areaCounts);
 
       const plannerCounts = {};
       otsPeriodo.forEach(o => {
@@ -4409,7 +4563,6 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         plannerCounts[p].count++;
         plannerCounts[p].ops.push(o.numero);
       });
-      renderStatBars('stats-planner-list', plannerCounts);
 
       // OPs por Cliente: por defecto solo OPs en curso (no cerradas), con un filtro
       // (checkbox "Solo en curso") para poder ver el total del periodo si se necesita.
@@ -4424,9 +4577,23 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         clientCounts[c].count++;
         clientCounts[c].ops.push(o.numero);
       });
-      renderStatBars('stats-client-list', clientCounts, {
-        rowAction: (label) => `<button type="button" class="btn btn-info btn-sm stat-bar-action" title="Generar reporte del historial completo de este cliente" data-cliente="${esc(label)}" onclick="event.stopPropagation(); imprimirReporteCliente(this.dataset.cliente)">📄 Reporte</button>`
-      });
+
+      renderDonutChart('chart-estado', statusCounts, ESTADO_COLORS);
+      renderBarChart('chart-area', areaCounts, 'var(--primary)');
+      renderBarChart('chart-planificador', plannerCounts, 'var(--accent)');
+      renderBarChart('chart-cliente', clientCounts, '#0891b2', 8);
+      renderTrendChart();
+      renderClienteReporteSelect(clientCounts);
+    }
+
+    function renderClienteReporteSelect(clientCounts) {
+      const sel = $('stats-cliente-reporte-select');
+      if (!sel) return;
+      const seleccionPrevia = sel.value;
+      const clientes = Object.keys(clientCounts).sort((a, b) => a.localeCompare(b));
+      sel.innerHTML = '<option value="">📄 Generar reporte de cliente…</option>' +
+        clientes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      if (clientes.includes(seleccionPrevia)) sel.value = seleccionPrevia;
     }
 
     // =====================================================================
