@@ -4668,6 +4668,39 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
     function expandirChart(canvasId, titulo) { abrirModalGrafico(canvasId, titulo, false); }
     function imprimirChart(canvasId, titulo) { abrirModalGrafico(canvasId, titulo, true); }
 
+    // ---------------------------------------------------------------------
+    // FIX impresión de gráficos: Chart.js dibuja el <canvas> con la
+    // resolución que tiene el contenedor EN PANTALLA (ver #chart-modal-canvas-wrap
+    // con height:520px más arriba). Al imprimir, las reglas @media print
+    // cambian el tamaño CSS del wrap a 235mm x 137mm, pero el gráfico ya
+    // dibujado no se vuelve a renderizar a esa resolución: el navegador solo
+    // estira la imagen existente para llenar la nueva caja, lo que se ve
+    // deformado/estirado en la hoja respecto a la previsualización.
+    // Solución: justo antes de imprimir, redimensionamos el chart del modal
+    // al tamaño exacto (en px) que va a ocupar en la hoja impresa, para que
+    // Chart.js lo vuelva a dibujar a esa resolución. Al terminar (se imprima
+    // o se cancele), lo regresamos a su tamaño normal de pantalla.
+    const MM_A_PX = 96 / 25.4;
+    let chartModalDPROriginal;
+    function ajustarChartModalParaImprimir() {
+      const modal = $('preview-modal');
+      const chart = dashboardCharts['chart-modal-canvas'];
+      if (!chart || !modal || modal.style.display === 'none' || !modal.classList.contains('is-chart')) return;
+      const anchoPx = Math.round(235 * MM_A_PX); // ancho impreso: ver regla is-chart #modal-preview-container > div
+      const altoPx = Math.round(137 * MM_A_PX);  // alto impreso: ver regla is-chart #chart-modal-canvas-wrap
+      chartModalDPROriginal = chart.options.devicePixelRatio;
+      chart.options.devicePixelRatio = 3; // más nitidez al imprimir / exportar a PDF
+      chart.resize(anchoPx, altoPx);
+    }
+    function restaurarChartModalTrasImprimir() {
+      const chart = dashboardCharts['chart-modal-canvas'];
+      if (!chart) return;
+      chart.options.devicePixelRatio = chartModalDPROriginal;
+      chart.resize(); // vuelve a tomar el tamaño en pantalla del contenedor
+    }
+    window.addEventListener('beforeprint', ajustarChartModalParaImprimir);
+    window.addEventListener('afterprint', restaurarChartModalTrasImprimir);
+
     // Gráfico de barras con la cantidad de OPs TERMINADAS por día.
     // Se utiliza la fecha real de término (fechaTermino), no la fecha de creación
     // ni la fecha de entrega. Solo se contabilizan OPs cuyo estado es TERMINADA.
