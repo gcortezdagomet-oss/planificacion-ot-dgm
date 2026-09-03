@@ -4342,6 +4342,44 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
     const CHART_PALETTE = ['#263581', '#e75d0d', '#0891b2', '#15803d', '#b45309', '#6b21a8', '#b91c1c', '#0369a1', '#64748b', '#059669'];
     const dashboardCharts = {};
 
+    // Dibuja la cantidad (valor numérico) junto a cada barra horizontal y
+    // sobre cada punto del gráfico de tendencia, a modo de "leyenda de
+    // cantidades" que permite leer los números sin necesidad de pasar el
+    // mouse por encima. Los gráficos de dona ya muestran la cantidad en su
+    // propia leyenda (ver generateLabels más abajo), así que este plugin no
+    // dibuja nada sobre ellos.
+    if (typeof Chart !== 'undefined') {
+      Chart.register({
+        id: 'dashboardValueLabels',
+        afterDatasetsDraw(chart) {
+          if (chart.config.type === 'doughnut') return;
+          const { ctx } = chart;
+          chart.data.datasets.forEach((dataset, dsIndex) => {
+            const meta = chart.getDatasetMeta(dsIndex);
+            if (meta.hidden) return;
+            meta.data.forEach((element, index) => {
+              const value = dataset.data[index];
+              if (value === null || value === undefined || value === 0) return;
+              const pos = element.tooltipPosition ? element.tooltipPosition() : element.getCenterPoint();
+              ctx.save();
+              ctx.fillStyle = '#334155';
+              ctx.font = "700 11px Inter, sans-serif";
+              if (chart.config.type === 'bar' && chart.options.indexAxis === 'y') {
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(String(value), pos.x + 6, pos.y);
+              } else if (chart.config.type === 'line') {
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(String(value), pos.x, pos.y - 8);
+              }
+              ctx.restore();
+            });
+          });
+        }
+      });
+    }
+
     function cssVar(v) {
       if (!v.startsWith('var(')) return v;
       return getComputedStyle(document.documentElement).getPropertyValue(v.slice(4, -1)).trim() || '#263581';
@@ -4388,11 +4426,37 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: '#fff', borderWidth: 2 }] },
         options: {
           responsive: true, maintainAspectRatio: false, cutout: '62%',
-          plugins: { legend: { position: 'bottom', labels: { boxWidth: 11, font: { size: 10.5, family: 'Inter' }, padding: 10 } } },
+          plugins: { legend: {
+            position: 'bottom',
+            labels: {
+              boxWidth: 11, font: { size: 10.5, family: 'Inter' }, padding: 10,
+              // Agrega la cantidad de OPs junto a cada etiqueta de la leyenda
+              // (ej. "EN CURSO (12)") en lugar de mostrar solo el nombre del estado.
+              generateLabels: (chart) => generarLeyendaConCantidad(chart)
+            }
+          } },
           onClick: (evt, elements) => { if (elements.length) drillDownOP(labels[elements[0].index]); },
           onHover: (evt, elements) => { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; }
         }
       });
+    }
+
+    // Genera las etiquetas de la leyenda de un gráfico de dona incluyendo la
+    // cantidad de cada segmento entre paréntesis (ej. "EN CURSO (12)").
+    // Reutilizada tanto por el mini-gráfico del dashboard como por la vista
+    // ampliada/impresa del mismo gráfico (ver construirConfigGrafico).
+    function generarLeyendaConCantidad(chart) {
+      const data = chart.data;
+      if (!data.labels || !data.labels.length) return [];
+      const ds = data.datasets[0];
+      return data.labels.map((label, i) => ({
+        text: `${label} (${ds.data[i]})`,
+        fillStyle: ds.backgroundColor[i],
+        strokeStyle: ds.borderColor || '#fff',
+        lineWidth: ds.borderWidth || 0,
+        hidden: false,
+        index: i
+      }));
     }
 
     function renderBarChart(canvasId, countsObj, color, limit) {
@@ -4428,8 +4492,10 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         data: { labels, datasets: [{ data, backgroundColor: cssVar(color), borderRadius: 5, maxBarThickness: 22 }] },
         options: {
           indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+          layout: { padding: { right: 24 } }, // deja espacio para la cantidad dibujada al final de cada barra
           plugins: { legend: { display: false } },
-          scales: { x: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } } }, y: { ticks: { font: { size: 10.5, family: 'Inter' } } } },
+          // suggestedMax con margen extra para que el número no quede pegado al borde del gráfico
+          scales: { x: { beginAtZero: true, suggestedMax: Math.max(...data) * 1.18, ticks: { precision: 0, font: { size: 10 } } }, y: { ticks: { font: { size: 10.5, family: 'Inter' } } } },
           onClick: (evt, elements) => { if (elements.length) drillDownOP(labels[elements[0].index]); },
           onHover: (evt, elements) => { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; }
         }
@@ -4452,18 +4518,25 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         responsive: true, maintainAspectRatio: false, animation: false,
         cutout: esDona ? '62%' : undefined,
         indexAxis: cfg.options.indexAxis,
+        // Deja espacio para las cantidades dibujadas junto a cada barra/punto
+        // (leyenda de cantidades), igual que en el mini-gráfico del dashboard.
+        layout: { padding: cfg.type === 'line' ? { top: 20 } : (!esDona ? { right: 34 } : undefined) },
         plugins: {
           legend: {
             display: true,
             position: esDona ? 'right' : undefined,
-            labels: { boxWidth: 14, font: { size: 13, family: 'Inter' }, padding: 14 }
+            labels: {
+              boxWidth: 14, font: { size: 13, family: 'Inter' }, padding: 14,
+              generateLabels: esDona ? (chart) => generarLeyendaConCantidad(chart) : undefined
+            }
           }
         }
       };
       if (!esDona) options.plugins.legend.display = false;
       if (cfg.options.scales) {
+        const maxData = Math.max(...(data.datasets[0]?.data || [0]));
         options.scales = {
-          x: cfg.options.scales.x ? { beginAtZero: true, ticks: { precision: 0, font: { size: 13 } } } : undefined,
+          x: cfg.options.scales.x ? { beginAtZero: true, suggestedMax: maxData * 1.18, ticks: { precision: 0, font: { size: 13 } } } : undefined,
           y: cfg.options.scales.y ? { ticks: { font: { size: 13, family: 'Inter' } } } : undefined
         };
       }
@@ -4474,15 +4547,31 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       const cfg = construirConfigGrafico(canvasId);
       const container = $('modal-preview-container');
       if (!cfg || !container) { alert('Todavía no hay datos para mostrar en este gráfico.'); return; }
+      // Misma estructura de encabezado que usan los reportes (buildReportDOM):
+      // logo + título/subtítulo a la izquierda, fecha de generación a la derecha.
       container.innerHTML = `
-        <div style="width:100%; max-width:820px;">
-          <h3 style="margin:0 0 16px; color:var(--primary); text-align:center;">${esc(titulo)}</h3>
-          <div id="chart-modal-canvas-wrap"><canvas id="chart-modal-canvas"></canvas></div>
+        <div style="width:100%; max-width:100%;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #f1f5f9; padding-bottom:12px; margin-bottom:18px;">
+            <div style="display:flex; align-items:center; gap:14px;">
+              <img src="${IMG_LOGO2}" onerror="this.style.display='none'" style="height:48px; width:auto; max-width:150px; object-fit:contain;">
+              <div>
+                <div style="font-size:16px; font-weight:800; color:#263581;">${esc(titulo)}</div>
+                <div style="font-size:11px; color:#64748b; font-weight:600;">Gráfico del Dashboard</div>
+              </div>
+            </div>
+            <div style="text-align:right; font-size:10px; color:#94a3b8;">
+              Generado el ${formatDateWithDayUpper(todayKey())}
+            </div>
+          </div>
+          <div id="chart-modal-canvas-wrap" style="height:min(60vh, 520px);"><canvas id="chart-modal-canvas"></canvas></div>
         </div>`;
       // El gráfico solo se imprime; oculta "Descargar PDF/Excel" (son de los reportes de OP).
       $('modal-download-btn').style.display = 'none';
       $('modal-download-excel-btn').style.display = 'none';
-      $('preview-modal').classList.remove('is-report');
+      // Se marca como 'is-report' para que use la misma página de impresión
+      // horizontal ("reporte", hoja carta apaisada) que usan los reportes de OP,
+      // en vez del formato vertical pensado para las OTs individuales.
+      $('preview-modal').classList.add('is-report');
       $('preview-modal').style.display = 'flex';
       if (dashboardCharts['chart-modal-canvas']) { dashboardCharts['chart-modal-canvas'].destroy(); }
       dashboardCharts['chart-modal-canvas'] = new Chart($('chart-modal-canvas').getContext('2d'), cfg);
@@ -4531,6 +4620,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         }] },
         options: {
           responsive: true, maintainAspectRatio: false,
+          layout: { padding: { top: 16 } }, // deja espacio para la cantidad dibujada sobre cada punto
           plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => `Semana del ${items[0].label}` } } },
           scales: { x: { ticks: { font: { size: 9.5 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9.5 } } } }
         }
