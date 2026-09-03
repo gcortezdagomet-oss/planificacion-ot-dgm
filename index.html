@@ -542,7 +542,7 @@
          más abajo): las tablas de reportes son anchas, así que se imprimen en
          horizontal aunque las OP sigan en vertical. */
       @page reporte { size: letter landscape; margin: 6mm; }
-      @page chartPage { size: letter landscape; margin: 5mm; }
+      @page chartPage { size: letter landscape; margin: 7mm; }
       html, body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; height: auto !important; }
       .container { display: none !important; }
       /* La barra de sesión (usuario/rol/cerrar sesión) vive fuera de .container
@@ -599,21 +599,27 @@
       }
       #preview-modal.is-chart #modal-preview-container > div {
         page: chartPage !important;
-        width: 100% !important;
-        max-width: 100% !important;
+        width: 250mm !important;
+        max-width: 250mm !important;
         height: auto !important;
         max-height: 185mm !important;
+        margin: 0 auto !important;
         overflow: hidden !important;
       }
       #preview-modal.is-chart #chart-modal-canvas-wrap {
-        height: 125mm !important;
-        max-height: 125mm !important;
+        width: 100% !important;
+        height: 145mm !important;
+        max-height: 145mm !important;
         overflow: hidden !important;
       }
       #preview-modal.is-chart #chart-modal-canvas-wrap canvas {
+        display: block !important;
         width: 100% !important;
-        height: 125mm !important;
-        max-height: 125mm !important;
+        height: 145mm !important;
+        max-height: 145mm !important;
+      }
+      #preview-modal.is-chart #modal-preview-container img {
+        max-height: 38px !important;
       }
       .no-print { display: none !important; }
 
@@ -778,7 +784,7 @@
 
   /* Distribución tipo tablero: menos columnas, tarjetas más anchas y OPs en una sola
      columna para que no se parta la información en bloques demasiado estrechos. */
-  .planta-grid { display:grid; grid-template-columns:repeat(4, minmax(300px, 1fr)); gap:14px; align-items:start; }
+  .planta-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; align-items:start; }
   .planta-area-card { border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--surface); display:flex; flex-direction:column; min-width:0; }
   .planta-area-header { background:var(--primary); color:#fff; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-shrink:0; min-height:46px; }
   .planta-area-header .planta-area-name { font-weight:800; font-size:.86rem; letter-spacing:.2px; text-transform:uppercase; line-height:1.15; }
@@ -813,7 +819,7 @@
   body.tv-mode #tab-planta #planta-clock { color:#fff; font-size:2.4rem; }
   body.tv-mode #tab-planta #planta-date { color:#94a3b8; font-size:1rem; }
   body.tv-mode #tab-planta .planta-legend { color:#cbd5e1; font-size:.85rem; }
-  body.tv-mode #tab-planta .planta-grid { gap:14px; grid-template-columns:repeat(4, minmax(340px, 1fr)); }
+  body.tv-mode #tab-planta .planta-grid { gap:14px; grid-template-columns:repeat(4, minmax(0, 1fr)); }
   body.tv-mode #tab-planta .planta-area-card { background:#111c33; border-color:#1e293b; }
   body.tv-mode #tab-planta .planta-area-header { padding:12px 16px; }
   body.tv-mode #tab-planta .planta-area-header .planta-area-name { font-size:1.05rem; }
@@ -4422,6 +4428,10 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(String(value), pos.x + 6, pos.y);
+              } else if (chart.config.type === 'bar') {
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(String(value), pos.x, pos.y - 6);
               } else if (chart.config.type === 'line') {
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
@@ -4578,9 +4588,9 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         plugins: {
           legend: {
             display: true,
-            position: esDona ? 'right' : undefined,
+            position: esDona ? 'bottom' : undefined,
             labels: {
-              boxWidth: 14, font: { size: 13, family: 'Inter' }, padding: 14,
+              boxWidth: 14, font: { size: 11, family: 'Inter' }, padding: 10, usePointStyle: false,
               generateLabels: esDona ? (chart) => generarLeyendaConCantidad(chart) : undefined
             }
           }
@@ -4617,7 +4627,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
               Generado el ${formatDateWithDayUpper(todayKey())}
             </div>
           </div>
-          <div id="chart-modal-canvas-wrap" style="height:min(60vh, 520px);"><canvas id="chart-modal-canvas"></canvas></div>
+          <div id="chart-modal-canvas-wrap" style="height:520px; width:100%;"><canvas id="chart-modal-canvas"></canvas></div>
         </div>`;
       // El gráfico solo se imprime; oculta "Descargar PDF/Excel" (son de los reportes de OP).
       $('modal-download-btn').style.display = 'none';
@@ -4636,7 +4646,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
     function expandirChart(canvasId, titulo) { abrirModalGrafico(canvasId, titulo, false); }
     function imprimirChart(canvasId, titulo) { abrirModalGrafico(canvasId, titulo, true); }
 
-    // Gráfico de línea con la cantidad de OPs TERMINADAS por día.
+    // Gráfico de barras con la cantidad de OPs TERMINADAS por día.
     // Se utiliza la fecha real de término (fechaTermino), no la fecha de creación
     // ni la fecha de entrega. Solo se contabilizan OPs cuyo estado es TERMINADA.
     function renderTrendChart() {
@@ -4672,14 +4682,13 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       if (!db.ots.length) { showChartEmpty(canvas, 'Sin OPs registradas todavía.'); return; }
       hideChartEmpty(canvas);
       dashboardCharts['chart-tendencia'] = new Chart(canvas.getContext('2d'), {
-        type: 'line',
+        type: 'bar',
         data: { labels, datasets: [{
-          label: 'OPs terminadas / día', data, borderColor: '#263581', backgroundColor: 'rgba(38,53,129,0.08)',
-          fill: true, tension: 0.35, pointRadius: 2.5, pointBackgroundColor: '#263581', borderWidth: 2
+          label: 'OPs terminadas / día', data, backgroundColor: '#263581', borderRadius: 4, maxBarThickness: 24, categoryPercentage: 0.82, barPercentage: 0.9
         }] },
         options: {
           responsive: true, maintainAspectRatio: false,
-          layout: { padding: { top: 16 } },
+          layout: { padding: { top: 22, right: 8 } },
           plugins: {
             legend: { display: false },
             tooltip: {
@@ -4693,8 +4702,9 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
             x: {
               ticks: {
                 font: { size: 9.5 },
-                autoSkip: true,
-                maxTicksLimit: 10
+                autoSkip: false,
+                maxRotation: 45,
+                minRotation: 45
               },
               grid: { display: false }
             },
