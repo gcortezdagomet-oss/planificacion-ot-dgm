@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --primary: #263581;
@@ -4347,6 +4347,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
     function renderDonutChart(canvasId, countsObj, colorMap) {
       const canvas = $(canvasId);
       if (!canvas) return;
+      if (typeof Chart === 'undefined') { showChartEmpty(canvas, '⚠️ No se pudo cargar la librería de gráficos (revisa tu conexión y recarga).'); return; }
       if (dashboardCharts[canvasId]) dashboardCharts[canvasId].destroy();
       const entries = Object.entries(countsObj).filter(([, v]) => v.count > 0);
       if (entries.length === 0) {
@@ -4373,6 +4374,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
     function renderBarChart(canvasId, countsObj, color, limit) {
       const canvas = $(canvasId);
       if (!canvas) return;
+      if (typeof Chart === 'undefined') { showChartEmpty(canvas, '⚠️ No se pudo cargar la librería de gráficos (revisa tu conexión y recarga).'); return; }
       if (dashboardCharts[canvasId]) dashboardCharts[canvasId].destroy();
       let entries = Object.entries(countsObj).sort((a, b) => b[1].count - a[1].count);
       let restantes = 0;
@@ -4416,6 +4418,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
     function renderTrendChart() {
       const canvas = $('chart-tendencia');
       if (!canvas) return;
+      if (typeof Chart === 'undefined') { showChartEmpty(canvas, '⚠️ No se pudo cargar la librería de gráficos (revisa tu conexión y recarga).'); return; }
       if (dashboardCharts['chart-tendencia']) dashboardCharts['chart-tendencia'].destroy();
 
       const SEMANAS = 10;
