@@ -730,6 +730,10 @@ body.read-only-mode button[onclick*="moveOP("],
 body.read-only-mode button[onclick*="editarGuia("],
 body.read-only-mode button[onclick*="eliminarGuia("],
 body.read-only-mode button[onclick*="toggleEstadoGuia("] { display:none !important; }
+
+/* Los lectores no pueden exportar OPs (Historial de OPs / catálogo). */
+body.read-only-mode button[onclick*="exportToCSV("],
+body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:none !important; }
 </style>
 </head>
 <body>
