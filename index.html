@@ -542,6 +542,7 @@
          más abajo): las tablas de reportes son anchas, así que se imprimen en
          horizontal aunque las OP sigan en vertical. */
       @page reporte { size: letter landscape; margin: 6mm; }
+      @page chartPage { size: letter landscape; margin: 5mm; }
       html, body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; height: auto !important; }
       .container { display: none !important; }
       /* La barra de sesión (usuario/rol/cerrar sesión) vive fuera de .container
@@ -580,6 +581,39 @@
         page: reporte;
         width: 260mm !important;
         max-width: 260mm !important;
+      }
+      /* Impresión individual de gráficos: una sola hoja carta horizontal.
+         Se evita el min-height:100vh y la altura relativa del modal, que podía
+         empujar el gráfico a una segunda página en algunos navegadores. */
+      #preview-modal.is-chart {
+        page: chartPage !important;
+      }
+      #preview-modal.is-chart #modal-preview-container {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+        page-break-after: avoid !important;
+        break-after: avoid-page !important;
+      }
+      #preview-modal.is-chart #modal-preview-container > div {
+        page: chartPage !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        max-height: 185mm !important;
+        overflow: hidden !important;
+      }
+      #preview-modal.is-chart #chart-modal-canvas-wrap {
+        height: 125mm !important;
+        max-height: 125mm !important;
+        overflow: hidden !important;
+      }
+      #preview-modal.is-chart #chart-modal-canvas-wrap canvas {
+        width: 100% !important;
+        height: 125mm !important;
+        max-height: 125mm !important;
       }
       .no-print { display: none !important; }
 
@@ -742,26 +776,24 @@
   #planta-date { font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:capitalize; }
   .planta-legend { margin-bottom:18px; }
 
-  .planta-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:12px; align-items:start; }
-  .planta-area-card { border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--surface); display:flex; flex-direction:column; }
-  .planta-area-header { background:var(--primary); color:#fff; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-shrink:0; }
-  .planta-area-header .planta-area-name { font-weight:800; font-size:.85rem; letter-spacing:.2px; text-transform:uppercase; }
+  /* Distribución tipo tablero: menos columnas, tarjetas más anchas y OPs en una sola
+     columna para que no se parta la información en bloques demasiado estrechos. */
+  .planta-grid { display:grid; grid-template-columns:repeat(4, minmax(300px, 1fr)); gap:14px; align-items:start; }
+  .planta-area-card { border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--surface); display:flex; flex-direction:column; min-width:0; }
+  .planta-area-header { background:var(--primary); color:#fff; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-shrink:0; min-height:46px; }
+  .planta-area-header .planta-area-name { font-weight:800; font-size:.86rem; letter-spacing:.2px; text-transform:uppercase; line-height:1.15; }
   .planta-area-header .planta-area-count { background:rgba(255,255,255,0.22); border-radius:999px; padding:2px 10px; font-size:.78rem; font-weight:700; flex-shrink:0; }
-  .planta-area-empty { padding:16px 14px; color:var(--text-faint); font-size:.85rem; font-style:italic; }
-  /* La lista de OP hace scroll propio dentro de la tarjeta: así, cuando un
-     área tiene muchas OP, la tarjeta no crece sin límite ni desordena la
-     grilla, y el texto de cada OP se mantiene igual de legible. */
-  .planta-op-list { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); align-items:start; }
-  .planta-op-row { padding:7px 9px; border-top:1px solid var(--border); border-left:3px solid var(--border-strong); display:flex; flex-direction:column; gap:2px; min-width:0; }
-  .planta-op-row:nth-child(odd) { border-right:1px solid var(--border); }
+  .planta-area-empty { padding:12px 14px; color:var(--text-faint); font-size:.78rem; font-style:italic; }
+  .planta-op-list { display:flex; flex-direction:column; }
+  .planta-op-row { padding:9px 11px; border-top:1px solid var(--border); border-left:4px solid var(--border-strong); display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"top top" "work work" "meta meta"; gap:4px 8px; min-width:0; }
   .planta-op-row.deadline-vencido { background-color:#fef2f2; border-left-color:#dc2626; }
   .planta-op-row.deadline-proximo { background-color:#fffbeb; border-left-color:#f59e0b; }
-  .planta-op-row-top { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
-  .planta-op-numero { font-weight:800; color:var(--primary-dark); font-size:.84rem; }
-  .planta-op-entrega { font-size:.66rem; font-weight:700; color:var(--text-muted); white-space:nowrap; }
-  .planta-op-trabajo { font-size:.72rem; color:var(--text); line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .planta-op-row-top { grid-area:top; display:flex; justify-content:space-between; align-items:center; gap:8px; min-width:0; }
+  .planta-op-numero { font-weight:800; color:var(--primary-dark); font-size:.9rem; white-space:nowrap; }
+  .planta-op-entrega { font-size:.7rem; font-weight:700; color:var(--text-muted); white-space:nowrap; }
+  .planta-op-trabajo { grid-area:work; font-size:.76rem; color:var(--text); line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-width:0; }
   .planta-op-trabajo i { color:var(--text-faint); font-style:italic; }
-  .planta-op-meta { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .planta-op-meta { grid-area:meta; display:flex; gap:6px; flex-wrap:wrap; align-items:center; min-width:0; }
 
   /* ---- Modo TV: pantalla completa, tipografía grande, sin distracciones ---- */
   /* El fondo/padding en body cubren el caso en que el navegador (p.ej. iOS Safari)
@@ -781,13 +813,13 @@
   body.tv-mode #tab-planta #planta-clock { color:#fff; font-size:2.4rem; }
   body.tv-mode #tab-planta #planta-date { color:#94a3b8; font-size:1rem; }
   body.tv-mode #tab-planta .planta-legend { color:#cbd5e1; font-size:.85rem; }
-  body.tv-mode #tab-planta .planta-grid { gap:12px; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); }
+  body.tv-mode #tab-planta .planta-grid { gap:14px; grid-template-columns:repeat(4, minmax(340px, 1fr)); }
   body.tv-mode #tab-planta .planta-area-card { background:#111c33; border-color:#1e293b; }
-  body.tv-mode #tab-planta .planta-area-header { padding:14px 18px; }
-  body.tv-mode #tab-planta .planta-area-header .planta-area-name { font-size:1.15rem; }
-  body.tv-mode #tab-planta .planta-area-header .planta-area-count { font-size:1rem; }
-  body.tv-mode #tab-planta .planta-op-list { grid-template-columns:repeat(2, minmax(0, 1fr)); }
-  body.tv-mode #tab-planta .planta-op-row { padding:10px 12px; border-top-color:#1e293b; }
+  body.tv-mode #tab-planta .planta-area-header { padding:12px 16px; }
+  body.tv-mode #tab-planta .planta-area-header .planta-area-name { font-size:1.05rem; }
+  body.tv-mode #tab-planta .planta-area-header .planta-area-count { font-size:.95rem; }
+  body.tv-mode #tab-planta .planta-op-list { grid-template-columns:1fr; }
+  body.tv-mode #tab-planta .planta-op-row { padding:9px 11px; border-top-color:#1e293b; }
   body.tv-mode #tab-planta .planta-op-row.deadline-vencido { background-color:#3a1414; }
   body.tv-mode #tab-planta .planta-op-row.deadline-proximo { background-color:#3a2f10; }
   body.tv-mode #tab-planta .planta-op-numero { font-size:1.35rem; color:#fff; }
@@ -803,7 +835,6 @@
     .planta-toolbar-right { justify-content:space-between; }
     .planta-grid { grid-template-columns:1fr; }
     .planta-op-list { grid-template-columns:1fr; }
-    .planta-op-row:nth-child(odd) { border-right:0; }
   }
 </style>
 <style id="dagomet-global-search-style">
@@ -4594,7 +4625,8 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       // Se marca como 'is-report' para que use la misma página de impresión
       // horizontal ("reporte", hoja carta apaisada) que usan los reportes de OP,
       // en vez del formato vertical pensado para las OTs individuales.
-      $('preview-modal').classList.add('is-report');
+      $('preview-modal').classList.remove('is-report');
+      $('preview-modal').classList.add('is-chart');
       $('preview-modal').style.display = 'flex';
       if (dashboardCharts['chart-modal-canvas']) { dashboardCharts['chart-modal-canvas'].destroy(); }
       dashboardCharts['chart-modal-canvas'] = new Chart($('chart-modal-canvas').getContext('2d'), cfg);
@@ -4604,48 +4636,73 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
     function expandirChart(canvasId, titulo) { abrirModalGrafico(canvasId, titulo, false); }
     function imprimirChart(canvasId, titulo) { abrirModalGrafico(canvasId, titulo, true); }
 
-    // Mini gráfico de línea con la cantidad de OPs creadas en cada una de las
-    // últimas 10 semanas, para dar una lectura rápida de tendencia (¿subiendo
-    // o bajando la carga de trabajo?) que antes no existía en el dashboard.
+    // Gráfico de línea con la cantidad de OPs TERMINADAS por día.
+    // Se utiliza la fecha real de término (fechaTermino), no la fecha de creación
+    // ni la fecha de entrega. Solo se contabilizan OPs cuyo estado es TERMINADA.
     function renderTrendChart() {
       const canvas = $('chart-tendencia');
       if (!canvas) return;
       if (typeof Chart === 'undefined') { showChartEmpty(canvas, '⚠️ No se pudo cargar la librería de gráficos (revisa tu conexión y recarga).'); return; }
       if (dashboardCharts['chart-tendencia']) dashboardCharts['chart-tendencia'].destroy();
 
-      const SEMANAS = 10;
+      // Últimos 30 días, para que el gráfico sea realmente "por día" y permita
+      // identificar fácilmente los días de mayor producción terminada.
+      const DIAS = 30;
       const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-      const inicioSemanaActual = new Date(hoy);
-      inicioSemanaActual.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7)); // lunes de esta semana
-
       const buckets = [];
-      for (let i = SEMANAS - 1; i >= 0; i--) {
-        const desde = new Date(inicioSemanaActual); desde.setDate(desde.getDate() - i * 7);
-        const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 7);
-        buckets.push({ desde, hasta, count: 0 });
+      for (let i = DIAS - 1; i >= 0; i--) {
+        const fecha = new Date(hoy);
+        fecha.setDate(hoy.getDate() - i);
+        const key = `${fecha.getFullYear()}-${pad2(fecha.getMonth()+1)}-${pad2(fecha.getDate())}`;
+        buckets.push({ fecha, key, count: 0 });
       }
+
       db.ots.forEach(o => {
-        if (!o.createdAt) return;
-        const b = buckets.find(bk => o.createdAt >= bk.desde.getTime() && o.createdAt < bk.hasta.getTime());
+        const estado = String(o.estadoOp || '').trim().toUpperCase();
+        if (estado !== 'TERMINADA' || !o.fechaTermino) return;
+        const key = String(o.fechaTermino).slice(0, 10);
+        const b = buckets.find(bk => bk.key === key);
         if (b) b.count++;
       });
 
-      const labels = buckets.map(b => `${pad2(b.desde.getDate())}/${pad2(b.desde.getMonth() + 1)}`);
+      const labels = buckets.map(b => `${pad2(b.fecha.getDate())}/${pad2(b.fecha.getMonth() + 1)}`);
       const data = buckets.map(b => b.count);
+      const totalTerminadas = data.reduce((a, n) => a + n, 0);
 
       if (!db.ots.length) { showChartEmpty(canvas, 'Sin OPs registradas todavía.'); return; }
       hideChartEmpty(canvas);
       dashboardCharts['chart-tendencia'] = new Chart(canvas.getContext('2d'), {
         type: 'line',
         data: { labels, datasets: [{
-          label: 'OPs creadas / semana', data, borderColor: '#263581', backgroundColor: 'rgba(38,53,129,0.08)',
+          label: 'OPs terminadas / día', data, borderColor: '#263581', backgroundColor: 'rgba(38,53,129,0.08)',
           fill: true, tension: 0.35, pointRadius: 2.5, pointBackgroundColor: '#263581', borderWidth: 2
         }] },
         options: {
           responsive: true, maintainAspectRatio: false,
-          layout: { padding: { top: 16 } }, // deja espacio para la cantidad dibujada sobre cada punto
-          plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => `Semana del ${items[0].label}` } } },
-          scales: { x: { ticks: { font: { size: 9.5 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9.5 } } } }
+          layout: { padding: { top: 16 } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => `Día ${items[0].label}`,
+                label: (item) => `${item.raw} OP${item.raw === 1 ? '' : 's'} terminada${item.raw === 1 ? '' : 's'}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                font: { size: 9.5 },
+                autoSkip: true,
+                maxTicksLimit: 10
+              },
+              grid: { display: false }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, font: { size: 9.5 } }
+            }
+          }
         }
       });
     }
@@ -5437,6 +5494,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       const excelBtn = $('modal-download-excel-btn');
       excelBtn.style.display = '';
       excelBtn.onclick = () => exportReportToExcel(list, titulo, cols);
+      $('preview-modal').classList.remove('is-chart');
       $('preview-modal').classList.add('is-report');
       $('preview-modal').style.display = 'flex';
     }
@@ -6739,7 +6797,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         }
       };
       $('modal-download-excel-btn').style.display = 'none';
-      $('preview-modal').classList.remove('is-report');
+      $('preview-modal').classList.remove('is-report', 'is-chart');
       $('preview-modal').style.display = 'flex';
     }
 
@@ -6754,13 +6812,13 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
 
       $('modal-download-btn').onclick = () => generatePDF(id);
       $('modal-download-excel-btn').style.display = 'none';
-      $('preview-modal').classList.remove('is-report');
+      $('preview-modal').classList.remove('is-report', 'is-chart');
       $('preview-modal').style.display = 'flex';
     }
 
     function closePreviewModal() {
       $('preview-modal').style.display = 'none';
-      $('preview-modal').classList.remove('is-report');
+      $('preview-modal').classList.remove('is-report', 'is-chart');
     }
 
     function downloadBackup() {
