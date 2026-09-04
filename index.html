@@ -1414,6 +1414,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
           <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
             <button class="btn btn-success btn-sm" onclick="imprimirReporteSemana()">📅 Imprimir reporte semanal</button>
             <button class="btn btn-success btn-sm" onclick="imprimirReporteMes()">📊 Imprimir reporte del mes</button>
+            <button class="btn btn-warning btn-sm" onclick="imprimirReporteCompleto()">🗂️ Reporte completo</button>
           </div>
         </div>
 
@@ -5838,6 +5839,15 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
 
       const rango = `${formatDateWithDayUpper(desde)} al ${formatDateWithDayUpper(hasta)}`;
       openReportColumnPicker(list, 'Reporte Semanal (Lunes a Viernes) de Entregas', rango);
+    }
+
+    // Reporte completo: incluye TODAS las OPs de la base de datos, sin
+    // filtrar por fecha de entrega (a diferencia de hoy/semana/mes). El
+    // usuario igual puede filtrar por estado y elegir columnas en el
+    // mismo selector que usan los demás reportes.
+    function imprimirReporteCompleto() {
+      const list = db.ots.slice();
+      openReportColumnPicker(list, 'Reporte Completo de OPs', `${list.length} OP(s) en total`);
     }
 
     function imprimirReporteMes() {
