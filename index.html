@@ -563,16 +563,20 @@
         margin: 0 !important; max-width: none !important; width: auto !important; border-radius: 0 !important;
       }
       #modal-preview-container {
-        display: flex !important; justify-content: center !important; align-items: center !important; height: 100% !important;
-        position: static !important; width: 100% !important; min-height: 100vh !important;
+        display: block !important;
+        position: static !important; width: 100% !important; height: auto !important; min-height: 0 !important;
         margin: 0 !important; padding: 0 !important; background: #ffffff !important; box-shadow: none !important;
       }
       /* El documento de la OT se genera con un ancho fijo de 960px (pensado
          para hoja carta horizontal). En vertical lo reescalamos para que
-         quepa dentro del ancho imprimible de una hoja carta vertical. */
+         quepa dentro del ancho imprimible de una hoja carta vertical.
+         Centrado horizontal con margin:auto (no flex+100vh: eso generaba
+         una hoja en blanco extra al imprimir — ver nota más abajo). */
       #modal-preview-container > div {
         width: 190mm !important;
         max-width: 190mm !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
       }
       /* Cuando el modal muestra un reporte (ver JS: previewReport agrega la
          clase 'is-report' a #preview-modal), se imprime en la página
@@ -7033,7 +7037,12 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
             compress: true
           },
           pagebreak: {
-            mode: ['css', 'legacy'],
+            // Solo 'css': combinar 'css' con 'legacy' hace que html2pdf
+            // calcule los saltos con dos algoritmos distintos a la vez, lo
+            // que en documentos con bloques "avoid" (como este) producía
+            // páginas en blanco de más. El generador de reportes ya usa
+            // solo 'css' y no tiene ese problema.
+            mode: ['css'],
             before: [],
             after: [],
             avoid: ['tr', '.pdf-avoid-break', '.doc-section', '.no-break']
