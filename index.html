@@ -7351,7 +7351,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       if (window.dagometCurrentProfile?.rol !== 'read_only') return;
       // Solo lectura: bloquear edición, pero mantener operativos los controles
       // necesarios para consultar y generar/imprimir reportes.
-      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select)').forEach(el => { el.disabled = true; });
+      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select):not(#trend-periodo)').forEach(el => { el.disabled = true; });
       document.querySelectorAll('#app-root button').forEach(btn => {
         const t=(btn.textContent||'').toLowerCase();
         const allow =
@@ -7360,7 +7360,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
           btn.id === 'global-search-clear' ||
           btn.closest('#report-columns-modal') ||
           btn.closest('#preview-modal') ||
-          /imprimir|pdf|descargar respaldo|expandir|ver|generar|reporte/.test(t);
+          /imprimir|pdf|descargar respaldo|expandir|ver|generar|reporte|limpiar filtros/.test(t);
         if(!allow) btn.disabled=true;
       });
     }
