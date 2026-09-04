@@ -5709,12 +5709,23 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       // entre tonos diferenciables para que la torta sea fácil de leer e imprimir.
       const paletaAreas = ['#263581','#d97706','#059669','#7c3aed','#dc2626','#0891b2','#db2777','#65a30d','#4f46e5','#ea580c'];
       const colorArea = (area, i) => paletaAreas[i % paletaAreas.length];
-      const segmentosTorta = areasEnCursoOrdenadas.map(([area,count], i) => {
-        const inicio = areasEnCursoOrdenadas.slice(0, i).reduce((sum, [,n]) => sum + n, 0);
-        const fin = inicio + count;
-        const total = opsEnCursoReporte.length || 1;
-        return `${colorArea(area, i)} ${(inicio / total) * 360}deg ${(fin / total) * 360}deg`;
-      }).join(', ');
+      // NOTA TÉCNICA: antes la "torta" se dibujaba con un fondo CSS
+      // conic-gradient(...). html2canvas (el motor que usa html2pdf.js para
+      // rasterizar el reporte) no soporta conic-gradient, así que ese círculo
+      // salía en blanco/invisible al descargar el PDF (aunque se veía bien en
+      // la previsualización HTML normal del navegador). Por eso ahora se arma
+      // el mismo anillo con un <svg> (círculos con stroke-dasharray), que sí
+      // se rasteriza correctamente en el PDF.
+      const totalEnCursoReporte = opsEnCursoReporte.length || 1;
+      const DONUT_R = 46.5;
+      const DONUT_C = 2 * Math.PI * DONUT_R;
+      let acumuladoDonut = 0;
+      const segmentosSvg = areasEnCursoOrdenadas.map(([area, count], i) => {
+        const largo = (count / totalEnCursoReporte) * DONUT_C;
+        const offset = -acumuladoDonut;
+        acumuladoDonut += largo;
+        return `<circle cx="58" cy="58" r="${DONUT_R}" fill="none" stroke="${colorArea(area, i)}" stroke-width="23" stroke-dasharray="${largo.toFixed(2)} ${(DONUT_C - largo).toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"></circle>`;
+      }).join('');
       const leyendaTorta = areasEnCursoOrdenadas.map(([area,count], i) => `
         <div style="display:flex; align-items:center; gap:9px; padding:7px 9px; border:1px solid #e2e8f0; border-radius:7px; background:#fff; min-width:0; box-sizing:border-box;">
           <span style="width:10px; height:10px; border-radius:50%; background:${colorArea(area, i)}; flex:0 0 auto;"></span>
@@ -5723,24 +5734,30 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         </div>
       `).join('');
       const graficoEnCursoHtml = esReporteCompleto ? `
-        <div style="border:1px solid #c7d2fe; background:#f8faff; border-radius:10px; padding:14px 18px; display:grid; grid-template-columns:260px 1fr; gap:20px; align-items:center; page-break-inside:avoid; break-inside:avoid; margin-bottom:2px;">
-          <div style="display:flex; align-items:center; gap:14px; min-width:0;">
-            <div style="flex:0 0 126px; display:flex; justify-content:center; align-items:center;">
-              ${opsEnCursoReporte.length ? `<div style="width:116px; height:116px; border-radius:50%; background:conic-gradient(${segmentosTorta}); position:relative; box-sizing:border-box;">
-                <div style="position:absolute; width:70px; height:70px; left:23px; top:23px; border-radius:50%; background:#f8faff; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
-                  <div style="font-size:24px; line-height:1; color:#263581; font-weight:900;">${opsEnCursoReporte.length}</div>
-                  <div style="font-size:7px; color:#64748b; font-weight:800; text-transform:uppercase; margin-top:3px;">OPs</div>
-                </div>
-              </div>` : `<div style="width:116px; height:116px; border-radius:50%; background:#dbe2f7; display:flex; align-items:center; justify-content:center;"><div style="width:70px; height:70px; border-radius:50%; background:#f8faff;"></div></div>`}
+        <div style="border:1px solid #c7d2fe; background:#f8faff; border-radius:10px; padding:14px 18px; page-break-inside:avoid; break-inside:avoid; margin-bottom:2px;">
+          <div style="display:grid; grid-template-columns:260px 1fr; gap:20px; align-items:center;">
+            <div style="display:flex; align-items:center; gap:14px; min-width:0;">
+              <div style="flex:0 0 126px; display:flex; justify-content:center; align-items:center;">
+                ${opsEnCursoReporte.length ? `<div style="position:relative; width:116px; height:116px;">
+                  <svg viewBox="0 0 116 116" width="116" height="116" style="display:block; transform:rotate(-90deg);">${segmentosSvg}</svg>
+                  <div style="position:absolute; width:70px; height:70px; left:23px; top:23px; border-radius:50%; background:#f8faff; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
+                    <div style="font-size:24px; line-height:1; color:#263581; font-weight:900;">${opsEnCursoReporte.length}</div>
+                    <div style="font-size:7px; color:#64748b; font-weight:800; text-transform:uppercase; margin-top:3px;">OPs</div>
+                  </div>
+                </div>` : `<div style="width:116px; height:116px; border-radius:50%; background:#dbe2f7; display:flex; align-items:center; justify-content:center;"><div style="width:70px; height:70px; border-radius:50%; background:#f8faff;"></div></div>`}
+              </div>
+              <div style="min-width:0;">
+                <div style="font-size:10px; color:#4338ca; font-weight:800; text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px;">OPs en curso</div>
+                <div style="font-size:9px; color:#64748b; font-weight:600; line-height:1.35;">Distribución por área</div>
+              </div>
             </div>
             <div style="min-width:0;">
-              <div style="font-size:10px; color:#4338ca; font-weight:800; text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px;">OPs en curso</div>
-              <div style="font-size:9px; color:#64748b; font-weight:600; line-height:1.35;">Distribución por área</div>
+              <div style="font-size:11px; font-weight:800; color:#263581; margin-bottom:9px;">OPs en curso por área</div>
+              ${areasEnCursoOrdenadas.length ? `<div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:7px 9px;">${leyendaTorta}</div>` : '<div style="font-size:10px; color:#94a3b8; font-style:italic; padding:10px 0;">No hay OPs EN CURSO en el rango seleccionado.</div>'}
             </div>
           </div>
-          <div style="min-width:0;">
-            <div style="font-size:11px; font-weight:800; color:#263581; margin-bottom:9px;">OPs en curso por área</div>
-            ${areasEnCursoOrdenadas.length ? `<div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:7px 9px;">${leyendaTorta}</div>` : '<div style="font-size:10px; color:#94a3b8; font-style:italic; padding:10px 0;">No hay OPs EN CURSO en el rango seleccionado.</div>'}
+          <div style="margin-top:10px; padding-top:8px; border-top:1px solid #dbe2f7; font-size:8.5px; color:#64748b; font-style:italic;">
+            * Las OP mostradas en el gráfico corresponden únicamente al período seleccionado en este reporte.
           </div>
         </div>
       ` : '';
