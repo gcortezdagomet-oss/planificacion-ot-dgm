@@ -3559,6 +3559,21 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
 
     $('soldadura').addEventListener('change', toggleSoldaduraSeguimiento);
 
+    // Al marcar la OP como TERMINADA, se completa automáticamente la fecha y
+    // hora de término con el momento actual (si no tenían ya un valor, para
+    // no pisar una fecha/hora real que el usuario haya ingresado a mano).
+    $('estadoOp').addEventListener('change', function() {
+      if (this.value !== 'TERMINADA') return;
+      const now = new Date();
+      if (!$('fechaTermino').value) {
+        $('fechaTermino').value = todayKey();
+      }
+      if (!$('horaTermino').value) {
+        $('horaTermino').value = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+      }
+      markFormDirty();
+    });
+
 
     function toggleCurvasField() {
       const area = String($('area')?.value || '').toUpperCase();
