@@ -282,7 +282,7 @@
     .materials-table input.m-calidad::placeholder,
     .materials-table input.m-descripcion::placeholder { text-transform: none; }
 
-    .badge-prio { padding: 4px 10px; border-radius: 5px; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.4px; display: inline-block; text-transform: uppercase; }
+    .badge-prio { padding: 4px 10px; border-radius: 5px; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.4px; display: inline-block; text-transform: uppercase; white-space: nowrap; }
     .badge-normal { background: var(--accent-light); color: var(--accent); border: 1px solid #ffedd5; }
     .badge-alta { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
     .badge-urgente { background: #7f1d1d; color: #ffffff; border: 1px solid #991b1b; }
@@ -2195,8 +2195,15 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       return ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docSinDocumentacion'].filter(id => $(id) && $(id).checked).map(id => $(id).value);
     }
     function setDocumentacionFabricacion(valores) {
-      const values = Array.isArray(valores) ? valores : [];
-      ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docSinDocumentacion'].forEach(id => { if ($(id)) $(id).checked = values.includes($(id).value); });
+      const values = (Array.isArray(valores) ? valores : []).map(v => normalizeStr(String(v || '').trim()));
+      ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docSinDocumentacion'].forEach(id => { if ($(id)) $(id).checked = values.includes(normalizeStr($(id).value)); });
+      // Si la OP quedó guardada (por datos antiguos) con "SIN DOCUMENTACIÓN"
+      // marcado a la vez que algún documento real, prima el documento real:
+      // se corrige ANTES de sincronizar los botones para que
+      // syncDocumentacionButtons() no termine desmarcando los documentos
+      // reales por la exclusión mutua con "SIN DOCUMENTACIÓN".
+      const hayDocReal = ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente'].some(id => $(id) && $(id).checked);
+      if (hayDocReal && $('docSinDocumentacion')) $('docSinDocumentacion').checked = false;
       syncDocumentacionButtons();
     }
     function syncDocumentacionButtons() {
@@ -2240,8 +2247,14 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         if (error) throw error;
         if (!Array.isArray(formDocumentosAdjuntos[docId])) formDocumentosAdjuntos[docId] = [];
         formDocumentosAdjuntos[docId].push({ path, name: file.name, size: file.size, uploadedAt: Date.now() });
-        // Al adjuntar un archivo, se marca automáticamente su checkbox de documentación.
-        if ($(docId)) { $(docId).checked = true; syncDocumentacionButtons(); }
+        // Al adjuntar un archivo, se marca automáticamente su checkbox de
+        // documentación (y se desmarca "SIN DOCUMENTACIÓN" si estaba activo,
+        // para que la exclusión mutua no revierta este check).
+        if ($(docId)) {
+          $(docId).checked = true;
+          if ($('docSinDocumentacion')) $('docSinDocumentacion').checked = false;
+          syncDocumentacionButtons();
+        }
         markFormDirty();
       } catch (err) {
         console.error('Error al subir archivo:', err);
@@ -3120,7 +3133,15 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       return nums.filter(n => Number.isFinite(n) && n > 0);
     }
 
-    function calculateMaterialRowWeight(row) {
+    function calculateMaterialRowWeight(row, opts = {}) {
+      // 'preserveIfNoMatch' se usa al RESTAURAR una fila ya guardada (editOP /
+      // duplicateOP): si el peso guardado no se puede recalcular porque el
+      // recálculo automático no encuentra un registro exacto en el catálogo
+      // (redondeos, catálogo actualizado, etc.), no debe borrarse el valor que
+      // ya traía la OP. En cambio, mientras el usuario edita en vivo, el
+      // comportamiento de limpiar el campo cuando falta información se
+      // mantiene igual que antes.
+      const preserveIfNoMatch = opts.preserveIfNoMatch === true;
       const registro = seleccionarRegistroExacto(row);
       const cant = Math.max(1, Number(String(row.querySelector('.m-cantidad')?.value || '1').replace(',', '.')) || 1);
       const dimText = row.querySelector('.m-largo')?.value || '';
@@ -3130,6 +3151,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       const ductoOptions = row.querySelector('.m-ducto-options');
       const tipoDucto = row.querySelector('.m-tipo-ducto');
       const diametroDucto = row.querySelector('.m-diametro-ducto');
+      const limpiarPeso = () => { if (!preserveIfNoMatch) kilosInput.value = ''; };
 
       const desc = buildMaterialDescription(row);
       if (descInput) {
@@ -3161,7 +3183,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       }
 
       if (!registro) {
-        kilosInput.value = '';
+        limpiarPeso();
         return;
       }
 
@@ -3181,7 +3203,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         const densidad = 8;
 
         if (!(largoMM > 0 && espesorMM > 0 && diametroMM > 0)) {
-          kilosInput.value = '';
+          limpiarPeso();
           return;
         }
 
@@ -3195,7 +3217,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       // Largo(mm) × Ancho(mm) × Espesor(mm) × Cantidad × Peso(kg/m²) / 1.000.000.
       else if (esPlancha) {
         if (dims.length < 2 || !(espesor > 0)) {
-          kilosInput.value = '';
+          limpiarPeso();
           return;
         }
         const largoMM = dims[0];
@@ -3206,7 +3228,7 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       // Peso(kg/m) × Largo(mm) × Cantidad / 1.000.
       else if (unidad === 'm') {
         if (!dims.length) {
-          kilosInput.value = '';
+          limpiarPeso();
           return;
         }
         const largoMM = dims[dims.length - 1];
@@ -3234,11 +3256,11 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       calculateMaterialRowWeight(row);
     }
 
-    function syncDuctoControls(row) {
+    function syncDuctoControls(row, opts = {}) {
       const check = row.querySelector('.m-es-ducto');
       const options = row.querySelector('.m-ducto-options');
       if (options) options.classList.toggle('active', !!check?.checked && !check.disabled);
-      calculateMaterialRowWeight(row);
+      calculateMaterialRowWeight(row, opts);
     }
 
     function addMaterialRow(data = {}, afterRow = null) {
@@ -3360,10 +3382,14 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
 
       if (afterRow && afterRow.parentNode === container) afterRow.after(row);
       else container.appendChild(row);
-      calculateMaterialRowWeight(row);
+      // Si la fila trae un peso ya guardado (viene de editar/duplicar una OP),
+      // no debe borrarse aunque el recálculo automático no encuentre un calce
+      // exacto en el catálogo — ver comentario en calculateMaterialRowWeight.
+      const preserveIfNoMatch = data.kilos !== undefined && data.kilos !== null && String(data.kilos).trim() !== '';
+      calculateMaterialRowWeight(row, { preserveIfNoMatch });
       // Asegura que el control ¿ES DUCTO? quede sincronizado también al crear
       // una fila cargada desde una OP guardada o duplicada.
-      syncDuctoControls(row);
+      syncDuctoControls(row, { preserveIfNoMatch });
       marcarDuplicadosMateriales();
     }
 
@@ -5481,14 +5507,14 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       { key: 'area',          label: 'Área',                   shortLabel: 'Área',        align: 'left',   weight: 11, get: o => esc(o.area || '-') },
       { key: 'maquina',       label: 'Máquina',                shortLabel: 'Máquina',     align: 'left',   weight: 9,  get: o => esc(o.maquina || '-') },
       { key: 'estadoOp',      label: 'Estado',                 shortLabel: 'Estado',      align: 'center', weight: 8,  get: o => getStatusBadge(o.estadoOp) },
-      { key: 'prioridad',     label: 'Prioridad',              shortLabel: 'Prior.',      align: 'center', weight: 7,  get: o => getPriorityBadge(o.prioridad) },
+      { key: 'prioridad',     label: 'Prioridad',              shortLabel: 'Prioridad',   align: 'center', weight: 11, get: o => getPriorityBadge(o.prioridad) },
       { key: 'planificador',  label: 'Planificador',           shortLabel: 'Planif.',     align: 'left',   weight: 7,  get: o => esc(o.planificador || 'GCC') },
       { key: 'ocCliente',     label: 'OC Cliente',             shortLabel: 'OC Cliente',  align: 'left',   weight: 8,  get: o => esc(o.ocCliente || '-') },
       { key: 'folio',         label: 'Folio',                  shortLabel: 'Folio',       align: 'left',   weight: 7,  get: o => esc(o.folio || '-') },
       { key: 'cantidadTotal', label: 'Cantidad',               shortLabel: 'Cant.',       align: 'center', weight: 5,  get: o => esc(o.cantidadTotal || '-') },
       { key: 'piezas',        label: 'Piezas',                 shortLabel: 'Piezas',      align: 'center', weight: 6,  get: o => esc(o.piezas || '-') },
       { key: 'kilos',         label: 'Kilos',                  shortLabel: 'Kilos',       align: 'right',  weight: 6,  get: o => Math.round((o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0)).toLocaleString('es-CL') },
-      { key: 'trabajo',       label: 'Trabajo / Instrucciones',shortLabel: 'Trabajo',     align: 'left',   weight: 18, get: o => esc(o.instrucciones || '-') },
+      { key: 'trabajo',       label: 'Trabajo / Instrucciones',shortLabel: 'Trabajo',     align: 'left',   weight: 42, get: o => esc(o.instrucciones || '-').replace(/\r?\n/g, '<br>') },
     ];
     const REPORT_COLUMNS_DEFAULT = ['numero', 'entrega', 'cliente', 'area', 'estadoOp', 'prioridad', 'planificador'];
     const REPORT_COLUMNS_PRESETS = {
@@ -5645,6 +5671,61 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       const kilosTotales = ordenados.reduce((acc, o) => acc + (o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0), 0);
       const mostrarKilosTotal = activeCols.some(c => c.key === 'kilos');
 
+      // En el Reporte Completo incorporamos los indicadores actuales de planta:
+      // total de OPs EN CURSO y distribución de OPs EN CURSO por área.
+      // Se calculan sobre las OPs que realmente forman parte del reporte,
+      // respetando el rango de fechas seleccionado.
+      const esReporteCompleto = String(titulo || '').trim() === 'Reporte Completo de OPs';
+      const opsEnCursoReporte = esReporteCompleto
+        ? ordenados.filter(o => String(o.estadoOp || 'EN CURSO').trim().toUpperCase() === 'EN CURSO')
+        : [];
+      const areaEnCursoReporte = {};
+      opsEnCursoReporte.forEach(o => {
+        const area = String(o.area || 'SIN ÁREA').trim() || 'SIN ÁREA';
+        areaEnCursoReporte[area] = (areaEnCursoReporte[area] || 0) + 1;
+      });
+      const areasEnCursoOrdenadas = Object.entries(areaEnCursoReporte).sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+      const maxAreaEnCurso = areasEnCursoOrdenadas.length ? areasEnCursoOrdenadas[0][1] : 1;
+      // Colores por área: se mantienen estables dentro del reporte y se reparten
+      // entre tonos diferenciables para que la torta sea fácil de leer e imprimir.
+      const paletaAreas = ['#263581','#d97706','#059669','#7c3aed','#dc2626','#0891b2','#db2777','#65a30d','#4f46e5','#ea580c'];
+      const colorArea = (area, i) => paletaAreas[i % paletaAreas.length];
+      const segmentosTorta = areasEnCursoOrdenadas.map(([area,count], i) => {
+        const inicio = areasEnCursoOrdenadas.slice(0, i).reduce((sum, [,n]) => sum + n, 0);
+        const fin = inicio + count;
+        const total = opsEnCursoReporte.length || 1;
+        return `${colorArea(area, i)} ${(inicio / total) * 360}deg ${(fin / total) * 360}deg`;
+      }).join(', ');
+      const leyendaTorta = areasEnCursoOrdenadas.map(([area,count], i) => `
+        <div style="display:flex; align-items:center; gap:9px; padding:7px 9px; border:1px solid #e2e8f0; border-radius:7px; background:#fff; min-width:0; box-sizing:border-box;">
+          <span style="width:10px; height:10px; border-radius:50%; background:${colorArea(area, i)}; flex:0 0 auto;"></span>
+          <span style="font-size:9.5px; line-height:1.25; color:#334155; font-weight:700; white-space:normal; overflow-wrap:anywhere; flex:1;">${esc(area)}</span>
+          <span style="font-size:11px; color:#263581; font-weight:900; flex:0 0 auto;">${count}</span>
+        </div>
+      `).join('');
+      const graficoEnCursoHtml = esReporteCompleto ? `
+        <div style="border:1px solid #c7d2fe; background:#f8faff; border-radius:10px; padding:14px 18px; display:grid; grid-template-columns:260px 1fr; gap:20px; align-items:center; page-break-inside:avoid; break-inside:avoid; margin-bottom:2px;">
+          <div style="display:flex; align-items:center; gap:14px; min-width:0;">
+            <div style="flex:0 0 126px; display:flex; justify-content:center; align-items:center;">
+              ${opsEnCursoReporte.length ? `<div style="width:116px; height:116px; border-radius:50%; background:conic-gradient(${segmentosTorta}); position:relative; box-sizing:border-box;">
+                <div style="position:absolute; width:70px; height:70px; left:23px; top:23px; border-radius:50%; background:#f8faff; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
+                  <div style="font-size:24px; line-height:1; color:#263581; font-weight:900;">${opsEnCursoReporte.length}</div>
+                  <div style="font-size:7px; color:#64748b; font-weight:800; text-transform:uppercase; margin-top:3px;">OPs</div>
+                </div>
+              </div>` : `<div style="width:116px; height:116px; border-radius:50%; background:#dbe2f7; display:flex; align-items:center; justify-content:center;"><div style="width:70px; height:70px; border-radius:50%; background:#f8faff;"></div></div>`}
+            </div>
+            <div style="min-width:0;">
+              <div style="font-size:10px; color:#4338ca; font-weight:800; text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px;">OPs en curso</div>
+              <div style="font-size:9px; color:#64748b; font-weight:600; line-height:1.35;">Distribución por área</div>
+            </div>
+          </div>
+          <div style="min-width:0;">
+            <div style="font-size:11px; font-weight:800; color:#263581; margin-bottom:9px;">OPs en curso por área</div>
+            ${areasEnCursoOrdenadas.length ? `<div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:7px 9px;">${leyendaTorta}</div>` : '<div style="font-size:10px; color:#94a3b8; font-style:italic; padding:10px 0;">No hay OPs EN CURSO en el rango seleccionado.</div>'}
+          </div>
+        </div>
+      ` : '';
+
       // Anchos proporcionales fijos por columna (suman 100%), así la tabla
       // nunca es más ancha que el contenedor y no se corta ningún dato.
       const totalWeight = activeCols.reduce((a, c) => a + (c.weight || 8), 0);
@@ -5654,7 +5735,13 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
 
       const rows = ordenados.map(o => `
         <tr style="page-break-inside:avoid;">
-          ${activeCols.map(c => `<td style="padding:${cellPad}; border-bottom:1px solid #e2e8f0; text-align:${c.align}; font-size:${cellFont}px; word-break:break-word; overflow-wrap:break-word;">${c.get(o)}</td>`).join('')}
+          ${activeCols.map(c => {
+            const isTrabajo = c.key === 'trabajo';
+            const pad = isTrabajo ? '10px 12px' : cellPad;
+            const font = isTrabajo ? Math.max(cellFont, 10) : cellFont;
+            const line = isTrabajo ? '1.55' : '1.3';
+            return `<td style="padding:${pad}; border-bottom:1px solid #e2e8f0; text-align:${c.align}; font-size:${font}px; line-height:${line}; vertical-align:top; word-break:normal; overflow-wrap:anywhere; white-space:normal;">${c.get(o)}</td>`;
+          }).join('')}
         </tr>
       `).join('');
 
@@ -5677,6 +5764,8 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
             </div>
           </div>
         </div>
+
+        ${graficoEnCursoHtml}
 
         <table style="width:100%; max-width:100%; border-collapse:collapse; table-layout:fixed;">
           <colgroup>${colgroupHtml}</colgroup>
@@ -7050,9 +7139,9 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
         }
       };
       $('modal-download-excel-btn').style.display = 'none';
-      const soloLecturaActual = window.dagometCurrentProfile?.rol === 'read_only';
-      $('modal-download-btn').style.display = soloLecturaActual ? 'none' : '';
-      $('modal-print-btn').style.display = soloLecturaActual ? 'none' : '';
+      // SOLO LECTURA puede imprimir la OP, pero no descargarla como PDF.
+      $('modal-download-btn').style.display = 'none';
+      $('modal-print-btn').style.display = '';
       $('preview-modal').classList.remove('is-report', 'is-chart');
       $('preview-modal').style.display = 'flex';
     }
@@ -7071,9 +7160,9 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       // documento imprimible (clase no-print) para que nunca salga en el PDF.
       previewContainer.appendChild(buildDocAdjuntosPreviewBlock(o));
 
-      const soloLectura = window.dagometCurrentProfile?.rol === 'read_only';
-      $('modal-download-btn').style.display = soloLectura ? 'none' : '';
-      $('modal-print-btn').style.display = soloLectura ? 'none' : '';
+      // SOLO LECTURA puede imprimir la OP, pero no descargarla como PDF.
+      $('modal-download-btn').style.display = 'none';
+      $('modal-print-btn').style.display = '';
       $('modal-download-btn').onclick = () => generatePDF(id);
       $('modal-download-excel-btn').style.display = 'none';
       $('preview-modal').classList.remove('is-report', 'is-chart');
@@ -7251,10 +7340,18 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
 
     function applyReadOnlyPermissions() {
       if (window.dagometCurrentProfile?.rol !== 'read_only') return;
-      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input), #app-root textarea, #app-root select').forEach(el => { el.disabled = true; });
+      // Solo lectura: bloquear edición, pero mantener operativos los controles
+      // necesarios para consultar y generar/imprimir reportes.
+      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select)').forEach(el => { el.disabled = true; });
       document.querySelectorAll('#app-root button').forEach(btn => {
         const t=(btn.textContent||'').toLowerCase();
-        const allow=btn.classList.contains('tab-btn') || btn.classList.contains('tv-control-btn') || btn.id === 'global-search-clear' || /imprimir|pdf|descargar respaldo|expandir/.test(t);
+        const allow =
+          btn.classList.contains('tab-btn') ||
+          btn.classList.contains('tv-control-btn') ||
+          btn.id === 'global-search-clear' ||
+          btn.closest('#report-columns-modal') ||
+          btn.closest('#preview-modal') ||
+          /imprimir|pdf|descargar respaldo|expandir|ver|generar|reporte/.test(t);
         if(!allow) btn.disabled=true;
       });
     }
