@@ -1850,6 +1850,33 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
     </div>
   </div>
 
+  <!-- MODAL: RANGO DE FECHAS (DOS DÍAS) PARA REPORTE COMPLETO -->
+  <div id="report-rango-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width:420px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h2 style="margin:0; border:none; padding:0;">🗂️ Reporte completo</h2>
+        <button class="btn btn-secondary btn-sm" onclick="cerrarModalReporteRango()">✕ Cerrar</button>
+      </div>
+      <p style="margin:0 0 14px 0; color:var(--text-muted); font-size:0.85rem;">
+        Elige los dos días (fecha de entrega) que quieres incluir en el reporte.
+      </p>
+      <div class="grid" style="grid-template-columns: 1fr 1fr; margin-bottom:6px;">
+        <div class="field">
+          <label>Desde</label>
+          <input type="date" id="report-rango-desde">
+        </div>
+        <div class="field">
+          <label>Hasta</label>
+          <input type="date" id="report-rango-hasta">
+        </div>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
+        <button class="btn btn-secondary btn-sm" onclick="cerrarModalReporteRango()">Cancelar</button>
+        <button class="btn btn-warning btn-sm" onclick="confirmarReporteRango()">👁️ Continuar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   // ===== AUTENTICACIÓN Y BASE DE DATOS ONLINE =====
@@ -5841,13 +5868,42 @@ body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:no
       openReportColumnPicker(list, 'Reporte Semanal (Lunes a Viernes) de Entregas', rango);
     }
 
-    // Reporte completo: incluye TODAS las OPs de la base de datos, sin
-    // filtrar por fecha de entrega (a diferencia de hoy/semana/mes). El
-    // usuario igual puede filtrar por estado y elegir columnas en el
-    // mismo selector que usan los demás reportes.
+    // Reporte completo: el usuario elige un rango de DOS DÍAS (fecha de
+    // entrega) a incluir, mediante el mini-modal de fechas. Antes incluía
+    // TODAS las OPs de la base sin filtrar por fecha; ahora siempre se
+    // acota al rango elegido. El usuario igual puede filtrar por estado y
+    // elegir columnas en el mismo selector que usan los demás reportes.
     function imprimirReporteCompleto() {
-      const list = db.ots.slice();
-      openReportColumnPicker(list, 'Reporte Completo de OPs', `${list.length} OP(s) en total`);
+      const hoy = todayKey();
+      $('report-rango-desde').value = hoy;
+      $('report-rango-hasta').value = hoy;
+      $('report-rango-modal').style.display = 'flex';
+    }
+
+    function cerrarModalReporteRango() {
+      $('report-rango-modal').style.display = 'none';
+    }
+
+    function confirmarReporteRango() {
+      let desde = $('report-rango-desde').value;
+      let hasta = $('report-rango-hasta').value;
+      if (!desde || !hasta) {
+        alert('Selecciona ambas fechas.');
+        return;
+      }
+      if (desde > hasta) { const tmp = desde; desde = hasta; hasta = tmp; }
+
+      const list = db.ots.filter(o => {
+        const entrega = String(o.entrega || '');
+        return entrega >= desde && entrega <= hasta;
+      }).sort((a,b) => String(a.entrega || '').localeCompare(String(b.entrega || '')) || String(a.numero || '').localeCompare(String(b.numero || '')));
+
+      const rango = desde === hasta
+        ? formatDateWithDayUpper(desde)
+        : `${formatDateWithDayUpper(desde)} al ${formatDateWithDayUpper(hasta)}`;
+
+      cerrarModalReporteRango();
+      openReportColumnPicker(list, 'Reporte Completo de OPs', rango);
     }
 
     function imprimirReporteMes() {
