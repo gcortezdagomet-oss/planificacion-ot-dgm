@@ -468,11 +468,11 @@
         <table>
           <thead>
             <tr>
-              <th>Cliente</th>
-              <th>REV. / CD</th>
-              <th>Fecha Llegada</th>
+              <th id="th-guia-cliente" onclick="toggleSortGuia('cliente')" title="Clic para ordenar por Cliente" style="cursor:pointer;">Cliente <span id="th-guia-cliente-arrow">↕</span></th>
+              <th id="th-guia-cd" onclick="toggleSortGuia('cd')" title="Clic para ordenar por REV. / CD" style="cursor:pointer;">REV. / CD <span id="th-guia-cd-arrow">↕</span></th>
+              <th id="th-guia-fecha" onclick="toggleSortGuia('fecha')" title="Clic para ordenar por Fecha de Llegada" style="cursor:pointer;">Fecha Llegada <span id="th-guia-fecha-arrow">↕</span></th>
               <th>Notas</th>
-              <th>Estado</th>
+              <th id="th-guia-estado" onclick="toggleSortGuia('estado')" title="Clic para ordenar por Estado" style="cursor:pointer;">Estado <span id="th-guia-estado-arrow">↕</span></th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -3140,6 +3140,22 @@
       renderOPsTable();
     }
 
+    // Orden de la tabla "Guías Registradas". col: null (orden por defecto:
+    // pendientes primero por fecha más antigua) | 'cliente' | 'cd' | 'fecha' | 'estado'.
+    // dir: 1 = ascendente, -1 = descendente.
+    let sortGuia = { col: null, dir: 1 };
+
+    function toggleSortGuia(col) {
+      if (sortGuia.col === col) {
+        sortGuia.dir = sortGuia.dir === 1 ? -1 : null;
+        if (sortGuia.dir === null) { sortGuia.col = null; sortGuia.dir = 1; }
+      } else {
+        sortGuia.col = col;
+        sortGuia.dir = 1;
+      }
+      renderGuiasTable();
+    }
+
     function clearSortEntrega() {
       sortOP = { col: null, dir: 1 };
       renderOPsTable();
@@ -3628,10 +3644,21 @@
         return true;
       });
 
-      // Pendientes primero (por fecha de llegada más antigua), luego hechas.
+      // Si hay una columna elegida por el usuario, se ordena por ella.
+      // Si no, el orden por defecto es: pendientes primero (por fecha de llegada más antigua), luego hechas.
       const ordenadas = [...filtered].sort((a, b) => {
+        if (sortGuia.col === 'cliente') return sortGuia.dir * normalizeStr(a.cliente).localeCompare(normalizeStr(b.cliente));
+        if (sortGuia.col === 'cd') return sortGuia.dir * normalizeStr(a.cd).localeCompare(normalizeStr(b.cd));
+        if (sortGuia.col === 'fecha') return sortGuia.dir * String(a.fecha || '').localeCompare(String(b.fecha || ''));
+        if (sortGuia.col === 'estado') return sortGuia.dir * normalizeStr(a.estado).localeCompare(normalizeStr(b.estado));
         if (a.estado !== b.estado) return a.estado === 'HECHA' ? 1 : -1;
         return String(a.fecha || '').localeCompare(String(b.fecha || ''));
+      });
+
+      // Refleja el estado del orden en cada encabezado (↕ sin orden, ▲ ascendente, ▼ descendente).
+      ['cliente', 'cd', 'fecha', 'estado'].forEach(col => {
+        const arrowEl = $(`th-guia-${col}-arrow`);
+        if (arrowEl) arrowEl.textContent = sortGuia.col === col ? (sortGuia.dir === 1 ? '▲' : '▼') : '↕';
       });
 
       tbody.innerHTML = ordenadas.length === 0
