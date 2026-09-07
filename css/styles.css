@@ -568,16 +568,65 @@
         margin-left: auto !important;
         margin-right: auto !important;
       }
-      /* Impresión (navegador) del documento de OP individual: se escala al
-         87% y se mantiene centrada horizontalmente. Se excluye
-         deliberadamente cuando el modal está mostrando un Reporte
-         (.is-report) o un Gráfico (.is-chart), ya que el ajuste solo aplica
-         al documento de OP (ver reglas de is-report/is-chart más abajo, que
-         definen su propio tamaño). Coincide con el mismo 87% centrado que
-         usa la descarga de PDF (ver generatePDF / PDF_SCALE en el JS). */
+      /* OP individual: usamos zoom en vez de transform. Transform solo cambia
+         lo que se ve, pero NO reduce el espacio que el navegador reserva para
+         el elemento; por eso el último renglón (PLANIFICADOR) podía saltar a
+         una hoja nueva. Zoom sí reduce el layout y mantiene todo sincronizado. */
       #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container {
-        transform: scale(0.87) !important;
-        transform-origin: top center !important;
+        align-items: flex-start !important;
+      }
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container > .ot-print-document {
+        width: 190mm !important;
+        max-width: 190mm !important;
+        box-sizing: border-box !important;
+        padding: 10px 14px !important;
+        gap: 8px !important;
+        font-size: 11px !important;
+        zoom: 0.87 !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+      }
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:first-child {
+        padding-bottom: 6px !important;
+        gap: 10px !important;
+      }
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:first-child > div:nth-child(2) > div {
+        min-width: 135px !important;
+        padding: 7px 14px !important;
+      }
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:first-child strong {
+        font-size: 13px !important;
+      }
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(2) > div,
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(3) {
+        padding: 7px 12px !important;
+      }
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document #materiales-doc-section > div:first-child {
+        margin-bottom: 3px !important;
+      }
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .materiales-print-table th,
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .materiales-print-table td {
+        padding: 5px 7px !important;
+        font-size: 10px !important;
+        line-height: 1.2 !important;
+      }
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(4) > div,
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(5),
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(6),
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(7),
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(8),
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(9),
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(10),
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(11),
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(12) {
+        padding-top: 7px !important;
+        padding-bottom: 7px !important;
+      }
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:last-child {
+        padding-top: 0 !important;
+        line-height: 1 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
       /* Cuando el modal muestra un reporte (ver JS: previewReport agrega la
          clase 'is-report' a #preview-modal), se imprime en la página
