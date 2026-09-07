@@ -28,6 +28,16 @@
         font-size: .72rem;
         white-space: nowrap;
       }
+      /* Impresión (navegador) de la OP individual: se escala al 87% y se
+         mantiene centrada horizontalmente. Se excluye deliberadamente cuando
+         el modal está mostrando un Reporte (.is-report) o un Gráfico
+         (.is-chart), ya que el ajuste solo aplica al documento de OP. */
+      @media print {
+        #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container {
+          transform: scale(0.87) !important;
+          transform-origin: top center !important;
+        }
+      }
     </style>
   </head>
 <body>
@@ -6220,11 +6230,20 @@
           requestAnimationFrame(resolve)
         ));
 
+        // Carta = 215.9 mm de ancho. El documento se captura a 190 mm,
+        // pero para descargarlo al 87% lo encajamos en un ancho de
+        // destino de 190 * 0.87 = 165.3 mm dentro del PDF: html2pdf
+        // escala la imagen capturada para que quepa exactamente en ese
+        // ancho, logrando el zoom al 87% de forma proporcional (alto y
+        // ancho). El margen izquierdo/derecho resultante es el mismo a
+        // ambos lados, por lo que el documento queda centrado.
+        const PDF_SCALE = 0.87;
+        const PAGE_WIDTH_MM = 215.9; // ancho de la hoja carta (portrait)
+        const scaledContentWidthMM = Math.round(190 * PDF_SCALE * 100) / 100;
+        const sideMarginMM = Math.round(((PAGE_WIDTH_MM - scaledContentWidthMM) / 2) * 100) / 100;
+
         const opt = {
-          // Carta = 215.9 mm de ancho. El documento mide 190 mm,
-          // por lo que dejamos el mismo margen a izquierda y derecha
-          // para que quede realmente centrado en el PDF.
-          margin: [6, 12.95, 6, 12.95],
+          margin: [6, sideMarginMM, 6, sideMarginMM],
           filename,
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: {
