@@ -5074,8 +5074,8 @@
           html2canvas: {
             scale: 2, useCORS: false, allowTaint: false, backgroundColor: '#ffffff', logging: false,
             imageTimeout: 15000, scrollX: 0, scrollY: 0,
-            windowWidth: Math.max(document.documentElement.clientWidth, 1200),
-            windowHeight: Math.max(document.documentElement.scrollHeight, pdfHost.scrollHeight, 1200)
+            windowWidth: 1200,
+            windowHeight: Math.max(pdfHost.scrollHeight, 1200)
           },
           jsPDF: { unit: 'mm', format: pageFormat, orientation: 'landscape', compress: true },
           pagebreak: { mode: ['css'], avoid: ['tr', '.report-footer-summary'] }
@@ -5758,6 +5758,7 @@
       else if (areaUpperBombeado.includes('BOMBEADO Y PESTAÑADO DE PLANCHAS')) areaLogoBombeado = IMG_ICONO_BOMBY;
 
       const container = document.createElement('div');
+      container.className = 'ot-print-document';
       container.style.cssText = 'width: 960px; margin: 0 auto; padding: 18px 22px; background: #ffffff; color: #1e293b; font-family: "Inter", sans-serif; font-size: 12px; display: flex; flex-direction: column; gap: 16px;';
 
       container.innerHTML = `
@@ -6131,25 +6132,73 @@
       // a la mitad. Los bloques importantes permanecen juntos cuando caben.
       const paginationStyle = document.createElement('style');
       paginationStyle.textContent = `
-        #pdf-download-host {
-          --pdf-page-width: 190mm;
+        #pdf-download-host { --pdf-page-width: 190mm; }
+
+        /* Mismo formato compacto que la impresión del navegador. La versión
+           anterior conservaba demasiado espacio vertical y el planificador
+           terminaba en una página aparte. */
+        #pdf-download-host .ot-print-document {
+          width: 190mm !important;
+          max-width: 190mm !important;
+          box-sizing: border-box !important;
+          padding: 10px 14px !important;
+          gap: 8px !important;
+          font-size: 11px !important;
+          zoom: 0.87 !important;
         }
-        #pdf-download-host table {
-          width: 100%;
-          border-collapse: collapse;
+        #pdf-download-host .ot-print-document > div {
+          box-sizing: border-box !important;
+        }
+        #pdf-download-host .ot-print-document table {
+          width: 100% !important;
+          border-collapse: collapse !important;
           page-break-inside: auto !important;
           break-inside: auto !important;
         }
-        #pdf-download-host thead {
+        #pdf-download-host .ot-print-document thead {
           display: table-header-group !important;
         }
-        #pdf-download-host tr {
+        #pdf-download-host .ot-print-document tr {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        #pdf-download-host .pdf-keep-together {
           page-break-inside: avoid !important;
           break-inside: avoid !important;
         }
         #pdf-download-host .pdf-avoid-break {
           page-break-inside: avoid !important;
           break-inside: avoid !important;
+        }
+
+        /* Compactación vertical de los bloques de la OP. */
+        #pdf-download-host .ot-print-document > div:first-child {
+          padding-bottom: 6px !important;
+          gap: 10px !important;
+        }
+        #pdf-download-host .ot-print-document > div:first-child > div:nth-child(2) > div {
+          min-width: 135px !important;
+          padding: 7px 14px !important;
+        }
+        #pdf-download-host .ot-print-document > div:first-child strong {
+          font-size: 13px !important;
+        }
+        #pdf-download-host .ot-print-document > div:nth-child(2) > div,
+        #pdf-download-host .ot-print-document > div:nth-child(3) {
+          padding: 7px 12px !important;
+        }
+        #pdf-download-host .ot-print-document #materiales-doc-section > div:first-child {
+          margin-bottom: 3px !important;
+        }
+        #pdf-download-host .ot-print-document .materiales-print-table th,
+        #pdf-download-host .ot-print-document .materiales-print-table td {
+          padding: 5px 7px !important;
+          font-size: 10px !important;
+          line-height: 1.2 !important;
+        }
+        #pdf-download-host .ot-print-document > div:nth-last-child(1) {
+          padding-top: 0 !important;
+          line-height: 1 !important;
         }
       `;
       pdfHost.appendChild(paginationStyle);
@@ -6179,11 +6228,13 @@
       container.style.boxSizing = 'border-box';
       container.style.pageBreakInside = 'auto';
       container.style.breakInside = 'auto';
-      // Etiquetamos automáticamente los bloques fuera de la tabla para que
-      // html2pdf no los parta entre dos páginas cuando todavía caben completos.
+      // Evitamos cortes dentro de bloques pequeños, pero no bloqueamos toda
+      // la estructura de la OP: si la tabla ocupa más de una página, el resto
+      // debe poder continuar normalmente. Esto evita que html2pdf recorte
+      // contenido al intentar mantener demasiados bloques juntos.
       Array.from(container.children).forEach((el, index) => {
-        el.classList.add('pdf-avoid-break');
         el.dataset.pdfSection = String(index + 1);
+        if (el.id !== 'materiales-doc-section') el.classList.add('pdf-keep-together');
       });
 
       // La sección que contiene la tabla de materiales sí puede crecer y
@@ -6233,12 +6284,10 @@
         // ancho). El margen izquierdo/derecho resultante es el mismo a
         // ambos lados, por lo que el documento queda centrado.
         const PDF_SCALE = 0.87;
-        const PAGE_WIDTH_MM = 215.9; // ancho de la hoja carta (portrait)
-        const scaledContentWidthMM = Math.round(190 * PDF_SCALE * 100) / 100;
-        const sideMarginMM = Math.round(((PAGE_WIDTH_MM - scaledContentWidthMM) / 2) * 100) / 100;
+        const sideMarginMM = 6;
 
         const opt = {
-          margin: [6, sideMarginMM, 6, sideMarginMM],
+          margin: [5, sideMarginMM, 5, sideMarginMM],
           filename,
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: {
