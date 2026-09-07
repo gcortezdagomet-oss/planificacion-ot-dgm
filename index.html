@@ -1277,6 +1277,12 @@
       return (str || '').toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     }
 
+    // Normalización adicional para calidades/normas escritas con distinta
+    // puntuación o espacios: "ASTM A-53" = "ASTM A - 53" = "ASTM A53".
+    function normalizeCatalogLoose(str) {
+      return normalizeStr(str).replace(/[^a-z0-9]/g, '');
+    }
+
     function getDocumentacionFabricacion() {
       return ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docSinDocumentacion'].filter(id => $(id) && $(id).checked).map(id => $(id).value);
     }
@@ -2011,7 +2017,13 @@
       ['material','tipo','calidad','medida'].forEach(field => {
         const value = optionValue(state[field]);
         if (value !== CATALOGO_VACIO) {
-          rows = rows.filter(r => normalizeStr(r[field] || '') === normalizeStr(rawCatalogValue(value)));
+          rows = rows.filter(r => {
+            const actual = r[field] || '';
+            const wanted = rawCatalogValue(value);
+            return field === 'calidad'
+              ? normalizeCatalogLoose(actual) === normalizeCatalogLoose(wanted)
+              : normalizeStr(actual) === normalizeStr(wanted);
+          });
         } else if (field !== 'tipo' && field !== 'norma') {
           // En campos obligatorios para identificar el registro, un vacío real
           // también debe coincidir con el catálogo vacío.
@@ -2026,14 +2038,14 @@
       // venir escritas con pequeñas diferencias de formato (por ejemplo
       // "Ø 11/2" vs "Ø 1 1/2"). Para materiales lineales resolvemos por
       // diámetro nominal cuando el texto de la medida no coincide literalmente.
-      if (rows.length === 0 && /^(CAÑERIA|CAÑERÍA|TUBO|TUBOS)$/i.test(String(state.material || '').trim())) {
+      if (rows.length === 0 && /(?:CAÑERIA|CAÑERÍA|TUBO|TUBOS)/i.test(String(state.material || '').trim())) {
         const nominalTexto = String(state.medida || '').match(/(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:[.,]\d+)?)\s*[″"'`]?/);
         if (nominalTexto) {
           const nominalBuscado = nominalADecimal(nominalTexto[1]);
           if (nominalBuscado) {
             let candidatos = getTablaPesos().filter(r =>
               normalizeStr(r.material) === normalizeStr(state.material) &&
-              normalizeStr(r.calidad || '') === normalizeStr(rawCatalogValue(state.calidad)) &&
+              normalizeCatalogLoose(r.calidad || '') === normalizeCatalogLoose(rawCatalogValue(state.calidad)) &&
               (!state.tipo || normalizeStr(r.tipo || '') === normalizeStr(rawCatalogValue(state.tipo))) &&
               r.unidad === 'm' &&
               r.medida &&
@@ -2229,14 +2241,39 @@
     // acepta tanto el largo en mm (6000) como expresiones habituales en metros
     // (6 m, 6 mt, 6 mts). Esto evita que una cañería de 6 m se interprete como
     // una pieza de 6 mm y que el peso resulte prácticamente cero.
+    function parseNumeroLocal(texto) {
+      let s = String(texto ?? '').trim().replace(/\s/g, '');
+      if (!s) return null;
+      // Admite formato chileno: 6.000 / 6,000 = 6000; 6,5 = 6.5.
+      if (/^\d+[.,]\d{3}$/.test(s)) s = s.replace(/[.,]/, '');
+      else s = s.replace(',', '.');
+      const n = Number(s);
+      return Number.isFinite(n) ? n : null;
+    }
+
     function parseLargoLinealMM(value) {
-      const raw = String(value ?? '').trim().replace(/,/g, '.');
+      const raw = String(value ?? '').trim();
       if (!raw) return null;
-      const m = raw.match(/^(\d+(?:\.\d+)?)\s*(?:m|mt|mts|metro|metros)\.?$/i);
+
+      // Largo expresado explícitamente en metros.
+      const m = raw.match(/^([\d.,]+)\s*(?:m|mt|mts|metro|metros)\.?$/i);
       if (m) {
-        const metros = Number(m[1]);
-        return Number.isFinite(metros) && metros > 0 ? metros * 1000 : null;
+        const metros = parseNumeroLocal(m[1]);
+        return metros > 0 ? metros * 1000 : null;
       }
+
+      // Largo expresado explícitamente en milímetros.
+      const mm = raw.match(/^([\d.,]+)\s*mm\.?$/i);
+      if (mm) {
+        const milimetros = parseNumeroLocal(mm[1]);
+        return milimetros > 0 ? milimetros : null;
+      }
+
+      // Sin unidad: en materiales lineales el campo se considera mm.
+      // También acepta 6.000 / 6,000 como 6000 mm.
+      const numero = parseNumeroLocal(raw);
+      if (numero > 0) return numero;
+
       const nums = parseDimensions(raw);
       return nums.length ? nums[nums.length - 1] : null;
     }
