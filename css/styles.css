@@ -582,7 +582,7 @@
         padding: 10px 14px !important;
         gap: 8px !important;
         font-size: 11px !important;
-        zoom: 0.87 !important;
+        zoom: var(--ot-print-zoom, 0.87) !important;
         margin-left: auto !important;
         margin-right: auto !important;
       }
