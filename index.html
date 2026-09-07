@@ -5885,8 +5885,52 @@
     //     fila, sin repetir encabezados dentro de UNA tabla) ya no tiene que
     //     adivinar dónde cortar una tabla larga: cada bloque cabe holgado en
     //     una página y el salto ya viene resuelto por CSS antes de rasterizar.
+    // Ajuste automático para impresión de una OP individual.
+    // Si la OP cabe en una sola hoja carta, la escala solo lo necesario para
+    // aprovechar la hoja y mantener el PLANIFICADOR dentro de la misma página.
+    // Si no cabe razonablemente, se mantiene una escala legible y se permite
+    // continuar en una segunda hoja.
+    function ajustarOTParaImpresion() {
+      const modal = $('preview-modal');
+      const doc = modal ? modal.querySelector('.ot-print-document') : null;
+      if (!doc || modal.classList.contains('is-report') || modal.classList.contains('is-chart')) return;
+
+      const PRINTABLE_HEIGHT_PX = 267.4 * (96 / 25.4); // carta - 6 mm arriba/abajo
+      const FIT_MARGIN = 0.985;
+      const MIN_READABLE_SCALE = 0.78;
+
+      // Quitamos temporalmente el zoom fijo para medir el documento real.
+      doc.style.setProperty('zoom', '1', 'important');
+      void doc.offsetHeight;
+      const naturalHeight = doc.getBoundingClientRect().height;
+
+      let scale = 0.87;
+      if (naturalHeight > 0) {
+        const fitScale = (PRINTABLE_HEIGHT_PX * FIT_MARGIN) / naturalHeight;
+        // Solo comprimimos para intentar que una OP que está cerca de caber
+        // entre completa en una hoja. Para OP grandes, dejamos que pagine.
+        scale = fitScale >= MIN_READABLE_SCALE ? Math.min(1, fitScale) : MIN_READABLE_SCALE;
+      }
+
+      doc.dataset.autoPrintZoom = String(scale);
+      doc.style.setProperty('zoom', String(scale), 'important');
+    }
+
+    function restaurarOTTrasImpresion() {
+      const modal = $('preview-modal');
+      const doc = modal ? modal.querySelector('.ot-print-document') : null;
+      if (!doc) return;
+      doc.style.removeProperty('zoom');
+      delete doc.dataset.autoPrintZoom;
+    }
+
+    window.addEventListener('beforeprint', ajustarOTParaImpresion);
+    window.addEventListener('afterprint', restaurarOTTrasImpresion);
+
     function buildMaterialesTableHTML(materialRowsList, totalKilos) {
-      const ROWS_PER_PAGE = 20; // holgado para caber en una hoja carta con margen
+      // Una sola tabla: el navegador/html2pdf puede repartirla naturalmente
+      // entre páginas y repetir el encabezado. Evitamos bloques fijos de 20
+      // filas, que podían crear una hoja en blanco o saltos prematuros.
       const headHtml = `
         <tr>
           <th style="padding: 8px 10px; text-align: left; font-size: 11px; background: #263581; color: #fff;">TIPO DE MATERIAL</th>
@@ -5903,31 +5947,16 @@
           <td style="text-align: right; padding: 8px 10px; color: #263581;">${totalKilos ? Math.floor(totalKilos) + ' KG' : '0 KG'}</td>
         </tr>
       `;
-
       const rows = materialRowsList || [];
-      const chunks = [];
-      for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
-        chunks.push(rows.slice(i, i + ROWS_PER_PAGE));
-      }
-      if (chunks.length === 0) chunks.push([]);
-
-      return chunks.map((rowsHtml, index) => {
-        const isLast = index === chunks.length - 1;
-        // El primer bloque continúa el flujo normal del documento; a partir
-        // del segundo, cada bloque comienza en una página nueva.
-        const breakStyle = index === 0 ? '' : 'break-before: page; page-break-before: always;';
-        return `
-          <div style="${breakStyle}">
-            <table class="materiales-print-table" style="width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-size: 12px;">
-              <thead>${headHtml}</thead>
-              <tbody>
-                ${rowsHtml.join('')}
-                ${isLast ? totalRowHtml : ''}
-              </tbody>
-            </table>
-          </div>
-        `;
-      }).join('');
+      return `
+        <table class="materiales-print-table" style="width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-size: 12px;">
+          <thead>${headHtml}</thead>
+          <tbody>
+            ${rows.join('')}
+            ${totalRowHtml}
+          </tbody>
+        </table>
+      `;
     }
 
     function buildDocumentDOM(o) {
@@ -6144,7 +6173,6 @@
           padding: 10px 14px !important;
           gap: 8px !important;
           font-size: 11px !important;
-          zoom: 0.87 !important;
         }
         #pdf-download-host .ot-print-document > div {
           box-sizing: border-box !important;
@@ -6228,24 +6256,14 @@
       container.style.boxSizing = 'border-box';
       container.style.pageBreakInside = 'auto';
       container.style.breakInside = 'auto';
-      // Evitamos cortes dentro de bloques pequeños, pero no bloqueamos toda
-      // la estructura de la OP: si la tabla ocupa más de una página, el resto
-      // debe poder continuar normalmente. Esto evita que html2pdf recorte
-      // contenido al intentar mantener demasiados bloques juntos.
-      Array.from(container.children).forEach((el, index) => {
-        el.dataset.pdfSection = String(index + 1);
-        if (el.id !== 'materiales-doc-section') el.classList.add('pdf-keep-together');
-      });
-
-      // La sección que contiene la tabla de materiales sí puede crecer y
-      // continuar en otra página. Sus filas mantienen el salto completo.
-      // Identificamos la sección por su id fijo (ver buildDocumentDOM) en
-      // vez de "la primera tabla del documento", ya que la tabla de
-      // materiales ahora puede estar dividida en varios bloques/tablas.
+      // Dejamos que todo el documento fluya naturalmente. Solo evitamos que
+      // una fila de materiales se parta; así los bloques finales (incluido
+      // PLANIFICADOR) pueden ocupar el espacio disponible sin generar una
+      // página artificialmente vacía.
       const materialSection = container.querySelector('#materiales-doc-section');
       if (materialSection) {
-        materialSection.classList.remove('pdf-avoid-break');
-        materialSection.querySelectorAll('table').forEach(t => t.classList.remove('pdf-avoid-break'));
+        materialSection.classList.remove('pdf-avoid-break', 'pdf-keep-together');
+        materialSection.querySelectorAll('table').forEach(t => t.classList.remove('pdf-avoid-break', 'pdf-keep-together'));
       }
 
       pdfHost.appendChild(container);
@@ -6276,14 +6294,17 @@
           requestAnimationFrame(resolve)
         ));
 
-        // Carta = 215.9 mm de ancho. El documento se captura a 190 mm,
-        // pero para descargarlo al 87% lo encajamos en un ancho de
-        // destino de 190 * 0.87 = 165.3 mm dentro del PDF: html2pdf
-        // escala la imagen capturada para que quepa exactamente en ese
-        // ancho, logrando el zoom al 87% de forma proporcional (alto y
-        // ancho). El margen izquierdo/derecho resultante es el mismo a
-        // ambos lados, por lo que el documento queda centrado.
-        const PDF_SCALE = 0.87;
+        // Ajuste automático: si el documento cabe en una hoja, se escala solo
+        // lo necesario; si es más largo, se conserva una escala legible y
+        // html2pdf continúa en la página siguiente.
+        const PRINTABLE_HEIGHT_PX = 267.4 * (96 / 25.4);
+        const MIN_READABLE_SCALE = 0.78;
+        container.style.setProperty('zoom', '1', 'important');
+        void container.offsetHeight;
+        const naturalHeight = container.getBoundingClientRect().height;
+        const fitScale = naturalHeight > 0 ? (PRINTABLE_HEIGHT_PX * 0.985) / naturalHeight : 0.87;
+        const PDF_SCALE = fitScale >= MIN_READABLE_SCALE ? Math.min(1, fitScale) : MIN_READABLE_SCALE;
+        container.style.setProperty('zoom', String(PDF_SCALE), 'important');
         const sideMarginMM = 6;
 
         const opt = {
@@ -6317,7 +6338,7 @@
             mode: ['css'],
             before: [],
             after: [],
-            avoid: ['tr', '.pdf-avoid-break', '.doc-section', '.no-break']
+            avoid: ['tr']
           }
         };
 
