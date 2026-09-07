@@ -11,45 +11,25 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="css/styles.css">
-  <style>
-    /* Ordenamiento de la tabla de Guías */
-    #guias-table thead th {
-      white-space: nowrap;
-    }
-    .guia-sort-btn {
-      appearance: none;
-      border: 0;
-      background: transparent;
-      color: inherit;
-      font: inherit;
-      font-weight: inherit;
-      padding: 6px 4px;
-      margin: -6px -4px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      width: 100%;
-      justify-content: center;
-      border-radius: 6px;
-      transition: background .15s ease, color .15s ease;
-    }
-    .guia-sort-btn:hover,
-    .guia-sort-btn.active {
-      background: rgba(255,255,255,.12);
-    }
-    .guia-sort-icon {
-      font-size: 13px;
-      line-height: 1;
-      opacity: .65;
-      min-width: 14px;
-    }
-    .guia-sort-btn.active .guia-sort-icon {
-      opacity: 1;
-      font-weight: 800;
-    }
-  </style>
-</head>
+
+    <style>
+      #area.campo-faltante {
+        outline: 2px solid #dc2626;
+        outline-offset: 1px;
+        background: #fef2f2;
+      }
+      .area-sin-definir {
+        display: inline-block;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: #fef2f2;
+        color: #b91c1c;
+        font-weight: 800;
+        font-size: .72rem;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
 <body>
 
   <div id="auth-overlay">
@@ -485,14 +465,14 @@
             <button type="button" class="deadline-filter-btn" data-filtro="hecha" onclick="setFiltroGuia('hecha')">✅ Hechas <span id="count-guia-hecha" class="deadline-filter-count">0</span></button>
           </div>
         </div>
-        <table id="guias-table">
+        <table>
           <thead>
             <tr>
-              <th><button type="button" class="guia-sort-btn" data-sort-key="cliente" onclick="sortGuias('cliente')" title="Ordenar por Cliente">Cliente <span class="guia-sort-icon">↕</span></button></th>
-              <th><button type="button" class="guia-sort-btn" data-sort-key="cd" onclick="sortGuias('cd')" title="Ordenar por REV. / CD">REV. / CD <span class="guia-sort-icon">↕</span></button></th>
-              <th><button type="button" class="guia-sort-btn" data-sort-key="fecha" onclick="sortGuias('fecha')" title="Ordenar por Fecha Llegada">Fecha Llegada <span class="guia-sort-icon">↕</span></button></th>
-              <th><button type="button" class="guia-sort-btn" data-sort-key="notas" onclick="sortGuias('notas')" title="Ordenar por Notas">Notas <span class="guia-sort-icon">↕</span></button></th>
-              <th><button type="button" class="guia-sort-btn" data-sort-key="estado" onclick="sortGuias('estado')" title="Ordenar por Estado">Estado <span class="guia-sort-icon">↕</span></button></th>
+              <th>Cliente</th>
+              <th>REV. / CD</th>
+              <th>Fecha Llegada</th>
+              <th>Notas</th>
+              <th>Estado</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -1720,7 +1700,13 @@
         if (currentVal) elem.value = currentVal;
       };
 
-      fill('area', db.areas);
+      const areaElem = $('area');
+      if (areaElem) {
+        const currentArea = areaElem.value;
+        areaElem.innerHTML = '<option value="">-- Seleccione Área --</option>' +
+          db.areas.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
+        if (currentArea) areaElem.value = currentArea;
+      }
       
       const maquinaElem = $('maquina');
       if (maquinaElem) {
@@ -2239,6 +2225,22 @@
       return nums.filter(n => Number.isFinite(n) && n > 0);
     }
 
+    // Para materiales lineales (CAÑERÍAS, TUBOS, PERFILES, CANALES, etc.)
+    // acepta tanto el largo en mm (6000) como expresiones habituales en metros
+    // (6 m, 6 mt, 6 mts). Esto evita que una cañería de 6 m se interprete como
+    // una pieza de 6 mm y que el peso resulte prácticamente cero.
+    function parseLargoLinealMM(value) {
+      const raw = String(value ?? '').trim().replace(/,/g, '.');
+      if (!raw) return null;
+      const m = raw.match(/^(\d+(?:\.\d+)?)\s*(?:m|mt|mts|metro|metros)\.?$/i);
+      if (m) {
+        const metros = Number(m[1]);
+        return Number.isFinite(metros) && metros > 0 ? metros * 1000 : null;
+      }
+      const nums = parseDimensions(raw);
+      return nums.length ? nums[nums.length - 1] : null;
+    }
+
     function calculateMaterialRowWeight(row, opts = {}) {
       // 'preserveIfNoMatch' se usa al RESTAURAR una fila ya guardada (editOP /
       // duplicateOP): si el peso guardado no se puede recalcular porque el
@@ -2333,11 +2335,13 @@
       // CANALES, TUBOS, CAÑERÍAS, PERFILES, PLETINAS, VIGAS, ETC.:
       // Peso(kg/m) × Largo(mm) × Cantidad / 1.000.
       else if (unidad === 'm') {
-        if (!dims.length) {
+        const largoMM = parseLargoLinealMM(dimText);
+        if (!(largoMM > 0)) {
           limpiarPeso();
           return;
         }
-        const largoMM = dims[dims.length - 1];
+        // El catálogo entrega kg/m para cañerías, tubos, canales, perfiles, etc.
+        // Por eso el largo se convierte de mm a metros antes de multiplicar.
         pesoFinal = (pesoCatalogo * largoMM * cant) / 1000;
       }
       // Elementos cuyo peso de catálogo ya corresponde a una unidad completa.
@@ -2816,8 +2820,15 @@
       const clientInput = $('cliente-input').value;
       const entregaInput = $('entrega').value;
 
-      if (!String(numInput).trim() || !clientInput.trim() || !entregaInput) {
-        alert('Por favor complete los campos obligatorios (N° OP, Cliente y Fecha de Entrega).');
+      const areaInput = String($('area').value || '').trim();
+
+      if (!String(numInput).trim() || !clientInput.trim() || !entregaInput || !areaInput) {
+        alert('Por favor complete los campos obligatorios (N° OP, Cliente, Fecha de Entrega y Área).');
+        if (!areaInput) {
+          $('area').focus();
+          $('area').classList.add('campo-faltante');
+          setTimeout(() => $('area')?.classList.remove('campo-faltante'), 1800);
+        }
         return;
       }
 
@@ -3442,7 +3453,7 @@
             <td>${getStatusBadge(o.estadoOp)}</td>
             <td><span style="background:var(--primary-light); color:var(--primary); padding: 2px 6px; border-radius: 4px; font-weight:700;">${esc(o.planificador||'GCC')}</span></td>
             <td>${esc(o.cliente)}</td>
-            <td>${esc(o.area)}</td>
+            <td>${o.area ? esc(o.area) : '<span class="area-sin-definir" title="Esta OP fue guardada sin Área. Edítala para asignarla.">⚠️ SIN ÁREA</span>'}</td>
             <td>${formatDateWithDayUpper(o.entrega)}</td>
             <td>${getPriorityBadge(o.prioridad)}</td>
             <td>${getSoldaduraTrackBadge(o) || '<span style="color:#cbd5e1;">-</span>'}</td>
@@ -3593,29 +3604,6 @@
       renderGuiasTable();
     }
 
-    let guiaSortKey = null;
-    let guiaSortDirection = 'asc';
-
-    function sortGuias(key) {
-      if (guiaSortKey === key) {
-        guiaSortDirection = guiaSortDirection === 'asc' ? 'desc' : 'asc';
-      } else {
-        guiaSortKey = key;
-        guiaSortDirection = 'asc';
-      }
-      renderGuiasTable();
-    }
-
-    function updateGuiasSortIndicators() {
-      document.querySelectorAll('.guia-sort-btn').forEach(btn => {
-        const icon = btn.querySelector('.guia-sort-icon');
-        const key = btn.getAttribute('data-sort-key');
-        const active = key === guiaSortKey;
-        btn.classList.toggle('active', active);
-        if (icon) icon.textContent = active ? (guiaSortDirection === 'asc' ? '↑' : '↓') : '↕';
-      });
-    }
-
     function renderGuiasTable() {
       const tbody = $('guias-table-body');
       if (!tbody) return;
@@ -3640,40 +3628,11 @@
         return true;
       });
 
-      // Orden por defecto: pendientes primero y, dentro de cada grupo,
-      // por fecha de llegada más antigua.
-      let ordenadas = [...filtered];
-
-      if (guiaSortKey) {
-        ordenadas.sort((a, b) => {
-          let av = a[guiaSortKey] ?? '';
-          let bv = b[guiaSortKey] ?? '';
-
-          if (guiaSortKey === 'fecha') {
-            av = String(av);
-            bv = String(bv);
-          } else if (guiaSortKey === 'estado') {
-            // PENDIENTE antes que HECHA en orden ascendente.
-            av = av === 'HECHA' ? 1 : 0;
-            bv = bv === 'HECHA' ? 1 : 0;
-          } else {
-            av = normalizeStr(av);
-            bv = normalizeStr(bv);
-          }
-
-          let result = 0;
-          if (av < bv) result = -1;
-          else if (av > bv) result = 1;
-          return guiaSortDirection === 'asc' ? result : -result;
-        });
-      } else {
-        ordenadas.sort((a, b) => {
-          if (a.estado !== b.estado) return a.estado === 'HECHA' ? 1 : -1;
-          return String(a.fecha || '').localeCompare(String(b.fecha || ''));
-        });
-      }
-
-      updateGuiasSortIndicators();
+      // Pendientes primero (por fecha de llegada más antigua), luego hechas.
+      const ordenadas = [...filtered].sort((a, b) => {
+        if (a.estado !== b.estado) return a.estado === 'HECHA' ? 1 : -1;
+        return String(a.fecha || '').localeCompare(String(b.fecha || ''));
+      });
 
       tbody.innerHTML = ordenadas.length === 0
         ? `<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-faint); font-style:italic;">No hay guías que coincidan con el filtro seleccionado.</td></tr>`
