@@ -568,6 +568,17 @@
         margin-left: auto !important;
         margin-right: auto !important;
       }
+      /* Impresión (navegador) del documento de OP individual: se escala al
+         87% y se mantiene centrada horizontalmente. Se excluye
+         deliberadamente cuando el modal está mostrando un Reporte
+         (.is-report) o un Gráfico (.is-chart), ya que el ajuste solo aplica
+         al documento de OP (ver reglas de is-report/is-chart más abajo, que
+         definen su propio tamaño). Coincide con el mismo 87% centrado que
+         usa la descarga de PDF (ver generatePDF / PDF_SCALE en el JS). */
+      #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container {
+        transform: scale(0.87) !important;
+        transform-origin: top center !important;
+      }
       /* Cuando el modal muestra un reporte (ver JS: previewReport agrega la
          clase 'is-report' a #preview-modal), se imprime en la página
          "reporte" (horizontal) y con un ancho acorde a hoja carta apaisada. */
