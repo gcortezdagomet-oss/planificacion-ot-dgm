@@ -6378,10 +6378,11 @@
       // documento imprimible (clase no-print) para que nunca salga en el PDF.
       previewContainer.appendChild(buildDocAdjuntosPreviewBlock(o));
 
-      // SOLO LECTURA puede imprimir la OP, pero no descargarla como PDF.
-      $('modal-download-btn').style.display = 'none';
-      $('modal-print-btn').style.display = '';
+      // En la vista previa de cada OT dejamos disponibles tanto
+      // la descarga directa del PDF como la impresión.
+      $('modal-download-btn').style.display = '';
       $('modal-download-btn').onclick = () => generatePDF(id);
+      $('modal-print-btn').style.display = '';
       $('modal-download-excel-btn').style.display = 'none';
       $('preview-modal').classList.remove('is-report', 'is-chart');
       $('preview-modal').style.display = 'flex';
