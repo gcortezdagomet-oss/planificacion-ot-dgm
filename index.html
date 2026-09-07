@@ -28,16 +28,11 @@
         font-size: .72rem;
         white-space: nowrap;
       }
-      /* Impresión (navegador) de la OP individual: se escala al 87% y se
-         mantiene centrada horizontalmente. Se excluye deliberadamente cuando
-         el modal está mostrando un Reporte (.is-report) o un Gráfico
-         (.is-chart), ya que el ajuste solo aplica al documento de OP. */
-      @media print {
-        #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container {
-          transform: scale(0.87) !important;
-          transform-origin: top center !important;
-        }
-      }
+      /* El escalado al 87% centrado del documento de OP individual al
+         imprimir vive ahora en css/styles.css (dentro de @media print),
+         junto al resto de reglas de impresión, para no duplicar la regla
+         en dos archivos. Ver ahí: "#preview-modal:not(.is-report)
+         :not(.is-chart) #modal-preview-container". */
     </style>
   </head>
 <body>
