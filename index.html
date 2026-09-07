@@ -11,6 +11,44 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="css/styles.css">
+  <style>
+    /* Ordenamiento de la tabla de Guías */
+    #guias-table thead th {
+      white-space: nowrap;
+    }
+    .guia-sort-btn {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      font-weight: inherit;
+      padding: 6px 4px;
+      margin: -6px -4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      width: 100%;
+      justify-content: center;
+      border-radius: 6px;
+      transition: background .15s ease, color .15s ease;
+    }
+    .guia-sort-btn:hover,
+    .guia-sort-btn.active {
+      background: rgba(255,255,255,.12);
+    }
+    .guia-sort-icon {
+      font-size: 13px;
+      line-height: 1;
+      opacity: .65;
+      min-width: 14px;
+    }
+    .guia-sort-btn.active .guia-sort-icon {
+      opacity: 1;
+      font-weight: 800;
+    }
+  </style>
 </head>
 <body>
 
@@ -447,14 +485,14 @@
             <button type="button" class="deadline-filter-btn" data-filtro="hecha" onclick="setFiltroGuia('hecha')">✅ Hechas <span id="count-guia-hecha" class="deadline-filter-count">0</span></button>
           </div>
         </div>
-        <table>
+        <table id="guias-table">
           <thead>
             <tr>
-              <th>Cliente</th>
-              <th>REV. / CD</th>
-              <th>Fecha Llegada</th>
-              <th>Notas</th>
-              <th>Estado</th>
+              <th><button type="button" class="guia-sort-btn" data-sort-key="cliente" onclick="sortGuias('cliente')" title="Ordenar por Cliente">Cliente <span class="guia-sort-icon">↕</span></button></th>
+              <th><button type="button" class="guia-sort-btn" data-sort-key="cd" onclick="sortGuias('cd')" title="Ordenar por REV. / CD">REV. / CD <span class="guia-sort-icon">↕</span></button></th>
+              <th><button type="button" class="guia-sort-btn" data-sort-key="fecha" onclick="sortGuias('fecha')" title="Ordenar por Fecha Llegada">Fecha Llegada <span class="guia-sort-icon">↕</span></button></th>
+              <th><button type="button" class="guia-sort-btn" data-sort-key="notas" onclick="sortGuias('notas')" title="Ordenar por Notas">Notas <span class="guia-sort-icon">↕</span></button></th>
+              <th><button type="button" class="guia-sort-btn" data-sort-key="estado" onclick="sortGuias('estado')" title="Ordenar por Estado">Estado <span class="guia-sort-icon">↕</span></button></th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -3555,6 +3593,29 @@
       renderGuiasTable();
     }
 
+    let guiaSortKey = null;
+    let guiaSortDirection = 'asc';
+
+    function sortGuias(key) {
+      if (guiaSortKey === key) {
+        guiaSortDirection = guiaSortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        guiaSortKey = key;
+        guiaSortDirection = 'asc';
+      }
+      renderGuiasTable();
+    }
+
+    function updateGuiasSortIndicators() {
+      document.querySelectorAll('.guia-sort-btn').forEach(btn => {
+        const icon = btn.querySelector('.guia-sort-icon');
+        const key = btn.getAttribute('data-sort-key');
+        const active = key === guiaSortKey;
+        btn.classList.toggle('active', active);
+        if (icon) icon.textContent = active ? (guiaSortDirection === 'asc' ? '↑' : '↓') : '↕';
+      });
+    }
+
     function renderGuiasTable() {
       const tbody = $('guias-table-body');
       if (!tbody) return;
@@ -3579,11 +3640,40 @@
         return true;
       });
 
-      // Pendientes primero (por fecha de llegada más antigua), luego hechas.
-      const ordenadas = [...filtered].sort((a, b) => {
-        if (a.estado !== b.estado) return a.estado === 'HECHA' ? 1 : -1;
-        return String(a.fecha || '').localeCompare(String(b.fecha || ''));
-      });
+      // Orden por defecto: pendientes primero y, dentro de cada grupo,
+      // por fecha de llegada más antigua.
+      let ordenadas = [...filtered];
+
+      if (guiaSortKey) {
+        ordenadas.sort((a, b) => {
+          let av = a[guiaSortKey] ?? '';
+          let bv = b[guiaSortKey] ?? '';
+
+          if (guiaSortKey === 'fecha') {
+            av = String(av);
+            bv = String(bv);
+          } else if (guiaSortKey === 'estado') {
+            // PENDIENTE antes que HECHA en orden ascendente.
+            av = av === 'HECHA' ? 1 : 0;
+            bv = bv === 'HECHA' ? 1 : 0;
+          } else {
+            av = normalizeStr(av);
+            bv = normalizeStr(bv);
+          }
+
+          let result = 0;
+          if (av < bv) result = -1;
+          else if (av > bv) result = 1;
+          return guiaSortDirection === 'asc' ? result : -result;
+        });
+      } else {
+        ordenadas.sort((a, b) => {
+          if (a.estado !== b.estado) return a.estado === 'HECHA' ? 1 : -1;
+          return String(a.fecha || '').localeCompare(String(b.fecha || ''));
+        });
+      }
+
+      updateGuiasSortIndicators();
 
       tbody.innerHTML = ordenadas.length === 0
         ? `<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-faint); font-style:italic;">No hay guías que coincidan con el filtro seleccionado.</td></tr>`
