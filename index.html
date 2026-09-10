@@ -4995,56 +4995,62 @@
         .sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')) ||
           String(a.trabajador || '').localeCompare(String(b.trabajador || '')));
 
-      const total = registros.reduce((a, r) => a + (Number(r.horas) || 0), 0);
       const previewContainer = $('modal-preview-container');
       if (!previewContainer) return;
 
+      // Columnas del reporte (sin horas: solo se listan los registros).
+      const heCols = [
+        { label: 'Fecha', align: 'left', weight: 20 },
+        { label: 'Trabajador', align: 'left', weight: 28 },
+        { label: 'N° OP', align: 'center', weight: 14 },
+        { label: 'Motivo', align: 'left', weight: 38 }
+      ];
+      const totalWeight = heCols.reduce((a, c) => a + c.weight, 0);
+      const colgroupHtml = heCols.map(c => `<col style="width:${(c.weight / totalWeight * 100).toFixed(2)}%;">`).join('');
+      const theadHtml = heCols.map(c => `<th style="padding:7px 9px; text-align:${c.align}; font-size:10px; text-transform:uppercase; color:#64748b; border-bottom:2px solid #cbd5e1;">${esc(c.label)}</th>`).join('');
+
       const filas = registros.map(r => `
-        <tr style="page-break-inside:avoid; break-inside:avoid;">
-          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0;">${esc(formatDateWithDayUpper(r.fecha))}</td>
-          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0;"><b>${esc(r.trabajador || '-')}</b></td>
-          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:center;">${r.op ? `OP ${esc(r.op)}` : '-'}</td>
-          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:center;"><b>${esc(String(r.horas ?? ''))}</b></td>
-          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0;">${esc(r.motivo || '-')}</td>
+        <tr style="page-break-inside:avoid;">
+          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:left; font-size:12px; vertical-align:top;">${esc(formatDateWithDayUpper(r.fecha))}</td>
+          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:left; font-size:12px; vertical-align:top;"><b>${esc(r.trabajador || '-')}</b></td>
+          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:center; font-size:12px; vertical-align:top;">${r.op ? `OP ${esc(r.op)}` : '-'}</td>
+          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:left; font-size:12px; vertical-align:top; word-break:normal; overflow-wrap:anywhere; white-space:normal;">${esc(r.motivo || '-')}</td>
         </tr>`).join('');
 
       const fechaRango = `${formatDateWithDayUpper(desde)} al ${formatDateWithDayUpper(hasta)}`;
 
-      previewContainer.innerHTML = `
-        <div class="he-print-report" style="width:100%; max-width:1000px; margin:0 auto; background:#fff; font-family:Inter,system-ui,sans-serif; color:#1e293b;">
-          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #263581; padding-bottom:10px; margin-bottom:14px;">
+      const container = document.createElement('div');
+      container.className = 'he-print-report';
+      container.style.cssText = 'width: 1000px; margin: 0 auto; padding: 20px 26px; background: #ffffff; color: #1e293b; font-family: "Inter", sans-serif; font-size: 12px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box;';
+      container.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #f1f5f9; padding-bottom:12px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <img src="${IMG_LOGO2}" onerror="this.style.display='none'" style="height:48px; width:auto; max-width:150px; object-fit:contain;">
             <div>
-              <div style="font-size:18px; font-weight:800; color:#263581;">DAGOMET · REPORTE DE HORAS EXTRAS</div>
-              <div style="font-size:11px; color:#64748b; font-weight:600; margin-top:2px;">${esc(fechaRango)}</div>
-            </div>
-            <div style="text-align:right; font-size:10px; color:#94a3b8;">
-              Generado el ${esc(formatDateWithDayUpper(todayKey()))}
+              <div style="font-size:16px; font-weight:800; color:#263581;">Reporte de Horas Extras</div>
+              <div style="font-size:11px; color:#64748b; font-weight:600;">${esc(fechaRango)}</div>
             </div>
           </div>
-
-          <table style="width:100%; border-collapse:collapse; font-size:11px; table-layout:fixed;">
-            <colgroup>
-              <col style="width:17%;"><col style="width:28%;"><col style="width:14%;"><col style="width:11%;"><col style="width:30%;">
-            </colgroup>
-            <thead>
-              <tr style="background:#eef2ff; color:#263581;">
-                <th style="padding:8px 9px; text-align:left; border-bottom:1px solid #c3cbd6;">Fecha</th>
-                <th style="padding:8px 9px; text-align:left; border-bottom:1px solid #c3cbd6;">Trabajador</th>
-                <th style="padding:8px 9px; text-align:center; border-bottom:1px solid #c3cbd6;">N° OP</th>
-                <th style="padding:8px 9px; text-align:center; border-bottom:1px solid #c3cbd6;">Horas</th>
-                <th style="padding:8px 9px; text-align:left; border-bottom:1px solid #c3cbd6;">Motivo</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filas || `<tr><td colspan="5" style="padding:24px; text-align:center; color:#94a3b8; font-style:italic;">No hay horas extra registradas en el rango seleccionado.</td></tr>`}
-            </tbody>
-          </table>
-
-          <div style="display:flex; justify-content:flex-end; gap:28px; padding-top:10px; margin-top:2px; border-top:1px solid #cbd5e1; font-size:12px;">
-            <div><b>${registros.length}</b> registro(s)</div>
-            <div><b>${total}</b> horas extra totales</div>
+          <div style="text-align:right; font-size:10px; color:#94a3b8;">
+            Generado el ${esc(formatDateWithDayUpper(todayKey()))}
           </div>
-        </div>`;
+        </div>
+
+        <table style="width:100%; max-width:100%; border-collapse:collapse; table-layout:fixed;">
+          <colgroup>${colgroupHtml}</colgroup>
+          <thead>
+            <tr style="background:#f8fafc; page-break-inside:avoid;">${theadHtml}</tr>
+          </thead>
+          <tbody>${filas || `<tr><td colspan="${heCols.length}" style="padding:20px; text-align:center; color:#94a3b8; font-style:italic;">No hay horas extra registradas en el rango seleccionado.</td></tr>`}</tbody>
+        </table>
+
+        <div class="report-footer-summary" style="display:flex; justify-content:flex-end; gap:24px; padding-top:10px; border-top:1px solid #f1f5f9; font-size:11px; color:#334155; page-break-inside:avoid; break-inside:avoid;">
+          <div><b>${registros.length}</b> registro(s)</div>
+        </div>
+      `;
+
+      previewContainer.innerHTML = '';
+      previewContainer.appendChild(container);
 
       $('modal-download-btn').style.display = 'none';
       $('modal-download-excel-btn').style.display = 'none';
