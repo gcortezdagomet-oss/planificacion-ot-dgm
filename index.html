@@ -4739,7 +4739,7 @@
     // HORAS EXTRAS DE TRABAJADORES (SOLO ADMIN)
     // Registro por día, en un calendario propio, de las horas extra
     // trabajadas por cada persona del catálogo db.people. Se guarda en
-    // db.horasExtra = [{ id, fecha, trabajador, horas, motivo, registradoPor, createdAt }]
+    // db.horasExtra = [{ id, fecha, trabajador, op, horas, motivo, registradoPor, createdAt }]
     // =====================================================================
     let heYear = new Date().getFullYear();
     let heMonth = new Date().getMonth(); // 0-based
@@ -4800,6 +4800,8 @@
         html += `<div class="cal-day cal-day-empty"></div>`;
       }
 
+      const HE_MAX_VISIBLES_EN_CELDA = 3;
+
       for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = dateKey(heYear, heMonth, day);
         const registros = getHorasExtraByDate(dateStr);
@@ -4807,14 +4809,22 @@
         const dowIndex = (startOffset + day - 1) % 7;
         const esFinDeSemana = dowIndex === 5 || dowIndex === 6;
 
-        let cls = 'cal-day';
+        let cls = 'cal-day cal-day-he';
         if (esFinDeSemana) cls += ' cal-day-weekend';
         if (dateStr === hoy) cls += ' cal-day-hoy';
         else if (registros.length > 0) cls += ' cal-day-conentregas';
         if (dateStr === heSelectedDate) cls += ' cal-day-selected';
 
         const badge = registros.length > 0 ? `<span class="cal-day-badge">${totalHoras}h · ${registros.length}</span>` : '';
-        html += `<div class="${cls}" onclick="selectHEDay('${dateStr}')"><span class="cal-day-num">${day}</span>${badge}</div>`;
+
+        const itemsVisibles = registros.slice(0, HE_MAX_VISIBLES_EN_CELDA)
+          .map(r => `<div class="cal-day-he-item"><span class="cal-day-he-trab">${esc(r.trabajador)}</span>${r.op ? ` <span class="cal-day-he-op">OP ${esc(r.op)}</span>` : ''}</div>`)
+          .join('');
+        const restantes = registros.length - HE_MAX_VISIBLES_EN_CELDA;
+        const masTag = restantes > 0 ? `<div class="cal-day-he-item cal-day-he-mas">+${restantes} más</div>` : '';
+        const lista = registros.length > 0 ? `<div class="cal-day-he-list">${itemsVisibles}${masTag}</div>` : '';
+
+        html += `<div class="${cls}" onclick="selectHEDay('${dateStr}')"><span class="cal-day-num">${day}</span>${badge}${lista}</div>`;
       }
 
       $('he-grid').innerHTML = html;
@@ -4828,10 +4838,14 @@
       }
       const registros = getHorasExtraByDate(heSelectedDate);
       const opcionesTrabajadores = (db.people || []).map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+      const opcionesOP = (db.ots || [])
+        .filter(o => o.numero)
+        .map(o => `<option value="${esc(o.numero)}">`).join('');
 
       const filas = registros.map(r => `
         <tr>
           <td>${esc(r.trabajador)}</td>
+          <td>${r.op ? `OP ${esc(r.op)}` : '-'}</td>
           <td style="text-align:center;">${esc(String(r.horas))}</td>
           <td>${esc(r.motivo || '-')}</td>
           <td style="white-space:nowrap;">
@@ -4856,6 +4870,10 @@
                 ${opcionesTrabajadores}
               </select>
             </label>
+            <label style="width:130px;">N° OP (opcional)
+              <input id="he-input-op" type="text" list="he-op-datalist" placeholder="Ej: 1234">
+              <datalist id="he-op-datalist">${opcionesOP}</datalist>
+            </label>
             <label style="width:110px;">Horas
               <input id="he-input-horas" type="number" min="0.5" step="0.5" placeholder="Ej: 2">
             </label>
@@ -4869,7 +4887,7 @@
         ${registros.length === 0
           ? `<div class="stat-empty">Aún no hay horas extra registradas este día.</div>`
           : `<table>
-              <thead><tr><th>Trabajador</th><th>Horas</th><th>Motivo</th><th>Acciones</th></tr></thead>
+              <thead><tr><th>Trabajador</th><th>N° OP</th><th>Horas</th><th>Motivo</th><th>Acciones</th></tr></thead>
               <tbody>${filas}</tbody>
             </table>`
         }
@@ -4879,9 +4897,11 @@
     function addHorasExtra() {
       if (!heSelectedDate) return;
       const trabajadorInput = $('he-input-trabajador');
+      const opInput = $('he-input-op');
       const horasInput = $('he-input-horas');
       const motivoInput = $('he-input-motivo');
       const trabajador = (trabajadorInput.value || '').trim();
+      const op = (opInput.value || '').trim();
       const horas = parseFloat(horasInput.value);
       const motivo = (motivoInput.value || '').trim();
       if (!trabajador) { alert('Selecciona un trabajador.'); return; }
@@ -4891,6 +4911,7 @@
         id: 'he-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
         fecha: heSelectedDate,
         trabajador,
+        op,
         horas,
         motivo,
         registradoPor: window.dagometCurrentProfile?.nombre || '-',
@@ -4910,8 +4931,11 @@
       if (nuevasHoras === null) return;
       const n = parseFloat(nuevasHoras);
       if (!n || n <= 0) { alert('Cantidad de horas no válida.'); return; }
+      const nuevoOP = prompt('N° OP (opcional):', r.op || '');
+      if (nuevoOP === null) return;
       const nuevoMotivo = prompt('Motivo (opcional):', r.motivo || '');
       r.horas = n;
+      r.op = (nuevoOP || '').trim();
       r.motivo = (nuevoMotivo || '').trim();
       saveDB();
       renderHESelectedDetail();
