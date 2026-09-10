@@ -336,6 +336,16 @@
     }
     .cal-day.cal-day-vencido .cal-day-badge { background: #dc2626; }
     .cal-day.cal-day-conentregas .cal-day-badge { background: #d97706; }
+    /* Calendario de horas extra: lista de trabajador + OP dentro de la celda */
+    .cal-day.cal-day-he { min-height: 92px; }
+    .cal-day-he-list { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; overflow: hidden; }
+    .cal-day-he-item {
+      font-size: 0.62rem; font-weight: 700; line-height: 1.25; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cal-day-he-trab { color: var(--text); }
+    .cal-day-he-op { color: #d97706; font-weight: 800; }
+    .cal-day-he-mas { color: var(--text-muted); font-weight: 700; font-style: italic; }
     /* Feriados de Chile: se marcan con un borde y una etiqueta violeta, sin pisar
        los demás estados del día (hoy / vencido / con entregas). */
     .cal-day.cal-day-feriado { border-left: 3px solid #8b5cf6; }
@@ -508,6 +518,16 @@
       #tab-calendar > .card > div:nth-of-type(3) { align-items:stretch !important; }
       #tab-calendar > .card > div:nth-of-type(3) > div { width:100%; justify-content:center; }
       #tab-calendar > .card > div:nth-of-type(3) > div + div { width:100%; justify-content:center; }
+
+      /* Horas extra: mismo tratamiento móvil que el calendario de entregas */
+      #tab-horas-extra .card { padding:14px !important; }
+      #tab-horas-extra .cal-grid { gap:5px !important; }
+      #tab-horas-extra .cal-day { padding:6px 4px !important; gap:5px !important; border-radius:8px; }
+      #tab-horas-extra .cal-day.cal-day-he { min-height:98px !important; }
+      #tab-horas-extra .cal-day-num { font-size:.72rem !important; }
+      #tab-horas-extra .cal-day-badge { font-size:.56rem !important; padding:2px 4px !important; max-width:100%; }
+      #tab-horas-extra .cal-day-he-item { font-size:.56rem !important; }
+      #tab-horas-extra .cal-legend { gap:8px 12px !important; margin-bottom:14px !important; font-size:.66rem !important; }
 
       /* Dashboard: cada bloque queda claramente separado */
       #tab-stats .card { padding:14px !important; }
