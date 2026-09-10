@@ -88,6 +88,7 @@
       <button class="tab-btn" data-tab-id="tab-calendar" onclick="switchTab('tab-calendar')">📅 Calendario</button>
       <button class="tab-btn" data-tab-id="tab-planta" onclick="switchTab('tab-planta')">🖥️ Vista de Planta</button>
       <button class="tab-btn" data-tab-id="tab-stats" onclick="switchTab('tab-stats')">Dashboard / Estadísticas</button>
+      <button class="tab-btn" data-tab-id="tab-horas-extra" onclick="switchTab('tab-horas-extra')" id="btn-tab-horas-extra" style="display:none;">⏱️ Horas Extras</button>
       <button class="tab-btn" data-tab-id="tab-db" onclick="switchTab('tab-db')">Base de Datos</button>
     </div>
 
@@ -520,6 +521,37 @@
         <div id="cal-grid" class="cal-grid"></div>
 
         <div id="cal-day-detail" style="margin-top:24px;"></div>
+      </div>
+    </div>
+
+    <!-- TAB: HORAS EXTRAS (SOLO ADMINISTRADOR) -->
+    <div id="tab-horas-extra" class="tab-content">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:6px;">
+          <h2 style="margin:0;">⏱️ Horas Extras de Trabajadores</h2>
+        </div>
+        <p style="color:var(--text-muted); font-size:.85rem; margin-top:0;">Selecciona un día del calendario para registrar las horas extra trabajadas por cada persona.</p>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn btn-secondary btn-sm" onclick="changeHEMonth(-1)">◀</button>
+            <span id="he-month-title" style="font-weight:800; color:var(--primary); font-size:1.05rem; min-width:170px; text-align:center;"></span>
+            <button class="btn btn-secondary btn-sm" onclick="changeHEMonth(1)">▶</button>
+            <button class="btn btn-secondary btn-sm" onclick="goToHEToday()">Hoy</button>
+          </div>
+        </div>
+
+        <div class="cal-legend">
+          <div class="cal-legend-item"><span class="cal-legend-swatch" style="background:var(--primary-light); border-color:var(--primary);"></span> Hoy</div>
+          <div class="cal-legend-item"><span class="cal-legend-swatch" style="background:#fffbeb; border-color:#fde68a;"></span> Con horas extra registradas</div>
+          <div class="cal-legend-item"><span class="cal-legend-swatch" style="background:#fff; border-left:3px solid #fca5a5;"></span> Fin de semana</div>
+        </div>
+
+        <div id="he-grid" class="cal-grid"></div>
+
+        <div id="he-day-detail" style="margin-top:24px;"></div>
+
+        <div id="he-month-summary" style="margin-top:28px;"></div>
       </div>
     </div>
 
@@ -996,6 +1028,9 @@
         document.querySelectorAll('.tab-btn[data-tab-id]').forEach(btn=>btn.style.display='');
         document.getElementById('new-op-btn')?.style.removeProperty('display');
       }
+      // La pestaña de Horas Extras es exclusiva del rol admin.
+      const heBtn=document.getElementById('btn-tab-horas-extra');
+      if(heBtn) heBtn.style.display = profile?.rol==='admin' ? '' : 'none';
     };
     const setLoggedUI=(profile,user)=>{overlay.style.display='none';sessionBar.style.display='flex';userLabel.textContent=profile?.nombre||user?.email||'Usuario';roleLabel.textContent=profile?.rol==='read_only'?'SOLO LECTURA':(profile?.rol||'EDITOR').toUpperCase();appRoot.style.visibility='visible';applyRoleRestrictions(profile);};
     if(!window.supabase || window.DAGOMET_SUPABASE_URL.startsWith('PEGA_AQUI')){loading.innerHTML='<b>Falta configurar Supabase.</b><br><br>Completa DAGOMET_SUPABASE_URL y DAGOMET_SUPABASE_ANON_KEY con los datos de tu proyecto.';return {configured:false,authenticated:false};}
@@ -1175,7 +1210,8 @@
         'CARLOS RUIZ (MAESTRO)', 'MARCELO VALDES (MAESTRO)', 'JUAN PARRA (MAESTRO)', 'LUIS ÁVILA (AYUDANTE)', 'RENE MARTINEZ (MAESTRO)',
         'GABRIEL VARGAS (MAESTRO)', 'CRISTIAN ACEVEDO (CONDUCTOR)'
       ],
-      ots: []
+      ots: [],
+      horasExtra: []
     };
 
     const defaultNotes = {
@@ -1205,6 +1241,7 @@
     if (Object.prototype.hasOwnProperty.call(db, 'commonMaterials')) { delete db.commonMaterials; saveDB(); }
     if(!Array.isArray(db.pesosMateriales)) db.pesosMateriales = null;
     if (!Array.isArray(db.guias)) db.guias = [];
+    if (!Array.isArray(db.horasExtra)) db.horasExtra = [];
 
     if (db.clients && db.clients.length > 0 && typeof db.clients[0] === 'string') {
       db.clients = db.clients.map(c => ({ rut: 'S/RUT', name: c }));
@@ -1619,6 +1656,9 @@
           !['tab-list','tab-calendar','tab-planta','tab-stats'].includes(tabId)) {
         tabId = 'tab-list';
       }
+      if (tabId === 'tab-horas-extra' && window.dagometCurrentProfile?.rol !== 'admin') {
+        tabId = 'tab-list';
+      }
       const currentActive = document.querySelector('.tab-content.active');
       if (currentActive && currentActive.id === 'tab-form' && tabId !== 'tab-form') {
         if (!confirmarDescartarCambios('Tienes cambios sin guardar en la OT actual.\n\n¿Deseas salir sin guardar? Se perderán los cambios.')) return;
@@ -1635,6 +1675,7 @@
       if(tabId === 'tab-guias') renderGuiasTable();
       if(tabId === 'tab-stats') renderStats();
       if(tabId === 'tab-calendar') renderCalendarTab();
+      if(tabId === 'tab-horas-extra') renderHorasExtraTab();
       if(tabId === 'tab-planta') renderPlantaTab();
       if(tabId === 'tab-db') renderMasterLists();
       toggleDashboardAutoRefresh(tabId === 'tab-stats');
@@ -4690,6 +4731,228 @@
         <table>
           <thead><tr><th>OP</th><th>Cliente</th><th>Área</th><th>Estado</th><th>Prioridad</th><th>Acciones</th></tr></thead>
           <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    // =====================================================================
+    // HORAS EXTRAS DE TRABAJADORES (SOLO ADMIN)
+    // Registro por día, en un calendario propio, de las horas extra
+    // trabajadas por cada persona del catálogo db.people. Se guarda en
+    // db.horasExtra = [{ id, fecha, trabajador, horas, motivo, registradoPor, createdAt }]
+    // =====================================================================
+    let heYear = new Date().getFullYear();
+    let heMonth = new Date().getMonth(); // 0-based
+    let heSelectedDate = null; // 'YYYY-MM-DD' | null
+
+    function ensureHorasExtra() {
+      if (!Array.isArray(db.horasExtra)) db.horasExtra = [];
+    }
+
+    function getHorasExtraByDate(dateStr) {
+      ensureHorasExtra();
+      return db.horasExtra.filter(h => h.fecha === dateStr);
+    }
+
+    function renderHorasExtraTab() {
+      if (window.dagometCurrentProfile?.rol !== 'admin') return;
+      ensureHorasExtra();
+      renderHEGrid();
+      renderHESelectedDetail();
+      renderHEMonthSummary();
+    }
+
+    function changeHEMonth(delta) {
+      heMonth += delta;
+      if (heMonth < 0) { heMonth = 11; heYear--; }
+      if (heMonth > 11) { heMonth = 0; heYear++; }
+      renderHEGrid();
+      renderHEMonthSummary();
+    }
+
+    function goToHEToday() {
+      const d = new Date();
+      heYear = d.getFullYear();
+      heMonth = d.getMonth();
+      heSelectedDate = todayKey();
+      renderHEGrid();
+      renderHESelectedDetail();
+      renderHEMonthSummary();
+    }
+
+    function selectHEDay(dateStr) {
+      heSelectedDate = (heSelectedDate === dateStr) ? null : dateStr;
+      renderHEGrid();
+      renderHESelectedDetail();
+    }
+
+    function renderHEGrid() {
+      $('he-month-title').innerText = `${CAL_MESES[heMonth]} ${heYear}`;
+
+      const hoy = todayKey();
+      const firstDayOfMonth = new Date(heYear, heMonth, 1);
+      const startOffset = (firstDayOfMonth.getDay() + 6) % 7;
+      const daysInMonth = new Date(heYear, heMonth + 1, 0).getDate();
+
+      let html = CAL_DIAS_SEMANA.map((d, i) => `<div class="cal-weekday${i >= 5 ? ' cal-weekday-weekend' : ''}">${d}</div>`).join('');
+
+      for (let i = 0; i < startOffset; i++) {
+        html += `<div class="cal-day cal-day-empty"></div>`;
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = dateKey(heYear, heMonth, day);
+        const registros = getHorasExtraByDate(dateStr);
+        const totalHoras = registros.reduce((a, r) => a + (Number(r.horas) || 0), 0);
+        const dowIndex = (startOffset + day - 1) % 7;
+        const esFinDeSemana = dowIndex === 5 || dowIndex === 6;
+
+        let cls = 'cal-day';
+        if (esFinDeSemana) cls += ' cal-day-weekend';
+        if (dateStr === hoy) cls += ' cal-day-hoy';
+        else if (registros.length > 0) cls += ' cal-day-conentregas';
+        if (dateStr === heSelectedDate) cls += ' cal-day-selected';
+
+        const badge = registros.length > 0 ? `<span class="cal-day-badge">${totalHoras}h · ${registros.length}</span>` : '';
+        html += `<div class="${cls}" onclick="selectHEDay('${dateStr}')"><span class="cal-day-num">${day}</span>${badge}</div>`;
+      }
+
+      $('he-grid').innerHTML = html;
+    }
+
+    function renderHESelectedDetail() {
+      const container = $('he-day-detail');
+      if (!heSelectedDate) {
+        container.innerHTML = `<div class="stat-empty">Selecciona un día del calendario para registrar o ver horas extra.</div>`;
+        return;
+      }
+      const registros = getHorasExtraByDate(heSelectedDate);
+      const opcionesTrabajadores = (db.people || []).map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+
+      const filas = registros.map(r => `
+        <tr>
+          <td>${esc(r.trabajador)}</td>
+          <td style="text-align:center;">${esc(String(r.horas))}</td>
+          <td>${esc(r.motivo || '-')}</td>
+          <td style="white-space:nowrap;">
+            <button class="btn btn-warning btn-sm" onclick="editHorasExtra('${r.id}')">✏️ Editar</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteHorasExtra('${r.id}')">🗑️ Eliminar</button>
+          </td>
+        </tr>
+      `).join('');
+
+      const totalHoras = registros.reduce((a, r) => a + (Number(r.horas) || 0), 0);
+
+      container.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+          <h3 style="margin:0;">Horas extra del ${formatDateWithDayUpper(heSelectedDate)}${registros.length ? ` — Total: ${totalHoras}h` : ''}</h3>
+        </div>
+
+        <div class="card" style="background:#f8fafc; margin-bottom:16px;">
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+            <label style="flex:1; min-width:200px;">Trabajador
+              <select id="he-input-trabajador">
+                <option value="">Selecciona…</option>
+                ${opcionesTrabajadores}
+              </select>
+            </label>
+            <label style="width:110px;">Horas
+              <input id="he-input-horas" type="number" min="0.5" step="0.5" placeholder="Ej: 2">
+            </label>
+            <label style="flex:2; min-width:200px;">Motivo (opcional)
+              <input id="he-input-motivo" type="text" placeholder="Ej: cierre de OP urgente">
+            </label>
+            <button class="btn btn-primary btn-sm" onclick="addHorasExtra()">➕ Agregar</button>
+          </div>
+        </div>
+
+        ${registros.length === 0
+          ? `<div class="stat-empty">Aún no hay horas extra registradas este día.</div>`
+          : `<table>
+              <thead><tr><th>Trabajador</th><th>Horas</th><th>Motivo</th><th>Acciones</th></tr></thead>
+              <tbody>${filas}</tbody>
+            </table>`
+        }
+      `;
+    }
+
+    function addHorasExtra() {
+      if (!heSelectedDate) return;
+      const trabajadorInput = $('he-input-trabajador');
+      const horasInput = $('he-input-horas');
+      const motivoInput = $('he-input-motivo');
+      const trabajador = (trabajadorInput.value || '').trim();
+      const horas = parseFloat(horasInput.value);
+      const motivo = (motivoInput.value || '').trim();
+      if (!trabajador) { alert('Selecciona un trabajador.'); return; }
+      if (!horas || horas <= 0) { alert('Ingresa una cantidad de horas válida.'); return; }
+      ensureHorasExtra();
+      db.horasExtra.push({
+        id: 'he-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+        fecha: heSelectedDate,
+        trabajador,
+        horas,
+        motivo,
+        registradoPor: window.dagometCurrentProfile?.nombre || '-',
+        createdAt: Date.now()
+      });
+      saveDB();
+      renderHESelectedDetail();
+      renderHEGrid();
+      renderHEMonthSummary();
+    }
+
+    function editHorasExtra(id) {
+      ensureHorasExtra();
+      const r = db.horasExtra.find(h => h.id === id);
+      if (!r) return;
+      const nuevasHoras = prompt('Horas extra:', r.horas);
+      if (nuevasHoras === null) return;
+      const n = parseFloat(nuevasHoras);
+      if (!n || n <= 0) { alert('Cantidad de horas no válida.'); return; }
+      const nuevoMotivo = prompt('Motivo (opcional):', r.motivo || '');
+      r.horas = n;
+      r.motivo = (nuevoMotivo || '').trim();
+      saveDB();
+      renderHESelectedDetail();
+      renderHEGrid();
+      renderHEMonthSummary();
+    }
+
+    function deleteHorasExtra(id) {
+      ensureHorasExtra();
+      if (!confirm('¿Eliminar este registro de horas extra?')) return;
+      db.horasExtra = db.horasExtra.filter(h => h.id !== id);
+      saveDB();
+      renderHESelectedDetail();
+      renderHEGrid();
+      renderHEMonthSummary();
+    }
+
+    function renderHEMonthSummary() {
+      const container = $('he-month-summary');
+      if (!container) return;
+      ensureHorasExtra();
+      const prefijoMes = `${heYear}-${pad2(heMonth + 1)}-`;
+      const registrosMes = db.horasExtra.filter(h => (h.fecha || '').startsWith(prefijoMes));
+      if (registrosMes.length === 0) {
+        container.innerHTML = `<h3>Resumen de ${CAL_MESES[heMonth]} ${heYear}</h3><div class="stat-empty">No hay horas extra registradas este mes.</div>`;
+        return;
+      }
+      const porTrabajador = {};
+      registrosMes.forEach(r => {
+        porTrabajador[r.trabajador] = (porTrabajador[r.trabajador] || 0) + (Number(r.horas) || 0);
+      });
+      const filas = Object.entries(porTrabajador)
+        .sort((a, b) => b[1] - a[1])
+        .map(([nombre, horas]) => `<tr><td>${esc(nombre)}</td><td style="text-align:center;"><b>${horas}</b> h</td></tr>`)
+        .join('');
+      const totalMes = registrosMes.reduce((a, r) => a + (Number(r.horas) || 0), 0);
+      container.innerHTML = `
+        <h3>Resumen de ${CAL_MESES[heMonth]} ${heYear} — Total: ${totalMes}h</h3>
+        <table>
+          <thead><tr><th>Trabajador</th><th>Horas extra del mes</th></tr></thead>
+          <tbody>${filas}</tbody>
         </table>
       `;
     }
