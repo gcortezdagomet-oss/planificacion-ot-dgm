@@ -28,6 +28,14 @@
         font-size: .72rem;
         white-space: nowrap;
       }
+      /* Reporte de horas extras: aprovecha el mismo formato horizontal de reportes. */
+      @media print {
+        #preview-modal.is-report .he-print-report { width:100% !important; max-width:none !important; }
+        #preview-modal.is-report .he-print-report table { font-size:10.5px !important; }
+        #preview-modal.is-report .he-print-report th,
+        #preview-modal.is-report .he-print-report td { line-height:1.25 !important; }
+      }
+
       /* El escalado al 87% centrado del documento de OP individual al
          imprimir vive ahora en css/styles.css (dentro de @media print),
          junto al resto de reglas de impresión, para no duplicar la regla
@@ -538,6 +546,7 @@
             <span id="he-month-title" style="font-weight:800; color:var(--primary); font-size:1.05rem; min-width:170px; text-align:center;"></span>
             <button class="btn btn-secondary btn-sm" onclick="changeHEMonth(1)">▶</button>
             <button class="btn btn-secondary btn-sm" onclick="goToHEToday()">Hoy</button>
+            <button class="btn btn-success btn-sm" onclick="imprimirReporteHorasExtra()">🖨️ Imprimir reporte</button>
           </div>
         </div>
 
@@ -4951,6 +4960,75 @@
       renderHESelectedDetail();
       renderHEGrid();
       renderHEMonthSummary();
+    }
+
+    // Imprime un reporte completo de las horas extra registradas en el mes
+    // que se está visualizando en el calendario. Reutiliza el mismo modal de
+    // previsualización e impresión horizontal usado por los reportes del calendario.
+    function imprimirReporteHorasExtra() {
+      if (window.dagometCurrentProfile?.rol !== 'admin') return;
+      ensureHorasExtra();
+      const prefijoMes = `${heYear}-${pad2(heMonth + 1)}-`;
+      const registrosMes = db.horasExtra
+        .filter(h => (h.fecha || '').startsWith(prefijoMes))
+        .sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')) ||
+          String(a.trabajador || '').localeCompare(String(b.trabajador || '')));
+
+      const totalMes = registrosMes.reduce((a, r) => a + (Number(r.horas) || 0), 0);
+      const previewContainer = $('modal-preview-container');
+      if (!previewContainer) return;
+
+      const filas = registrosMes.map(r => `
+        <tr style="page-break-inside:avoid; break-inside:avoid;">
+          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0;">${esc(formatDateWithDayUpper(r.fecha))}</td>
+          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0;"><b>${esc(r.trabajador || '-')}</b></td>
+          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:center;">${r.op ? `OP ${esc(r.op)}` : '-'}</td>
+          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:center;"><b>${esc(String(r.horas ?? ''))}</b></td>
+          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0;">${esc(r.motivo || '-')}</td>
+        </tr>`).join('');
+
+      previewContainer.innerHTML = `
+        <div class="he-print-report" style="width:100%; max-width:1000px; margin:0 auto; background:#fff; font-family:Inter,system-ui,sans-serif; color:#1e293b;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #263581; padding-bottom:10px; margin-bottom:14px;">
+            <div>
+              <div style="font-size:18px; font-weight:800; color:#263581;">DAGOMET · REPORTE DE HORAS EXTRAS</div>
+              <div style="font-size:11px; color:#64748b; font-weight:600; margin-top:2px;">${esc(CAL_MESES[heMonth])} ${heYear}</div>
+            </div>
+            <div style="text-align:right; font-size:10px; color:#94a3b8;">
+              Generado el ${esc(formatDateWithDayUpper(todayKey()))}
+            </div>
+          </div>
+
+          <table style="width:100%; border-collapse:collapse; font-size:11px; table-layout:fixed;">
+            <colgroup>
+              <col style="width:17%;"><col style="width:28%;"><col style="width:14%;"><col style="width:11%;"><col style="width:30%;">
+            </colgroup>
+            <thead>
+              <tr style="background:#eef2ff; color:#263581;">
+                <th style="padding:8px 9px; text-align:left; border-bottom:1px solid #c3cbd6;">Fecha</th>
+                <th style="padding:8px 9px; text-align:left; border-bottom:1px solid #c3cbd6;">Trabajador</th>
+                <th style="padding:8px 9px; text-align:center; border-bottom:1px solid #c3cbd6;">N° OP</th>
+                <th style="padding:8px 9px; text-align:center; border-bottom:1px solid #c3cbd6;">Horas</th>
+                <th style="padding:8px 9px; text-align:left; border-bottom:1px solid #c3cbd6;">Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filas || `<tr><td colspan="5" style="padding:24px; text-align:center; color:#94a3b8; font-style:italic;">No hay horas extra registradas en ${esc(CAL_MESES[heMonth])} ${heYear}.</td></tr>`}
+            </tbody>
+          </table>
+
+          <div style="display:flex; justify-content:flex-end; gap:28px; padding-top:10px; margin-top:2px; border-top:1px solid #cbd5e1; font-size:12px;">
+            <div><b>${registrosMes.length}</b> registro(s)</div>
+            <div><b>${totalMes}</b> horas extra totales</div>
+          </div>
+        </div>`;
+
+      $('modal-download-btn').style.display = 'none';
+      $('modal-download-excel-btn').style.display = 'none';
+      $('modal-print-btn').style.display = '';
+      $('preview-modal').classList.remove('is-chart');
+      $('preview-modal').classList.add('is-report');
+      $('preview-modal').style.display = 'flex';
     }
 
     function renderHEMonthSummary() {
