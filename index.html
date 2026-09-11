@@ -583,6 +583,14 @@
             <label style="display:flex; align-items:center; gap:5px; font-size:.82rem; font-weight:700; color:var(--text-muted);">
               Hasta <input id="he-report-to" type="date" style="height:32px; padding:4px 7px; border:1px solid var(--border); border-radius:7px; font:inherit;">
             </label>
+            <label style="display:flex; align-items:center; gap:5px; font-size:.82rem; font-weight:700; color:var(--text-muted);">
+              Trabajador
+              <select id="he-report-worker" style="height:32px; min-width:180px; padding:4px 7px; border:1px solid var(--border); border-radius:7px; font:inherit; background:#fff;">
+                <option value="">Todos los trabajadores</option>
+              </select>
+            </label>
+            <button class="btn btn-secondary btn-sm" onclick="setHEReportCurrentMonth()">📅 Mes actual</button>
+            <button class="btn btn-secondary btn-sm" onclick="clearHEReportFilters()">✕ Limpiar</button>
             <button class="btn btn-success btn-sm" onclick="imprimirReporteHorasExtra()">🖨️ Imprimir reporte</button>
           </div>
         </div>
@@ -5021,9 +5029,25 @@
       return db.horasExtra.filter(h => h.fecha === dateStr);
     }
 
+    // Filtro de trabajador para el reporte de Horas Extras.
+    function renderHEReportWorkerOptions() {
+      const select = $('he-report-worker');
+      if (!select) return;
+      const valorActual = select.value || '';
+      const trabajadores = [...new Set((db.people || [])
+        .map(p => String(p || '').trim())
+        .filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'es'));
+      select.innerHTML = `<option value="">Todos los trabajadores</option>` +
+        trabajadores.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+      if (trabajadores.includes(valorActual)) select.value = valorActual;
+    }
+
     function renderHorasExtraTab() {
       if (window.dagometCurrentProfile?.rol !== 'admin' && window.dagometCurrentProfile?.rol !== 'read_only') return;
       ensureHorasExtra();
+      renderHEReportWorkerOptions();
+      initHEReportFilters();
       renderHEGrid();
       renderHESelectedDetail();
       renderHEMonthSummary();
@@ -5220,15 +5244,37 @@
       renderHEMonthSummary();
     }
 
-    // Imprime un reporte de horas extra según el rango de fechas elegido por el usuario.
+    function setHEReportCurrentMonth() {
+      const desde = $('he-report-from'), hasta = $('he-report-to');
+      if (!desde || !hasta) return;
+      desde.value = `${heYear}-${pad2(heMonth + 1)}-01`;
+      hasta.value = `${heYear}-${pad2(heMonth + 1)}-${pad2(new Date(heYear, heMonth + 1, 0).getDate())}`;
+    }
+
+    function clearHEReportFilters() {
+      const desde = $('he-report-from'), hasta = $('he-report-to'), trabajador = $('he-report-worker');
+      if (desde) desde.value = '';
+      if (hasta) hasta.value = '';
+      if (trabajador) trabajador.value = '';
+    }
+
+    function initHEReportFilters() {
+      const desde = $('he-report-from'), hasta = $('he-report-to');
+      if (!desde || !hasta) return;
+      if (!desde.value || !hasta.value) setHEReportCurrentMonth();
+    }
+
+    // Imprime un reporte de horas extra según el rango de fechas y trabajador elegido.
     function imprimirReporteHorasExtra() {
       if (window.dagometCurrentProfile?.rol !== 'admin' && window.dagometCurrentProfile?.rol !== 'read_only') return;
       ensureHorasExtra();
 
       const desdeEl = $('he-report-from');
       const hastaEl = $('he-report-to');
+      const trabajadorEl = $('he-report-worker');
       const desde = desdeEl?.value || '';
       const hasta = hastaEl?.value || '';
+      const trabajador = trabajadorEl?.value || '';
 
       if (!desde || !hasta) {
         alert('Selecciona la fecha Desde y la fecha Hasta para generar el reporte.');
@@ -5242,7 +5288,9 @@
       const registros = db.horasExtra
         .filter(h => {
           const fecha = String(h.fecha || '');
-          return fecha >= desde && fecha <= hasta;
+          const coincideFecha = fecha >= desde && fecha <= hasta;
+          const coincideTrabajador = !trabajador || String(h.trabajador || '') === trabajador;
+          return coincideFecha && coincideTrabajador;
         })
         .sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')) ||
           String(a.trabajador || '').localeCompare(String(b.trabajador || '')));
@@ -7292,7 +7340,7 @@
       if (window.dagometCurrentProfile?.rol !== 'read_only') return;
       // Solo lectura: bloquear edición, pero mantener operativos los controles
       // necesarios para consultar y generar/imprimir reportes.
-      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select):not(#trend-periodo)').forEach(el => { el.disabled = true; });
+      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas):not(#he-report-from):not(#he-report-to), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select):not(#trend-periodo):not(#he-report-worker)').forEach(el => { el.disabled = true; });
       document.querySelectorAll('#app-root button').forEach(btn => {
         const t=(btn.textContent||'').toLowerCase();
         const allow =
