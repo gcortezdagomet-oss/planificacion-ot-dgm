@@ -552,6 +552,13 @@
             <label style="display:flex; align-items:center; gap:5px; font-size:.82rem; font-weight:700; color:var(--text-muted);">
               Hasta <input id="he-report-to" type="date" style="height:32px; padding:4px 7px; border:1px solid var(--border); border-radius:7px; font:inherit;">
             </label>
+            <label style="display:flex; align-items:center; gap:5px; font-size:.82rem; font-weight:700; color:var(--text-muted);">
+              Trabajador
+              <select id="he-report-worker" style="height:32px; min-width:180px; padding:4px 7px; border:1px solid var(--border); border-radius:7px; font:inherit; background:#fff;">
+                <option value="">Todos los trabajadores</option>
+                ${(db.people || []).map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}
+              </select>
+            </label>
             <button class="btn btn-success btn-sm" onclick="imprimirReporteHorasExtra()">🖨️ Imprimir reporte</button>
           </div>
         </div>
@@ -4975,8 +4982,10 @@
 
       const desdeEl = $('he-report-from');
       const hastaEl = $('he-report-to');
+      const trabajadorEl = $('he-report-worker');
       const desde = desdeEl?.value || '';
       const hasta = hastaEl?.value || '';
+      const trabajador = trabajadorEl?.value || '';
 
       if (!desde || !hasta) {
         alert('Selecciona la fecha Desde y la fecha Hasta para generar el reporte.');
@@ -4990,7 +4999,9 @@
       const registros = db.horasExtra
         .filter(h => {
           const fecha = String(h.fecha || '');
-          return fecha >= desde && fecha <= hasta;
+          const coincideFecha = fecha >= desde && fecha <= hasta;
+          const coincideTrabajador = !trabajador || String(h.trabajador || '') === trabajador;
+          return coincideFecha && coincideTrabajador;
         })
         .sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')) ||
           String(a.trabajador || '').localeCompare(String(b.trabajador || '')));
@@ -5018,6 +5029,8 @@
         </tr>`).join('');
 
       const fechaRango = `${formatDateWithDayUpper(desde)} al ${formatDateWithDayUpper(hasta)}`;
+      const totalHoras = registros.reduce((a, r) => a + (Number(r.horas) || 0), 0);
+      const filtroTrabajador = trabajador ? `Trabajador: ${esc(trabajador)}` : 'Trabajador: Todos los trabajadores';
 
       const container = document.createElement('div');
       container.className = 'he-print-report';
@@ -5029,6 +5042,7 @@
             <div>
               <div style="font-size:16px; font-weight:800; color:#263581;">Reporte de Horas Extras</div>
               <div style="font-size:11px; color:#64748b; font-weight:600;">${esc(fechaRango)}</div>
+              <div style="font-size:11px; color:#64748b; font-weight:700; margin-top:2px;">${filtroTrabajador}</div>
             </div>
           </div>
           <div style="text-align:right; font-size:10px; color:#94a3b8;">
@@ -5046,6 +5060,7 @@
 
         <div class="report-footer-summary" style="display:flex; justify-content:flex-end; gap:24px; padding-top:10px; border-top:1px solid #f1f5f9; font-size:11px; color:#334155; page-break-inside:avoid; break-inside:avoid;">
           <div><b>${registros.length}</b> registro(s)</div>
+          <div><b>${totalHoras}</b> hora(s) extra</div>
         </div>
       `;
 
@@ -7039,7 +7054,7 @@
       if (window.dagometCurrentProfile?.rol !== 'read_only') return;
       // Solo lectura: bloquear edición, pero mantener operativos los controles
       // necesarios para consultar y generar/imprimir reportes.
-      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas):not(#he-report-from):not(#he-report-to), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select):not(#trend-periodo)').forEach(el => { el.disabled = true; });
+      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas):not(#he-report-from):not(#he-report-to), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select):not(#trend-periodo):not(#he-report-worker)').forEach(el => { el.disabled = true; });
       document.querySelectorAll('#app-root button').forEach(btn => {
         const t=(btn.textContent||'').toLowerCase();
         const allow =
