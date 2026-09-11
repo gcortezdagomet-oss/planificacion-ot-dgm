@@ -178,8 +178,17 @@
             <input type="date" id="fechaGuiaMat">
           </div>
           <div class="field">
+            <label>Plazo de Producción (días hábiles)</label>
+            <input type="number" id="plazoProduccion" min="1" max="60" step="1" value="8" placeholder="8">
+            <small style="display:block;margin-top:4px;color:#64748b;">Se cuentan desde la llegada de la guía.</small>
+          </div>
+          <div class="field">
             <label>Fecha de Entrega *</label>
             <input type="date" id="entrega">
+            <label style="display:flex;align-items:center;gap:7px;margin-top:6px;font-size:12px;font-weight:500;color:#64748b;cursor:pointer;">
+              <input type="checkbox" id="entregaAuto" checked style="width:auto;margin:0;">
+              Calcular automáticamente desde la guía
+            </label>
           </div>
 
           <div class="field">
@@ -839,6 +848,17 @@
           </table>
         </div>
 
+        <div style="background:#f0fdf4;padding:18px;border-radius:8px;border:1px solid #bbf7d0;margin-bottom:25px;">
+          <h3 style="margin-top:0;color:#166534;">⚙️ Configuración de producción</h3>
+          <p style="font-size:.85rem;color:#334155;margin-bottom:12px;">Define el plazo estándar que se aplicará automáticamente a las <b>nuevas OP</b>. Se cuentan días hábiles (lunes a viernes) desde la <b>Fecha Guía de Material</b>.</p>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <label for="plazo-produccion-estandar" style="font-weight:700;">Plazo estándar (días hábiles)</label>
+            <input id="plazo-produccion-estandar" type="number" min="1" max="60" step="1" value="8" style="max-width:120px;">
+            <button type="button" class="btn btn-success" onclick="guardarPlazoEstandarProduccion()">💾 Guardar configuración</button>
+          </div>
+          <div style="font-size:.78rem;color:#64748b;margin-top:8px;">Las OP existentes mantienen su plazo. Puedes modificarlo individualmente desde el formulario de cada OP.</div>
+        </div>
+
         <h2>Catálogo de Materiales</h2>
         <div style="background:#eff6ff;padding:18px;border-radius:8px;border:1px solid #bfdbfe;margin-bottom:25px;">
           <h3 style="margin-top:0;color:var(--primary);">⚙️ Administrar catálogo técnico</h3>
@@ -1272,7 +1292,8 @@
         'GABRIEL VARGAS (MAESTRO)', 'CRISTIAN ACEVEDO (CONDUCTOR)'
       ],
       ots: [],
-      horasExtra: []
+      horasExtra: [],
+      configProduccion: { plazoEstandarDiasHabiles: 8 }
     };
 
     const defaultNotes = {
@@ -1303,6 +1324,9 @@
     if(!Array.isArray(db.pesosMateriales)) db.pesosMateriales = null;
     if (!Array.isArray(db.guias)) db.guias = [];
     if (!Array.isArray(db.horasExtra)) db.horasExtra = [];
+    if (!db.configProduccion || typeof db.configProduccion !== 'object') db.configProduccion = {};
+    const plazoInicialConfig = Number(db.configProduccion.plazoEstandarDiasHabiles);
+    db.configProduccion.plazoEstandarDiasHabiles = Number.isFinite(plazoInicialConfig) && plazoInicialConfig >= 1 && plazoInicialConfig <= 60 ? Math.floor(plazoInicialConfig) : 8;
 
     if (db.clients && db.clients.length > 0 && typeof db.clients[0] === 'string') {
       db.clients = db.clients.map(c => ({ rut: 'S/RUT', name: c }));
@@ -2800,6 +2824,79 @@
       return list;
     }
 
+    // =====================================================================
+    // CÁLCULO AUTOMÁTICO DE FECHA DE ENTREGA
+    // Base: Fecha Guía de Material. Plazo: días hábiles (lunes a viernes).
+    // =====================================================================
+    function getPlazoProduccionEstandar() {
+      const n = Number(db?.configProduccion?.plazoEstandarDiasHabiles);
+      return Number.isFinite(n) && n >= 1 && n <= 60 ? Math.floor(n) : 8;
+    }
+
+    function sumarDiasHabiles(fechaStr, dias) {
+      if (!fechaStr || !Number.isFinite(Number(dias)) || Number(dias) < 1) return '';
+      const parts = String(fechaStr).split('-').map(Number);
+      if (parts.length !== 3 || parts.some(n => !Number.isFinite(n))) return '';
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      if (isNaN(d.getTime())) return '';
+      let restantes = Math.floor(Number(dias));
+      while (restantes > 0) {
+        d.setDate(d.getDate() + 1);
+        const diaSemana = d.getDay();
+        if (diaSemana !== 0 && diaSemana !== 6) restantes--;
+      }
+      return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+    }
+
+    function recalcularEntregaAutomatica() {
+      const guia = $('fechaGuiaMat')?.value || '';
+      const plazoEl = $('plazoProduccion');
+      const autoEl = $('entregaAuto');
+      const entregaEl = $('entrega');
+      if (!plazoEl || !autoEl || !entregaEl) return;
+      const plazo = Math.max(1, Math.min(60, Math.floor(Number(plazoEl.value) || getPlazoProduccionEstandar())));
+      plazoEl.value = plazo;
+      if (autoEl.checked && guia) {
+        const calculada = sumarDiasHabiles(guia, plazo);
+        if (calculada) entregaEl.value = calculada;
+      }
+    }
+
+    function aplicarPlazoEstandarProduccion() {
+      const input = $('plazo-produccion-estandar');
+      if (input) input.value = getPlazoProduccionEstandar();
+    }
+
+    function guardarPlazoEstandarProduccion() {
+      if (window.dagometCurrentProfile?.rol === 'read_only') { alert('Solo la administradora puede cambiar la configuración de producción.'); return; }
+      const input = $('plazo-produccion-estandar');
+      const n = Math.max(1, Math.min(60, Math.floor(Number(input?.value) || 8)));
+      db.configProduccion = db.configProduccion || {};
+      db.configProduccion.plazoEstandarDiasHabiles = n;
+      saveDB();
+      if ($('plazoProduccion') && !$('edit-id').value) { $('plazoProduccion').value = n; if ($('entregaAuto')?.checked) recalcularEntregaAutomatica(); }
+      aplicarPlazoEstandarProduccion();
+      alert(`Plazo estándar guardado: ${n} días hábiles.`);
+    }
+
+    $('fechaGuiaMat').addEventListener('change', function() {
+      if ($('entregaAuto')?.checked) { recalcularEntregaAutomatica(); markFormDirty(); }
+    });
+    $('plazoProduccion').addEventListener('input', function() {
+      const valor = Math.max(1, Math.min(60, Math.floor(Number(this.value) || getPlazoProduccionEstandar())));
+      this.value = valor;
+      if ($('entregaAuto')?.checked) recalcularEntregaAutomatica();
+      markFormDirty();
+    });
+    $('entrega').addEventListener('input', function() {
+      if ($('entregaAuto')?.checked) $('entregaAuto').checked = false;
+      markFormDirty();
+    });
+    $('entregaAuto').addEventListener('change', function() {
+      if (this.checked) recalcularEntregaAutomatica();
+      markFormDirty();
+    });
+
     $('area').addEventListener('change', function() {
       const selectedArea = this.value;
       $('notaImportante').value = defaultNotes[selectedArea] || '';
@@ -2921,6 +3018,8 @@
         $('cliente-input').value = '';
       }
       $('entrega').value = '';
+      $('plazoProduccion').value = getPlazoProduccionEstandar();
+      $('entregaAuto').checked = true;
       $('ocCliente').value = '';
       $('fechaGuiaMat').value = '';
       $('folio').value = '';
@@ -2998,6 +3097,8 @@
         planificador: $('planificador').value.toUpperCase(),
         cliente: clientInput,
         entrega: entregaInput,
+        plazoProduccion: Number($('plazoProduccion').value) || getPlazoProduccionEstandar(),
+        entregaAuto: $('entregaAuto').checked,
         ocCliente: $('ocCliente').value || '',
         fechaGuiaMat: $('fechaGuiaMat').value || '',
         folio: $('folio').value,
@@ -3065,6 +3166,8 @@
       $('planificador').value = o.planificador || 'GCC';
       $('cliente-input').value = o.cliente || (db.clients[0] ? `${db.clients[0].rut} - ${db.clients[0].name}` : '');
       $('entrega').value = o.entrega || '';
+      $('plazoProduccion').value = Math.max(1, Math.min(60, Math.floor(Number(o.plazoProduccion) || getPlazoProduccionEstandar())));
+      $('entregaAuto').checked = false;
       $('ocCliente').value = o.ocCliente || '';
       $('fechaGuiaMat').value = o.fechaGuiaMat || '';
       $('folio').value = o.folio || '';
@@ -3131,8 +3234,11 @@
       $('planificador').value = o.planificador || 'GCC';
       $('cliente-input').value = o.cliente || '';
       $('entrega').value = '';
+      $('plazoProduccion').value = Math.max(1, Math.min(60, Math.floor(Number(o.plazoProduccion) || getPlazoProduccionEstandar())));
+      $('entregaAuto').checked = true;
       $('ocCliente').value = o.ocCliente || '';
       $('fechaGuiaMat').value = o.fechaGuiaMat || '';
+      recalcularEntregaAutomatica();
       $('folio').value = o.folio || '';
       $('area').value = o.area || db.areas[0];
       $('maquina').value = o.maquina || '';
@@ -3750,6 +3856,9 @@
       $('cliente-input').value = g.cliente;
       $('folio').value = g.cd;
       $('fechaGuiaMat').value = g.fecha;
+      $('plazoProduccion').value = getPlazoProduccionEstandar();
+      $('entregaAuto').checked = true;
+      recalcularEntregaAutomatica();
       if (g.notas) $('instrucciones').value = g.notas;
       guiaVinculadaId = g.id;
 
@@ -5962,6 +6071,7 @@
 
     function renderMasterLists() {
       renderCatalogoAdmin();
+      aplicarPlazoEstandarProduccion();
       const clientTbody = $('list-clients-table');
       const searchClientVal = normalizeStr($('search-client-db') ? $('search-client-db').value : '');
       
