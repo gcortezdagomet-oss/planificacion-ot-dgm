@@ -72,6 +72,11 @@
         }
       }
 
+
+      .dashboard-drill-link { border:0; background:transparent; padding:0; margin:0; color:var(--primary); font:inherit; font-weight:800; cursor:pointer; text-decoration:underline; text-decoration-color:transparent; text-underline-offset:2px; }
+      .dashboard-drill-link:hover { text-decoration-color:currentColor; }
+      .performance-click-row { cursor:pointer; }
+      .performance-click-row:hover { background:#f8fafc; }
       /* Reporte de horas extras: aprovecha el mismo formato horizontal de reportes. */
       @media print {
         #preview-modal.is-report .he-print-report { width:100% !important; max-width:none !important; }
@@ -746,15 +751,15 @@
             <div class="kpi-num" id="kpi-total">0</div>
             <div class="kpi-label">Total OPs</div>
           </div>
-          <div class="kpi-card" style="border-top-color: var(--accent);">
+          <div class="kpi-card dashboard-drill-card" style="border-top-color: var(--accent); cursor:pointer;" onclick="filterHistoryByField('prioridad','NORMAL')" title="Ver OP de prioridad Normal">
             <div class="kpi-num" id="kpi-normal" style="color:var(--accent);">0</div>
             <div class="kpi-label">Prioridad Normal</div>
           </div>
-          <div class="kpi-card" style="border-top-color: #dc2626;">
+          <div class="kpi-card dashboard-drill-card" style="border-top-color: #dc2626; cursor:pointer;" onclick="filterHistoryByField('prioridad','ALTA')" title="Ver OP de prioridad Alta">
             <div class="kpi-num" id="kpi-alta" style="color:#dc2626;">0</div>
             <div class="kpi-label">Prioridad Alta</div>
           </div>
-          <div class="kpi-card" style="border-top-color: #7f1d1d;">
+          <div class="kpi-card dashboard-drill-card" style="border-top-color: #7f1d1d; cursor:pointer;" onclick="filterHistoryByField('prioridad','URGENTE')" title="Ver OP de prioridad Urgente">
             <div class="kpi-num" id="kpi-urgente" style="color:#7f1d1d;">0</div>
             <div class="kpi-label">Prioridad Urgente</div>
           </div>
@@ -3322,6 +3327,9 @@
     // filterHistoryByOP) pero nunca se declaraba, lo que producía
     // "ReferenceError: filtroSoldadura is not defined" y rompía la carga de la app.
     let filtroSoldadura = 'todas';
+    // Filtro específico activado desde el Dashboard (permite ir directamente a las OP responsables).
+    let filtroDashboardCampo = '';
+    let filtroDashboardValor = '';
 
     // Orden por fecha de entrega en el historial (no afecta el orden manual guardado en db.ots).
     // col: null (orden manual) | 'entrega'. dir: 1 = más atrasadas primero, -1 = más lejanas primero.
@@ -3386,6 +3394,8 @@
     }
 
     function clearOPSearch() {
+      filtroDashboardCampo = '';
+      filtroDashboardValor = '';
       const input = $('search-op');
       if (input) { input.value = ''; input.focus(); }
       filtroPlazo = 'todas';
@@ -3397,7 +3407,25 @@
       renderOPsTable();
     }
 
+    function filterHistoryByField(campo, valor) {
+      const input = $('search-op');
+      if (!input) return;
+      filtroDashboardCampo = String(campo || '').trim();
+      filtroDashboardValor = String(valor || '').trim();
+      input.value = '';
+      filtroPlazo = 'todas';
+      filtroSoldadura = 'todas';
+      const soldBtn = document.querySelector('[data-filtro-soldadura="si"]');
+      if (soldBtn) soldBtn.classList.remove('active');
+      const group = document.querySelector('#deadline-filter-group');
+      if (group) group.querySelectorAll('.deadline-filter-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.filtro === 'todas'));
+      renderOPsTable();
+      switchTab('tab-list');
+    }
+
     function filterHistoryByOP(numero) {
+      filtroDashboardCampo = '';
+      filtroDashboardValor = '';
       const input = $('search-op');
       if (!input) return;
       input.value = String(numero || '').trim();
@@ -3598,7 +3626,14 @@
       const tbody = $('ops-table-body');
       const query = normalizeStr($('search-op') ? $('search-op').value : '');
 
+      const matchesDashboardFilter = o => {
+        if (!filtroDashboardCampo || !filtroDashboardValor) return true;
+        const actual = normalizeStr(o?.[filtroDashboardCampo] || '');
+        return actual === normalizeStr(filtroDashboardValor);
+      };
+
       const matchesQuery = o => {
+        if (!matchesDashboardFilter(o)) return false;
         const num = normalizeStr(o.numero);
         const parte = normalizeStr(o.parteOp);
         const est = normalizeStr(o.estadoOp);
@@ -3675,7 +3710,7 @@
             <td>${getStatusBadge(o.estadoOp)}</td>
             <td><span style="background:var(--primary-light); color:var(--primary); padding: 2px 6px; border-radius: 4px; font-weight:700;">${esc(o.planificador||'GCC')}</span></td>
             <td>${esc(o.cliente)}</td>
-            <td>${o.area ? esc(o.area) : '<span class="area-sin-definir" title="Esta OP fue guardada sin Área. Edítala para asignarla.">⚠️ SIN ÁREA</span>'}</td>
+            <td>${o.area ? `<button type="button" class="dashboard-drill-link" onclick="filterHistoryByField('area','${String(o.area).replace(/'/g, "\\'")}')" title="Ver todas las OP de esta área">${esc(o.area)}</button>` : '<span class="area-sin-definir" title="Esta OP fue guardada sin Área. Edítala para asignarla.">⚠️ SIN ÁREA</span>'}</td>
             <td>${formatDateWithDayUpper(o.entrega)}</td>
             <td>${getPriorityBadge(o.prioridad)}</td>
             <td>${getSoldaduraTrackBadge(o) || '<span style="color:#cbd5e1;">-</span>'}</td>
@@ -3971,14 +4006,13 @@
       if (empty) empty.remove();
     }
 
-    function drillDownOP(label) {
-      // Un clic en un tramo/barra del dashboard lleva directo al Historial
-      // filtrado por esa etiqueta (estado, área, planificador o cliente).
-      switchTab('tab-list');
-      filterHistoryByOP(label === 'SIN ÁREA' || label === 'SIN CLIENTE' ? '' : label);
+    function drillDownDashboard(campo, label) {
+      const valor = (label === 'SIN ÁREA' || label === 'SIN CLIENTE') ? '' : label;
+      filterHistoryByField(campo, valor);
     }
+    function drillDownOP(label) { drillDownDashboard('numero', label); }
 
-    function renderDonutChart(canvasId, countsObj, colorMap) {
+    function renderDonutChart(canvasId, countsObj, colorMap, drillField = 'estadoOp') {
       const canvas = $(canvasId);
       if (!canvas) return;
       if (typeof Chart === 'undefined') { showChartEmpty(canvas, '⚠️ No se pudo cargar la librería de gráficos (revisa tu conexión y recarga).'); return; }
@@ -4007,7 +4041,7 @@
               generateLabels: (chart) => generarLeyendaConCantidad(chart)
             }
           } },
-          onClick: (evt, elements) => { if (elements.length) drillDownOP(labels[elements[0].index]); },
+          onClick: (evt, elements) => { if (elements.length) drillDownDashboard(drillField, labels[elements[0].index]); },
           onHover: (evt, elements) => { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; }
         }
       });
@@ -4031,7 +4065,7 @@
       }));
     }
 
-    function renderBarChart(canvasId, countsObj, color, limit) {
+    function renderBarChart(canvasId, countsObj, color, limit, drillField = 'area') {
       const canvas = $(canvasId);
       if (!canvas) return;
       if (typeof Chart === 'undefined') { showChartEmpty(canvas, '⚠️ No se pudo cargar la librería de gráficos (revisa tu conexión y recarga).'); return; }
@@ -4068,7 +4102,7 @@
           plugins: { legend: { display: false } },
           // suggestedMax con margen extra para que el número no quede pegado al borde del gráfico
           scales: { x: { beginAtZero: true, suggestedMax: Math.max(...data) * 1.18, ticks: { precision: 0, font: { size: 10 } } }, y: { ticks: { font: { size: 10.5, family: 'Inter' } } } },
-          onClick: (evt, elements) => { if (elements.length) drillDownOP(labels[elements[0].index]); },
+          onClick: (evt, elements) => { if (elements.length) drillDownDashboard(drillField, labels[elements[0].index]); },
           onHover: (evt, elements) => { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; }
         }
       });
@@ -4367,7 +4401,7 @@
       const heMes = (db.horasExtra||[]).filter(h => String(h.fecha||'').startsWith(prefMes));
       const heTotal = heMes.reduce((a,h)=>a+(Number(h.horas)||0),0);
       const heTrab = new Set(heMes.map(h=>String(h.trabajador||'').trim()).filter(Boolean)).size;
-      const rowOP = o => `<div class="dash-alert-row"><span><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')}</span><span>${o.entrega ? esc(formatDateCL(o.entrega)) : 'Sin fecha'}</span></div>`;
+      const rowOP = o => `<div class="dash-alert-row dash-click-row" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g, "\\'")}')" title="Ver OP en Historial"><span><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')}</span><span>${o.entrega ? esc(formatDateCL(o.entrega)) : 'Sin fecha'}</span></div>`;
       host.innerHTML = `
         <div class="stats-section-title">🎯 Centro de control <span class="stats-live-pulse"><span class="stats-live-dot"></span>RESUMEN OPERATIVO</span></div>
         <div class="dashboard-op-grid">
@@ -4398,7 +4432,7 @@
               const map = {};
               heMes.forEach(h => { const n=String(h.op||'').trim(); if(n) map[n]=(map[n]||0)+(Number(h.horas)||0); });
               const rows = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
-              return rows.length ? `<table class="dash-table"><thead><tr><th>N° OP</th><th>Horas extras</th></tr></thead><tbody>${rows.map(([n,h])=>`<tr><td><b>OP ${esc(n)}</b></td><td class="num">${h} h</td></tr>`).join('')}</tbody></table>` : '<div class="dash-empty">No hay horas extras asociadas a OP este mes.</div>';
+              return rows.length ? `<table class="dash-table"><thead><tr><th>N° OP</th><th>Horas extras</th></tr></thead><tbody>${rows.map(([n,h])=>`<tr class="dash-click-row" onclick="filterHistoryByOP('${String(n).replace(/'/g, "\\'")}')" title="Ver OP en Historial"><td><b>OP ${esc(n)}</b></td><td class="num">${h} h</td></tr>`).join('')}</tbody></table>` : '<div class="dash-empty">No hay horas extras asociadas a OP este mes.</div>';
             })()}
           </div>
         </div>
@@ -4478,8 +4512,8 @@
         </div>
         <div class="performance-layout">
           <div class="dash-panel">
-            <div class="dash-panel-title">🏭 Cumplimiento por área</div>
-            ${areas.length ? `<table class="performance-table"><thead><tr><th>Área</th><th>OP</th><th>Cumplimiento</th><th style="width:30%;">Nivel</th></tr></thead><tbody>${areas.map(([a,v])=>{const pct=v.total?(v.aTiempo/v.total*100):0; return `<tr><td><b>${esc(a)}</b></td><td class="num">${v.total}</td><td class="num">${pct.toFixed(0)}%</td><td><div class="performance-bar"><span style="width:${Math.min(100,pct)}%"></span></div></td></tr>`;}).join('')}</tbody></table>` : '<div class="performance-empty">No hay OP terminadas en el período seleccionado.</div>'}
+            <div class="dash-panel-title">🏭 Cumplimiento por área <span style="font-size:.68rem;font-weight:600;color:var(--text-muted);">· haz clic para ver las OP</span></div>
+            ${areas.length ? `<table class="performance-table"><thead><tr><th>Área</th><th>OP</th><th>Cumplimiento</th><th style="width:30%;">Nivel</th></tr></thead><tbody>${areas.map(([a,v])=>{const pct=v.total?(v.aTiempo/v.total*100):0; return `<tr class="performance-click-row" onclick="filterHistoryByField('area','${String(a).replace(/'/g, "\\'")}')" title="Ver las OP de ${esc(a)} en Historial"><td><button type="button" class="dashboard-drill-link" onclick="event.stopPropagation();filterHistoryByField('area','${String(a).replace(/'/g, "\\'")}')">${esc(a)}</button></td><td class="num">${v.total}</td><td class="num">${pct.toFixed(0)}%</td><td><div class="performance-bar"><span style="width:${Math.min(100,pct)}%"></span></div></td></tr>`;}).join('')}</tbody></table>` : '<div class="performance-empty">No hay OP terminadas en el período seleccionado.</div>'}
           </div>
           <div class="dash-panel">
             <div class="dash-panel-title">📦 Producción cerrada</div>
@@ -4603,10 +4637,10 @@
         clientCounts[c].ops.push(o.numero);
       });
 
-      renderDonutChart('chart-estado', statusCounts, ESTADO_COLORS);
-      renderBarChart('chart-area', areaCounts, 'var(--primary)');
-      renderBarChart('chart-planificador', plannerCounts, 'var(--accent)');
-      renderBarChart('chart-cliente', clientCounts, '#0891b2', 8);
+      renderDonutChart('chart-estado', statusCounts, ESTADO_COLORS, 'estadoOp');
+      renderBarChart('chart-area', areaCounts, 'var(--primary)', undefined, 'area');
+      renderBarChart('chart-planificador', plannerCounts, 'var(--accent)', undefined, 'planificador');
+      renderBarChart('chart-cliente', clientCounts, '#0891b2', 8, 'cliente');
       renderTrendChart();
       renderClienteReporteSelect(clientCounts);
     }
