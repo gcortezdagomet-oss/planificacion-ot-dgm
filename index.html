@@ -556,7 +556,6 @@
               Trabajador
               <select id="he-report-worker" style="height:32px; min-width:180px; padding:4px 7px; border:1px solid var(--border); border-radius:7px; font:inherit; background:#fff;">
                 <option value="">Todos los trabajadores</option>
-                ${(db.people || []).map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}
               </select>
             </label>
             <button class="btn btn-success btn-sm" onclick="imprimirReporteHorasExtra()">🖨️ Imprimir reporte</button>
@@ -4776,9 +4775,24 @@
       return db.horasExtra.filter(h => h.fecha === dateStr);
     }
 
+    // Carga correctamente el listado de trabajadores del filtro del reporte.
+    // El <select> está en HTML estático, por lo que las opciones deben generarse
+    // cuando el catálogo db.people ya está disponible.
+    function renderHEReportWorkerOptions() {
+      const select = $('he-report-worker');
+      if (!select) return;
+      const valorActual = select.value || '';
+      const trabajadores = [...new Set((db.people || []).map(p => String(p || '').trim()).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'es'));
+      select.innerHTML = `<option value="">Todos los trabajadores</option>` +
+        trabajadores.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+      if (trabajadores.includes(valorActual)) select.value = valorActual;
+    }
+
     function renderHorasExtraTab() {
       if (window.dagometCurrentProfile?.rol !== 'admin' && window.dagometCurrentProfile?.rol !== 'read_only') return;
       ensureHorasExtra();
+      renderHEReportWorkerOptions();
       renderHEGrid();
       renderHESelectedDetail();
       renderHEMonthSummary();
