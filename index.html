@@ -1034,7 +1034,7 @@
       if(cloudBtn) cloudBtn.style.display = profile?.rol==='admin' ? '' : 'none';
       if(isReadOnly){
         document.querySelectorAll('.tab-btn[data-tab-id]').forEach(btn=>{
-          const allowed=['tab-list','tab-calendar','tab-planta','tab-stats'].includes(btn.dataset.tabId);
+          const allowed=['tab-list','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(btn.dataset.tabId);
           btn.style.display=allowed?'':'none';
         });
         // Los usuarios de solo lectura parten siempre en Historial.
@@ -1043,9 +1043,9 @@
         document.querySelectorAll('.tab-btn[data-tab-id]').forEach(btn=>btn.style.display='');
         document.getElementById('new-op-btn')?.style.removeProperty('display');
       }
-      // La pestaña de Horas Extras es exclusiva del rol admin.
+      // La pestaña de Horas Extras es visible para admin y para solo lectura (consulta).
       const heBtn=document.getElementById('btn-tab-horas-extra');
-      if(heBtn) heBtn.style.display = profile?.rol==='admin' ? '' : 'none';
+      if(heBtn) heBtn.style.display = (profile?.rol==='admin' || isReadOnly) ? '' : 'none';
     };
     const setLoggedUI=(profile,user)=>{overlay.style.display='none';sessionBar.style.display='flex';userLabel.textContent=profile?.nombre||user?.email||'Usuario';roleLabel.textContent=profile?.rol==='read_only'?'SOLO LECTURA':(profile?.rol||'EDITOR').toUpperCase();appRoot.style.visibility='visible';applyRoleRestrictions(profile);};
     if(!window.supabase || window.DAGOMET_SUPABASE_URL.startsWith('PEGA_AQUI')){loading.innerHTML='<b>Falta configurar Supabase.</b><br><br>Completa DAGOMET_SUPABASE_URL y DAGOMET_SUPABASE_ANON_KEY con los datos de tu proyecto.';return {configured:false,authenticated:false};}
@@ -1668,10 +1668,10 @@
 
     function switchTab(tabId) {
       if (window.dagometCurrentProfile?.rol === 'read_only' &&
-          !['tab-list','tab-calendar','tab-planta','tab-stats'].includes(tabId)) {
+          !['tab-list','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(tabId)) {
         tabId = 'tab-list';
       }
-      if (tabId === 'tab-horas-extra' && window.dagometCurrentProfile?.rol !== 'admin') {
+      if (tabId === 'tab-horas-extra' && window.dagometCurrentProfile?.rol !== 'admin' && window.dagometCurrentProfile?.rol !== 'read_only') {
         tabId = 'tab-list';
       }
       const currentActive = document.querySelector('.tab-content.active');
@@ -4770,7 +4770,7 @@
     }
 
     function renderHorasExtraTab() {
-      if (window.dagometCurrentProfile?.rol !== 'admin') return;
+      if (window.dagometCurrentProfile?.rol !== 'admin' && window.dagometCurrentProfile?.rol !== 'read_only') return;
       ensureHorasExtra();
       renderHEGrid();
       renderHESelectedDetail();
@@ -4970,7 +4970,7 @@
 
     // Imprime un reporte de horas extra según el rango de fechas elegido por el usuario.
     function imprimirReporteHorasExtra() {
-      if (window.dagometCurrentProfile?.rol !== 'admin') return;
+      if (window.dagometCurrentProfile?.rol !== 'admin' && window.dagometCurrentProfile?.rol !== 'read_only') return;
       ensureHorasExtra();
 
       const desdeEl = $('he-report-from');
