@@ -4878,6 +4878,7 @@
         .filter(o => o.numero)
         .map(o => `<option value="${esc(o.numero)}">`).join('');
 
+      const isHEReadOnly = window.dagometCurrentProfile?.rol === 'read_only';
       const filas = registros.map(r => `
         <tr>
           <td>${esc(r.trabajador)}</td>
@@ -4885,8 +4886,8 @@
           <td style="text-align:center;">${esc(String(r.horas))}</td>
           <td>${esc(r.motivo || '-')}</td>
           <td style="white-space:nowrap;">
-            <button class="btn btn-warning btn-sm" onclick="editHorasExtra('${r.id}')">✏️ Editar</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteHorasExtra('${r.id}')">🗑️ Eliminar</button>
+            <button class="btn btn-warning btn-sm" onclick="editHorasExtra('${r.id}')">✏️ Editar horas</button>
+            ${isHEReadOnly ? '' : `<button class="btn btn-danger btn-sm" onclick="deleteHorasExtra('${r.id}')">🗑️ Eliminar</button>`}
           </td>
         </tr>
       `).join('');
@@ -4898,6 +4899,7 @@
           <h3 style="margin:0;">Horas extra del ${formatDateWithDayUpper(heSelectedDate)}${registros.length ? ` — Total: ${totalHoras}h` : ''}</h3>
         </div>
 
+        ${isHEReadOnly ? '' : `
         <div class="card" style="background:#f8fafc; margin-bottom:16px;">
           <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
             <label style="flex:1; min-width:200px;">Trabajador
@@ -4919,6 +4921,7 @@
             <button class="btn btn-primary btn-sm" onclick="addHorasExtra()">➕ Agregar</button>
           </div>
         </div>
+        `}
 
         ${registros.length === 0
           ? `<div class="stat-empty">Aún no hay horas extra registradas este día.</div>`
@@ -4931,6 +4934,10 @@
     }
 
     function addHorasExtra() {
+      if (window.dagometCurrentProfile?.rol === 'read_only') {
+        alert('El usuario Solo Lectura puede modificar horas existentes, pero no ingresar nuevas horas.');
+        return;
+      }
       if (!heSelectedDate) return;
       const trabajadorInput = $('he-input-trabajador');
       const opInput = $('he-input-op');
@@ -4963,16 +4970,24 @@
       ensureHorasExtra();
       const r = db.horasExtra.find(h => h.id === id);
       if (!r) return;
+      const isReadOnly = window.dagometCurrentProfile?.rol === 'read_only';
       const nuevasHoras = prompt('Horas extra:', r.horas);
       if (nuevasHoras === null) return;
       const n = parseFloat(nuevasHoras);
       if (!n || n <= 0) { alert('Cantidad de horas no válida.'); return; }
-      const nuevoOP = prompt('N° OP (opcional):', r.op || '');
-      if (nuevoOP === null) return;
-      const nuevoMotivo = prompt('Motivo (opcional):', r.motivo || '');
-      r.horas = n;
-      r.op = (nuevoOP || '').trim();
-      r.motivo = (nuevoMotivo || '').trim();
+
+      // Solo el administrador puede modificar otros datos del registro.
+      // El lector únicamente puede corregir la cantidad de horas.
+      if (isReadOnly) {
+        r.horas = n;
+      } else {
+        const nuevoOP = prompt('N° OP (opcional):', r.op || '');
+        if (nuevoOP === null) return;
+        const nuevoMotivo = prompt('Motivo (opcional):', r.motivo || '');
+        r.horas = n;
+        r.op = (nuevoOP || '').trim();
+        r.motivo = (nuevoMotivo || '').trim();
+      }
       saveDB();
       renderHESelectedDetail();
       renderHEGrid();
@@ -4980,6 +4995,10 @@
     }
 
     function deleteHorasExtra(id) {
+      if (window.dagometCurrentProfile?.rol === 'read_only') {
+        alert('El usuario Solo Lectura no puede eliminar registros de horas extra.');
+        return;
+      }
       ensureHorasExtra();
       if (!confirm('¿Eliminar este registro de horas extra?')) return;
       db.horasExtra = db.horasExtra.filter(h => h.id !== id);
@@ -7077,7 +7096,7 @@
           btn.id === 'global-search-clear' ||
           btn.closest('#report-columns-modal') ||
           btn.closest('#preview-modal') ||
-          /imprimir|pdf|descargar respaldo|expandir|ver|generar|reporte|limpiar filtros/.test(t);
+          /imprimir|pdf|descargar respaldo|expandir|ver|generar|reporte|limpiar filtros|editar horas/.test(t);
         if(!allow) btn.disabled=true;
       });
     }
