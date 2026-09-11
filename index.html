@@ -110,7 +110,8 @@
          junto al resto de reglas de impresión, para no duplicar la regla
          en dos archivos. Ver ahí: "#preview-modal:not(.is-report)
          :not(.is-chart) #modal-preview-container". */
-    </style>
+    .priority-mini{display:inline-block;padding:2px 7px;border-radius:999px;font-size:.68rem;font-weight:800;margin-left:5px}.priority-urgente{background:#fee2e2;color:#991b1b}.priority-alta{background:#ffedd5;color:#9a3412}.priority-normal{background:#dcfce7;color:#166534}.priority-summary{margin:10px 0 16px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface,#fff)}.priority-summary-title{font-weight:800;margin-bottom:9px}.priority-summary-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.priority-summary-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);cursor:pointer}.priority-summary-item strong{margin-left:auto;font-size:1.15rem}.priority-summary-dot{width:10px;height:10px;border-radius:50%;display:inline-block}.priority-summary-urgente .priority-summary-dot{background:#dc2626}.priority-summary-alta .priority-summary-dot{background:#f59e0b}.priority-summary-normal .priority-summary-dot{background:#22c55e}@media(max-width:700px){.priority-summary-items{grid-template-columns:1fr}}
+</style>
   </head>
 <body>
 
@@ -689,6 +690,28 @@
       <div class="card">
         <h2>Resumen de Producción & Estadísticas</h2>
 
+        <div class="stats-filter-row stats-filter-row-top" style="margin:10px 0 16px;">
+          <label for="stats-periodo">Periodo:</label>
+          <select id="stats-periodo" onchange="renderStats()">
+            <option value="todo" selected>Todo el historial</option>
+            <option value="mes">Este mes</option>
+            <option value="trimestre">Últimos 3 meses</option>
+            <option value="anio">Este año</option>
+          </select>
+          <label class="stats-status-filter-label" for="stats-estado">Estado de OP:</label>
+          <select id="stats-estado" onchange="renderStats()" aria-label="Filtrar Dashboard por estado de OP">
+            <option value="EN CURSO" selected>EN CURSO</option>
+            <option value="TODOS">Todos los estados</option>
+            <option value="EN PAUSA">EN PAUSA</option>
+            <option value="POR INSPECCIONAR">POR INSPECCIONAR</option>
+            <option value="TERMINADA">TERMINADA</option>
+            <option value="DESPACHADA">DESPACHADA</option>
+            <option value="ANULADA">ANULADA</option>
+          </select>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="clearStatsFilters()">✕ Restablecer</button>
+          <span id="stats-periodo-count" style="font-size:.78rem;color:var(--text-muted);"></span>
+        </div>
+
         <div class="stats-section-title">
           🚨 Alertas y carga actual
           <span class="stats-live-pulse"><span class="stats-live-dot"></span>EN VIVO · se actualiza solo</span>
@@ -744,27 +767,6 @@
         <div id="dashboard-performance" class="dashboard-performance"></div>
 
         <div class="stats-section-title">📊 Resumen por periodo</div>
-        <div class="stats-filter-row">
-          <label for="stats-periodo">Periodo:</label>
-          <select id="stats-periodo" onchange="renderStats()">
-            <option value="todo">Todo el historial</option>
-            <option value="mes" selected>Este mes</option>
-            <option value="trimestre">Últimos 3 meses</option>
-            <option value="anio">Este año</option>
-          </select>
-          <label class="stats-status-filter-label" for="stats-estado">Estado de OP:</label>
-          <select id="stats-estado" onchange="renderStats()" aria-label="Filtrar Dashboard por estado de OP">
-            <option value="TODOS">Todos los estados</option>
-            <option value="EN CURSO">EN CURSO</option>
-            <option value="EN PAUSA">EN PAUSA</option>
-            <option value="POR INSPECCIONAR">POR INSPECCIONAR</option>
-            <option value="TERMINADA">TERMINADA</option>
-            <option value="DESPACHADA">DESPACHADA</option>
-            <option value="ANULADA">ANULADA</option>
-          </select>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="clearStatsFilters()">✕ Limpiar filtros</button>
-          <span id="stats-periodo-count" style="font-size:.78rem;color:var(--text-muted);"></span>
-        </div>
 
         <div class="kpi-grid">
           <div class="kpi-card">
@@ -3320,7 +3322,7 @@
     }
 
     function getDeadlineClass(entregaStr, estado) {
-      if (!entregaStr || estado === 'TERMINADA' || estado === 'DESPACHADA' || estado === 'ANULADA') return 'deadline-ok';
+      if (!entregaStr || estado === 'TERMINADA' || estado === 'DESPACHADA' || estado === 'ANULADA' || String(estado || '').trim().toUpperCase() === 'EN PAUSA') return 'deadline-ok';
       
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -3637,8 +3639,8 @@
     });
 
     function clearStatsFilters() {
-      if ($('stats-periodo')) $('stats-periodo').value = 'mes';
-      if ($('stats-estado')) $('stats-estado').value = 'TODOS';
+      if ($('stats-periodo')) $('stats-periodo').value = 'todo';
+      if ($('stats-estado')) $('stats-estado').value = 'EN CURSO';
       renderStats();
     }
 
@@ -4407,13 +4409,19 @@
       if (!host) return;
       const hoy = new Date(); hoy.setHours(0,0,0,0);
       const active = otsFiltradasEstado.filter(o => !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
-      const vencidas = active.filter(o => o.entrega && new Date(o.entrega + 'T00:00:00') < hoy).sort((a,b)=>(a.entrega||'').localeCompare(b.entrega||''));
+      // Las OP en pausa siguen siendo visibles como activas, pero el tiempo en pausa no genera atraso.
+      const activeParaPlazo = active.filter(o => String(o.estadoOp || 'EN CURSO').trim().toUpperCase() !== 'EN PAUSA');
+      const prioridadPeso = p => { const v=String(p||'NORMAL').trim().toUpperCase(); return v==='URGENTE'?3:v==='ALTA'?2:1; };
+      const prioridadLabel = p => { const v=String(p||'NORMAL').trim().toUpperCase(); return ['URGENTE','ALTA','NORMAL'].includes(v)?v:'NORMAL'; };
+      const diasEntrega = o => o.entrega ? Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000) : 9999;
+      const prioridadAlerta = (a,b) => { const da=diasEntrega(a), db=diasEntrega(b); return da-db || prioridadPeso(b.prioridad)-prioridadPeso(a) || String(a.entrega||'').localeCompare(String(b.entrega||'')); };
+      const vencidas = activeParaPlazo.filter(o => o.entrega && new Date(o.entrega + 'T00:00:00') < hoy).sort(prioridadAlerta);
       const proximas = active.filter(o => {
         if (!o.entrega) return false;
         const d = new Date(o.entrega + 'T00:00:00');
         const diff = Math.ceil((d-hoy)/86400000);
         return diff >= 0 && diff <= 2;
-      }).sort((a,b)=>(a.entrega||'').localeCompare(b.entrega||''));
+      }).sort(prioridadAlerta);
       const areaMap = {};
       active.forEach(o => { const a=o.area||'SIN ÁREA'; areaMap[a]=(areaMap[a]||0)+1; });
       const areas = Object.entries(areaMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
@@ -4421,7 +4429,7 @@
       const heMes = (db.horasExtra||[]).filter(h => String(h.fecha||'').startsWith(prefMes));
       const heTotal = heMes.reduce((a,h)=>a+(Number(h.horas)||0),0);
       const heTrab = new Set(heMes.map(h=>String(h.trabajador||'').trim()).filter(Boolean)).size;
-      const rowOP = o => `<div class="dash-alert-row dash-click-row" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g, "\\'")}')" title="Ver OP en Historial"><span><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')}</span><span>${o.entrega ? esc(formatDateCL(o.entrega)) : 'Sin fecha'}</span></div>`;
+      const rowOP = o => `<div class="dash-alert-row dash-click-row" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g, "\\'")}')" title="Ver OP en Historial"><span><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')} <span class="priority-mini priority-${prioridadLabel(o.prioridad).toLowerCase()}">${prioridadLabel(o.prioridad)}</span></span><span>${o.entrega ? esc(formatDateCL(o.entrega)) : 'Sin fecha'}</span></div>`;
       host.innerHTML = `
         <div class="stats-section-title">🎯 Centro de control <span class="stats-live-pulse"><span class="stats-live-dot"></span>RESUMEN OPERATIVO</span></div>
         <div class="dashboard-op-grid">
@@ -4435,42 +4443,44 @@
           <div class="stats-section-title">🧠 Alertas inteligentes <span class="stats-live-pulse"><span class="stats-live-dot"></span>PRIORIZACIÓN AUTOMÁTICA</span></div>
           <div class="smart-alert-grid">
             <div class="smart-alert-card smart-alert-danger">
-              <div class="smart-alert-head"><span class="smart-alert-title">🔴 Requiere atención hoy</span><span class="smart-alert-count">${vencidas.length + active.filter(o => { if(!o.entrega) return false; const d=new Date(o.entrega+'T00:00:00'); return Math.round((d-hoy)/86400000)===0; }).length}</span></div>
+              <div class="smart-alert-head"><span class="smart-alert-title">🔴 Requiere atención hoy</span><span class="smart-alert-count">${vencidas.length + activeParaPlazo.filter(o => { if(!o.entrega) return false; const d=new Date(o.entrega+'T00:00:00'); return Math.round((d-hoy)/86400000)===0; }).length}</span></div>
               <div class="smart-alert-desc">OP atrasadas o con entrega para hoy.</div>
               <div class="smart-alert-list">
-                ${[...vencidas, ...active.filter(o => { if(!o.entrega) return false; const d=new Date(o.entrega+'T00:00:00'); return Math.round((d-hoy)/86400000)===0; })].slice(0,5).map(o => {
+                ${[...vencidas, ...activeParaPlazo.filter(o => { if(!o.entrega) return false; const d=new Date(o.entrega+'T00:00:00'); return Math.round((d-hoy)/86400000)===0; })].slice(0,5).map(o => {
                   const dias = o.entrega ? Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000) : null;
                   const etiqueta = dias < 0 ? `${Math.abs(dias)} d atrasada${Math.abs(dias)===1?'':'s'}` : 'entrega hoy';
-                  return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')}</span><span class="smart-alert-item-meta">${esc(etiqueta)}</span></div>`;
+                  return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')} <span class="priority-mini priority-${prioridadLabel(o.prioridad).toLowerCase()}">${prioridadLabel(o.prioridad)}</span></span><span class="smart-alert-item-meta">${esc(etiqueta)}</span></div>`;
                 }).join('') || '<div class="smart-alert-empty">No hay OP críticas hoy 🎉</div>'}
               </div>
               ${vencidas.length + active.filter(o => o.entrega && Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000)===0).length > 5 ? `<button type="button" class="btn btn-secondary btn-sm smart-alert-more" onclick="setFiltroPlazo('vencidas');switchTab('tab-list')">Ver todas las atrasadas</button>` : ''}
             </div>
 
             <div class="smart-alert-card smart-alert-warning">
-              <div class="smart-alert-head"><span class="smart-alert-title">🟠 Riesgo de atraso</span><span class="smart-alert-count">${active.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff >= 1 && diff <= 2; }).length}</span></div>
+              <div class="smart-alert-head"><span class="smart-alert-title">🟠 Riesgo de atraso</span><span class="smart-alert-count">${activeParaPlazo.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff >= 1 && diff <= 2; }).length}</span></div>
               <div class="smart-alert-desc">Entregas dentro de las próximas 48 horas.</div>
               <div class="smart-alert-list">
-                ${active.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff >= 1 && diff <= 2; }).sort((a,b)=>(a.entrega||'').localeCompare(b.entrega||'')).slice(0,5).map(o => {
+                ${activeParaPlazo.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff >= 1 && diff <= 2; }).sort(prioridadAlerta).slice(0,5).map(o => {
                   const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000);
-                  return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')}</span><span class="smart-alert-item-meta">${diff===1?'mañana':'en 2 días'}</span></div>`;
+                  return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')} <span class="priority-mini priority-${prioridadLabel(o.prioridad).toLowerCase()}">${prioridadLabel(o.prioridad)}</span></span><span class="smart-alert-item-meta">${diff===1?'mañana':'en 2 días'}</span></div>`;
                 }).join('') || '<div class="smart-alert-empty">No hay OP en riesgo inmediato.</div>'}
               </div>
               ${proximas.length > 5 ? `<button type="button" class="btn btn-secondary btn-sm smart-alert-more" onclick="setFiltroPlazo('porvencer');switchTab('tab-list')">Ver todas las próximas</button>` : ''}
             </div>
 
             <div class="smart-alert-card smart-alert-ok">
-              <div class="smart-alert-head"><span class="smart-alert-title">🟢 En plazo</span><span class="smart-alert-count">${active.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff > 2; }).length}</span></div>
+              <div class="smart-alert-head"><span class="smart-alert-title">🟢 En plazo</span><span class="smart-alert-count">${activeParaPlazo.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff > 2; }).length}</span></div>
               <div class="smart-alert-desc">OP activas con más de 48 h de margen.</div>
               <div class="smart-alert-list">
-                ${active.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff > 2; }).sort((a,b)=>(a.entrega||'').localeCompare(b.entrega||'')).slice(0,5).map(o => {
+                ${activeParaPlazo.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff > 2; }).sort(prioridadAlerta).slice(0,5).map(o => {
                   const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000);
-                  return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')}</span><span class="smart-alert-item-meta">${diff} días</span></div>`;
+                  return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')} <span class="priority-mini priority-${prioridadLabel(o.prioridad).toLowerCase()}">${prioridadLabel(o.prioridad)}</span></span><span class="smart-alert-item-meta">${diff} días</span></div>`;
                 }).join('') || '<div class="smart-alert-empty">No hay OP activas con fecha suficiente.</div>'}
               </div>
             </div>
           </div>
         </div>
+
+        <div class="priority-summary"><div class="priority-summary-title">🚦 Semáforo de prioridad</div><div class="priority-summary-items">${['URGENTE','ALTA','NORMAL'].map(p=>{const n=active.filter(o=>prioridadLabel(o.prioridad)===p).length;return `<div class="priority-summary-item priority-summary-${p.toLowerCase()} dash-click-row" onclick="filterHistoryByField('prioridad','${p}')" title="Ver OP ${p.toLowerCase()}"><span class="priority-summary-dot"></span><b>${p}</b><strong>${n}</strong></div>`;}).join('')}</div></div>
 
         <div class="dashboard-op-panels">
           <div class="dash-panel"><div class="dash-panel-title">🚨 Atención inmediata</div>${vencidas.slice(0,5).map(rowOP).join('') || '<div class="dash-empty">No hay OP atrasadas 🎉</div>'}</div>
@@ -4601,6 +4611,7 @@
 
       // ---------- Bloque "en vivo": alertas y carga actual ----------
       const otsActivas = otsFiltradasEstado.filter(o => !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
+      const otsActivasParaPlazo = otsActivas.filter(o => String(o.estadoOp || 'EN CURSO').trim().toUpperCase() !== 'EN PAUSA');
 
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
