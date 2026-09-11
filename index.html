@@ -264,6 +264,58 @@
 #tab-stats .grid {
   gap: 14px;
 }
+
+/* ---- Línea compacta "Resumen del periodo" (reemplaza 4 tarjetas KPI) ---- */
+#tab-stats .stats-period-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 22px 0 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--ds-border-soft);
+  border-radius: var(--ds-radius-sm);
+  font-size: .78rem;
+}
+#tab-stats .stats-period-summary-title {
+  font-weight: 700;
+  color: var(--text-muted);
+}
+#tab-stats .stats-period-chip b { font-weight: 800; font-variant-numeric: tabular-nums; }
+#tab-stats .stats-period-chip-click { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+#tab-stats .stats-period-chip-click:hover { opacity: .7; }
+
+/* ---- Bloques secundarios plegables (progressive disclosure) ---- */
+#tab-stats details.stats-collapsible {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--ds-border-soft);
+}
+#tab-stats details.stats-collapsible > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: .92rem;
+  color: var(--primary, #0369a1);
+  margin-bottom: 4px;
+}
+#tab-stats details.stats-collapsible > summary::-webkit-details-marker { display: none; }
+#tab-stats details.stats-collapsible > summary::before { content: '▸'; font-size: .75rem; transition: transform .15s ease; }
+#tab-stats details.stats-collapsible[open] > summary::before { transform: rotate(90deg); }
+#tab-stats details.stats-collapsible > summary .stats-collapsible-hint {
+  font-size: .68rem; font-weight: 600; color: var(--text-muted); text-transform: none;
+}
+#tab-stats details.stats-collapsible[open] > .stats-section-title:first-of-type { border-top: none; padding-top: 6px; margin-top: 6px; }
+
+/* ---- Tipografía: solo 3 tamaños de texto de apoyo en vez de 5-6 ---- */
+#tab-stats .kpi-label, #tab-stats .dash-op-label, #tab-stats .performance-label,
+#tab-stats .smart-alert-title, #tab-stats .dash-panel-title { font-size: .76rem; }
+#tab-stats .kpi-sub, #tab-stats .dash-op-sub, #tab-stats .performance-sub,
+#tab-stats .smart-alert-desc, #tab-stats .dash-alert-row, #tab-stats .dash-area-row,
+#tab-stats .smart-alert-item, #tab-stats .performance-table, #tab-stats .dash-table { font-size: .72rem; }
 </style>
 
   </head>
@@ -875,34 +927,10 @@
           <span id="stats-periodo-count" style="font-size:.78rem;color:var(--text-muted);"></span>
         </div>
 
-        <div class="stats-section-title">
-          🚨 Alertas y carga actual
-          <span class="stats-live-pulse"><span class="stats-live-dot"></span>EN VIVO · se actualiza solo</span>
-        </div>
-        <div class="kpi-grid">
-          <div class="kpi-card" style="border-top-color: #dc2626;">
-            <div class="kpi-num" id="kpi-vencidas" style="color:#dc2626;">0</div>
-            <div class="kpi-label">OPs Atrasadas</div>
-          </div>
-          <div class="kpi-card" style="border-top-color: #f59e0b;">
-            <div class="kpi-num" id="kpi-porvencer" style="color:#f59e0b;">0</div>
-            <div class="kpi-label">Por Vencer (48 h)</div>
-          </div>
-          <div class="kpi-card" style="border-top-color: var(--primary);">
-            <div class="kpi-num" id="kpi-kilos">0</div>
-            <div class="kpi-label">Kilos en Producción</div>
-          </div>
-          <div class="kpi-card" style="border-top-color: #991b1b;">
-            <div class="kpi-num" id="kpi-soldadura" style="color:#991b1b;">0</div>
-            <div class="kpi-label">Soldadura Externa Pendiente</div>
-            <div class="kpi-sub" id="kpi-soldadura-sub">sin enviar / en recilindrado</div>
-          </div>
-          <div class="kpi-card" style="border-top-color: #0369a1;">
-            <div class="kpi-num" id="kpi-diasplazo" style="color:#0369a1;">0</div>
-            <div class="kpi-label">Plazo Promedio (días)</div>
-          </div>
-        </div>
-
+        <!-- Las 5 tarjetas que antes vivían aquí (Atrasadas, Por vencer, Kilos,
+             Soldadura, Plazo) se fusionaron dentro del grid de "Centro de
+             control" que arma renderDashboardOperativo(), para no repetir
+             "OP atrasadas" / "Por vencer" en dos tarjetas distintas. -->
         <div id="dashboard-operativo" class="dashboard-operativo" style="margin-bottom:18px;"></div>
 
         <div class="trend-card">
@@ -929,25 +957,15 @@
 
         <div id="dashboard-performance" class="dashboard-performance"></div>
 
-        <div class="stats-section-title">📊 Resumen por periodo</div>
-
-        <div class="kpi-grid">
-          <div class="kpi-card">
-            <div class="kpi-num" id="kpi-total">0</div>
-            <div class="kpi-label">Total OPs</div>
-          </div>
-          <div class="kpi-card dashboard-drill-card" style="border-top-color: var(--accent); cursor:pointer;" onclick="filterHistoryByField('prioridad','NORMAL')" title="Ver OP de prioridad Normal">
-            <div class="kpi-num" id="kpi-normal" style="color:var(--accent);">0</div>
-            <div class="kpi-label">Prioridad Normal</div>
-          </div>
-          <div class="kpi-card dashboard-drill-card" style="border-top-color: #dc2626; cursor:pointer;" onclick="filterHistoryByField('prioridad','ALTA')" title="Ver OP de prioridad Alta">
-            <div class="kpi-num" id="kpi-alta" style="color:#dc2626;">0</div>
-            <div class="kpi-label">Prioridad Alta</div>
-          </div>
-          <div class="kpi-card dashboard-drill-card" style="border-top-color: #7f1d1d; cursor:pointer;" onclick="filterHistoryByField('prioridad','URGENTE')" title="Ver OP de prioridad Urgente">
-            <div class="kpi-num" id="kpi-urgente" style="color:#7f1d1d;">0</div>
-            <div class="kpi-label">Prioridad Urgente</div>
-          </div>
+        <!-- El antiguo grid de 4 tarjetas (Total/Normal/Alta/Urgente) mostraba
+             lo mismo que el Semáforo de prioridad de más arriba, solo que
+             filtrado por periodo. Se deja como una sola línea compacta. -->
+        <div class="stats-period-summary" title="Prioridad de las OP dentro del periodo elegido arriba">
+          <span class="stats-period-summary-title">📊 Resumen del periodo:</span>
+          <span class="stats-period-chip"><b id="kpi-total">0</b> total</span>
+          <span class="stats-period-chip stats-period-chip-click" style="color:var(--accent);" onclick="filterHistoryByField('prioridad','NORMAL')" title="Ver OP de prioridad Normal"><b id="kpi-normal">0</b> normal</span>
+          <span class="stats-period-chip stats-period-chip-click" style="color:#dc2626;" onclick="filterHistoryByField('prioridad','ALTA')" title="Ver OP de prioridad Alta"><b id="kpi-alta">0</b> alta</span>
+          <span class="stats-period-chip stats-period-chip-click" style="color:#7f1d1d;" onclick="filterHistoryByField('prioridad','URGENTE')" title="Ver OP de prioridad Urgente"><b id="kpi-urgente">0</b> urgente</span>
         </div>
 
         <div class="grid">
@@ -4644,7 +4662,8 @@
       return { desde, hasta: ahora };
     }
 
-    function renderDashboardOperativo(otsFiltradasEstado) {
+    function renderDashboardOperativo(otsFiltradasEstado, extra) {
+      extra = extra || {};
       const host = $('dashboard-operativo');
       if (!host) return;
       const hoy = new Date(); hoy.setHours(0,0,0,0);
@@ -4682,18 +4701,20 @@
       });
       hoyExtra.sort(prioridadAlerta); riesgo.sort(prioridadAlerta); enPlazo.sort(prioridadAlerta);
       const hoyActivasCount = active.filter(o => o.entrega && diasEntrega(o) === 0).length;
-      const rowOP = o => `<div class="dash-alert-row dash-click-row" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g, "\\'")}')" title="Ver OP en Historial"><span><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')} <span class="priority-mini priority-${prioridadLabel(o.prioridad).toLowerCase()}">${prioridadLabel(o.prioridad)}</span></span><span>${o.entrega ? esc(formatDateCL(o.entrega)) : 'Sin fecha'}</span></div>`;
       host.innerHTML = `
-        <div class="stats-section-title">🎯 Centro de control <span class="stats-live-pulse"><span class="stats-live-dot"></span>RESUMEN OPERATIVO</span></div>
+        <div class="stats-section-title">🎯 Centro de control <span class="stats-live-pulse"><span class="stats-live-dot"></span>EN VIVO</span></div>
         <div class="dashboard-op-grid">
-          <div class="dash-op-card dash-op-danger dash-click-row" onclick="setFiltroPlazo('vencidas');switchTab('tab-list')" title="Ver todas las OP vencidas"><div class="dash-op-number">${vencidas.length}</div><div class="dash-op-label">OP atrasadas</div><div class="dash-op-sub">requieren atención</div></div>
-          <div class="dash-op-card dash-op-warning dash-click-row" onclick="setFiltroPlazo('porvencer');switchTab('tab-list')" title="Ver OP por vencer"><div class="dash-op-number">${proximas.length}</div><div class="dash-op-label">Vencen en 48 h</div><div class="dash-op-sub">priorizar producción</div></div>
-          <div class="dash-op-card dash-op-info"><div class="dash-op-number">${active.length}</div><div class="dash-op-label">OP activas</div><div class="dash-op-sub">en planta / proceso</div></div>
-          <div class="dash-op-card dash-op-he"><div class="dash-op-number">${heTotal} h</div><div class="dash-op-label">Horas extras del mes</div><div class="dash-op-sub">${heTrab} trabajador(es)</div></div>
+          <div class="dash-op-card dash-op-danger dash-click-row" onclick="setFiltroPlazo('vencidas');switchTab('tab-list')" title="Ver todas las OP vencidas"><div class="dash-op-number">${vencidas.length}</div><div class="dash-op-label">Atrasadas</div></div>
+          <div class="dash-op-card dash-op-warning dash-click-row" onclick="setFiltroPlazo('porvencer');switchTab('tab-list')" title="Ver OP por vencer"><div class="dash-op-number">${proximas.length}</div><div class="dash-op-label">Vencen en 48 h</div></div>
+          <div class="dash-op-card dash-op-info"><div class="dash-op-number">${active.length}</div><div class="dash-op-label">OP activas</div></div>
+          <div class="dash-op-card" style="border-top-color: var(--primary);"><div class="dash-op-number">${Math.round(extra.kilosTotales||0).toLocaleString('es-CL')} kg</div><div class="dash-op-label">Kilos en producción</div></div>
+          <div class="dash-op-card" style="border-top-color: #991b1b;"><div class="dash-op-number" style="color:#991b1b;">${extra.soldaduraPendiente ?? 0}</div><div class="dash-op-label">Soldadura pendiente</div><div class="dash-op-sub">${extra.soldaduraSinEnviar ?? 0} sin enviar · ${extra.soldaduraEnRecilindrado ?? 0} en recilindrado</div></div>
+          <div class="dash-op-card" style="border-top-color: #0369a1;"><div class="dash-op-number" style="color:#0369a1;">${extra.diasPlazoProm ?? '—'}</div><div class="dash-op-label">Plazo promedio (días)</div></div>
+          <div class="dash-op-card dash-op-he"><div class="dash-op-number">${heTotal} h</div><div class="dash-op-label">Horas extra (mes)</div><div class="dash-op-sub">${heTrab} trabajador(es)</div></div>
         </div>
 
         <div class="smart-alerts">
-          <div class="stats-section-title">🧠 Alertas inteligentes <span class="stats-live-pulse"><span class="stats-live-dot"></span>PRIORIZACIÓN AUTOMÁTICA</span></div>
+          <div class="stats-section-title">🧠 Alertas inteligentes</div>
           <div class="smart-alert-grid">
             <div class="smart-alert-card smart-alert-danger">
               <div class="smart-alert-head"><span class="smart-alert-title">🔴 Requiere atención hoy</span><span class="smart-alert-count">${vencidas.length + hoyExtra.length}</span></div>
@@ -4735,37 +4756,46 @@
 
         <div class="priority-summary"><div class="priority-summary-title">🚦 Semáforo de prioridad</div><div class="priority-summary-items">${['URGENTE','ALTA','NORMAL'].map(p=>{const n=active.filter(o=>prioridadLabel(o.prioridad)===p).length;return `<div class="priority-summary-item priority-summary-${p.toLowerCase()} dash-click-row" onclick="filterHistoryByField('prioridad','${p}')" title="Ver OP ${p.toLowerCase()}"><span class="priority-summary-dot"></span><b>${p}</b><strong>${n}</strong></div>`;}).join('')}</div></div>
 
-        <div class="dashboard-op-panels">
-          <div class="dash-panel"><div class="dash-panel-title">🚨 Atención inmediata</div>${vencidas.slice(0,5).map(rowOP).join('') || '<div class="dash-empty">No hay OP atrasadas 🎉</div>'}</div>
-          <div class="dash-panel"><div class="dash-panel-title">🏭 Carga por área</div>${areas.map(([a,n])=>`<div class="dash-area-row"><span>${esc(a)}</span><b>${n}</b></div>`).join('') || '<div class="dash-empty">Sin OP activas</div>'}</div>
-          <div class="dash-panel"><div class="dash-panel-title">⏰ Próximas entregas</div>${proximas.slice(0,5).map(rowOP).join('') || '<div class="dash-empty">No hay entregas en las próximas 48 h</div>'}</div>
+        <!-- "Atención inmediata" y "Próximas entregas" se quitaron de aquí:
+             son las mismas OP que ya listan las tarjetas 🔴 y 🟠 de
+             "Alertas inteligentes" más arriba. Solo queda "Carga por área",
+             que es el único dato de este bloque que no se repite en otro lado. -->
+        <div class="dash-panel" style="margin-bottom:10px;">
+          <div class="dash-panel-title">🏭 Carga por área</div>
+          ${areas.map(([a,n])=>`<div class="dash-area-row"><span>${esc(a)}</span><b>${n}</b></div>`).join('') || '<div class="dash-empty">Sin OP activas</div>'}
         </div>
-        <div class="dashboard-extra-grid">
-          <div class="dash-panel">
-            <div class="dash-panel-title">⏱️ Horas extras por trabajador · mes actual</div>
-            ${(() => {
-              const map = {};
-              heMes.forEach(h => { const n=String(h.trabajador||'Sin trabajador').trim(); map[n]=(map[n]||0)+(Number(h.horas)||0); });
-              const rows = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
-              const max = rows[0]?.[1] || 1;
-              return rows.length ? `<table class="dash-table"><thead><tr><th>Trabajador</th><th>Horas</th><th style="width:35%;">Carga</th></tr></thead><tbody>${rows.map(([n,h])=>`<tr><td>${esc(n)}</td><td class="num">${h} h</td><td><div class="dash-progress"><span style="width:${Math.min(100,h/max*100)}%"></span></div></td></tr>`).join('')}</tbody></table>` : '<div class="dash-empty">No hay horas extras registradas este mes.</div>';
-            })()}
+
+        <details class="stats-collapsible">
+          <summary>⏱️ Horas extras del mes <span class="stats-collapsible-hint">· por trabajador y por OP</span></summary>
+          <div class="dashboard-extra-grid">
+            <div class="dash-panel">
+              <div class="dash-panel-title">Por trabajador</div>
+              ${(() => {
+                const map = {};
+                heMes.forEach(h => { const n=String(h.trabajador||'Sin trabajador').trim(); map[n]=(map[n]||0)+(Number(h.horas)||0); });
+                const rows = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
+                const max = rows[0]?.[1] || 1;
+                return rows.length ? `<table class="dash-table"><thead><tr><th>Trabajador</th><th>Horas</th><th style="width:35%;">Carga</th></tr></thead><tbody>${rows.map(([n,h])=>`<tr><td>${esc(n)}</td><td class="num">${h} h</td><td><div class="dash-progress"><span style="width:${Math.min(100,h/max*100)}%"></span></div></td></tr>`).join('')}</tbody></table>` : '<div class="dash-empty">No hay horas extras registradas este mes.</div>';
+              })()}
+            </div>
+            <div class="dash-panel">
+              <div class="dash-panel-title">Por OP</div>
+              ${(() => {
+                const map = {};
+                heMes.forEach(h => { const n=String(h.op||'').trim(); if(n) map[n]=(map[n]||0)+(Number(h.horas)||0); });
+                const rows = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
+                return rows.length ? `<table class="dash-table"><thead><tr><th>N° OP</th><th>Horas extras</th></tr></thead><tbody>${rows.map(([n,h])=>`<tr class="dash-click-row" onclick="filterHistoryByOP('${String(n).replace(/'/g, "\\'")}')" title="Ver OP en Historial"><td><b>OP ${esc(n)}</b></td><td class="num">${h} h</td></tr>`).join('')}</tbody></table>` : '<div class="dash-empty">No hay horas extras asociadas a OP este mes.</div>';
+              })()}
+            </div>
           </div>
-          <div class="dash-panel">
-            <div class="dash-panel-title">📌 OP con más horas extras · mes actual</div>
-            ${(() => {
-              const map = {};
-              heMes.forEach(h => { const n=String(h.op||'').trim(); if(n) map[n]=(map[n]||0)+(Number(h.horas)||0); });
-              const rows = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
-              return rows.length ? `<table class="dash-table"><thead><tr><th>N° OP</th><th>Horas extras</th></tr></thead><tbody>${rows.map(([n,h])=>`<tr class="dash-click-row" onclick="filterHistoryByOP('${String(n).replace(/'/g, "\\'")}')" title="Ver OP en Historial"><td><b>OP ${esc(n)}</b></td><td class="num">${h} h</td></tr>`).join('')}</tbody></table>` : '<div class="dash-empty">No hay horas extras asociadas a OP este mes.</div>';
-            })()}
-          </div>
-        </div>
+        </details>
         ${window.dagometCurrentProfile?.rol === 'admin' ? `
-        <div class="dash-panel" style="margin-top:10px;">
-          <div class="dash-panel-title">🧾 Últimos cambios</div>
+        <details class="stats-collapsible">
+          <summary>🧾 Últimos cambios</summary>
+          <div class="dash-panel">
           ${((db.auditoria||[]).slice(0,8).map(a => `<div class="dash-alert-row"><span><b>${esc(a.accion||'-')}</b> · ${esc(a.detalle||'')}</span><span>${esc(new Date(a.fecha).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</span></div>`).join('')) || '<div class="dash-empty">Aún no hay cambios registrados.</div>'}
-        </div>` : ''}`;
+          </div>
+        </details>` : ''}`;
     }
 
     function getDashboardPerformanceRange() {
@@ -4860,26 +4890,23 @@
       const estadoFiltro = $('stats-estado') ? $('stats-estado').value : 'TODOS';
       const matchesEstado = o => estadoFiltro === 'TODOS' || String(o.estadoOp || 'EN CURSO').trim().toUpperCase() === estadoFiltro;
       const otsFiltradasEstado = db.ots.filter(matchesEstado);
-      renderDashboardOperativo(otsFiltradasEstado);
-      renderDashboardPerformance(otsFiltradasEstado);
 
-      // ---------- Bloque "en vivo": alertas y carga actual ----------
+      // ---------- Métricas "en vivo": kilos, soldadura y plazo promedio ----------
+      // Se calculan antes de pintar el Centro de control para poder mostrarlas
+      // como 3 tarjetas más dentro del mismo grid (en vez de un grid aparte que
+      // repetía "Atrasadas"/"Por vencer" con otro cálculo).
       const otsActivas = otsFiltradasEstado.filter(o => !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
-      const otsActivasParaPlazo = otsActivas.filter(o => String(o.estadoOp || 'EN CURSO').trim().toUpperCase() !== 'EN PAUSA');
 
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
 
-      let vencidas = 0, porVencer = 0, sumaDiasPlazo = 0, cuentaDiasPlazo = 0;
+      let sumaDiasPlazo = 0, cuentaDiasPlazo = 0;
       otsActivas.forEach(o => {
         if (!o.entrega) return;
         const parts = String(o.entrega).split('-');
         if (parts.length !== 3) return;
         const entregaDate = new Date(parts[0], parts[1] - 1, parts[2]);
         entregaDate.setHours(0, 0, 0, 0);
-        const diffDias = Math.ceil((entregaDate - hoy) / (1000 * 60 * 60 * 24));
-        if (diffDias < 0) vencidas++;
-        else if (diffDias <= 2) porVencer++;
 
         if (o.createdAt) {
           const creada = new Date(o.createdAt);
@@ -4902,12 +4929,14 @@
         if (enviado && !ensayado) soldaduraEnRecilindrado++;
       });
 
-      $('kpi-vencidas').innerText = vencidas;
-      $('kpi-porvencer').innerText = porVencer;
-      $('kpi-kilos').innerText = Math.round(kilosTotales).toLocaleString('es-CL') + ' kg';
-      $('kpi-soldadura').innerText = soldaduraPendiente;
-      if ($('kpi-soldadura-sub')) $('kpi-soldadura-sub').innerText = `${soldaduraSinEnviar} sin enviar · ${soldaduraEnRecilindrado} en recilindrado`;
-      $('kpi-diasplazo').innerText = cuentaDiasPlazo ? Math.round(sumaDiasPlazo / cuentaDiasPlazo) : '—';
+      renderDashboardOperativo(otsFiltradasEstado, {
+        kilosTotales,
+        soldaduraPendiente,
+        soldaduraSinEnviar,
+        soldaduraEnRecilindrado,
+        diasPlazoProm: cuentaDiasPlazo ? Math.round(sumaDiasPlazo / cuentaDiasPlazo) : '—'
+      });
+      renderDashboardPerformance(otsFiltradasEstado);
 
       // ---------- Bloque "por periodo": totales, prioridad y desgloses ----------
       const rango = getPeriodoRange();
