@@ -7039,7 +7039,7 @@
       if (window.dagometCurrentProfile?.rol !== 'read_only') return;
       // Solo lectura: bloquear edición, pero mantener operativos los controles
       // necesarios para consultar y generar/imprimir reportes.
-      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select):not(#trend-periodo)').forEach(el => { el.disabled = true; });
+      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas):not(#he-report-from):not(#he-report-to), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select):not(#trend-periodo)').forEach(el => { el.disabled = true; });
       document.querySelectorAll('#app-root button').forEach(btn => {
         const t=(btn.textContent||'').toLowerCase();
         const allow =
