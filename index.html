@@ -649,6 +649,28 @@
       <div class="card">
         <h2>Resumen de Producción & Estadísticas</h2>
 
+        <div class="stats-filter-row stats-filter-row-top" style="margin:10px 0 16px;">
+          <label for="stats-periodo">Periodo:</label>
+          <select id="stats-periodo" onchange="renderStats()">
+            <option value="todo" selected>Todo el historial</option>
+            <option value="mes">Este mes</option>
+            <option value="trimestre">Últimos 3 meses</option>
+            <option value="anio">Este año</option>
+          </select>
+          <label class="stats-status-filter-label" for="stats-estado">Estado de OP:</label>
+          <select id="stats-estado" onchange="renderStats()" aria-label="Filtrar Dashboard por estado de OP">
+            <option value="EN CURSO" selected>EN CURSO</option>
+            <option value="TODOS">Todos los estados</option>
+            <option value="EN PAUSA">EN PAUSA</option>
+            <option value="POR INSPECCIONAR">POR INSPECCIONAR</option>
+            <option value="TERMINADA">TERMINADA</option>
+            <option value="DESPACHADA">DESPACHADA</option>
+            <option value="ANULADA">ANULADA</option>
+          </select>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="clearStatsFilters()">✕ Restablecer</button>
+          <span id="stats-periodo-count" style="font-size:.78rem;color:var(--text-muted);"></span>
+        </div>
+
         <div class="stats-section-title">
           🚨 Alertas y carga actual
           <span class="stats-live-pulse"><span class="stats-live-dot"></span>EN VIVO · se actualiza solo</span>
@@ -677,29 +699,7 @@
           </div>
         </div>
 
-        <div class="decision-center" id="decision-center">
-          <div class="decision-header">
-            <div>
-              <h3 style="margin:0;">🎯 Centro de decisiones</h3>
-              <div class="chart-hint" style="margin-top:3px;">Qué requiere atención ahora y dónde está concentrada la carga.</div>
-            </div>
-            <button type="button" class="btn btn-secondary btn-sm no-print" onclick="renderDecisionCenter()">↻ Actualizar</button>
-          </div>
-          <div class="decision-grid">
-            <div class="decision-box">
-              <div class="decision-box-title">🚨 ACCIONES DE HOY</div>
-              <div id="decision-actions"></div>
-            </div>
-            <div class="decision-box">
-              <div class="decision-box-title">🚦 SEMÁFORO DE PRODUCCIÓN</div>
-              <div id="decision-semaphore"></div>
-            </div>
-            <div class="decision-box decision-box-wide">
-              <div class="decision-box-title">🏭 CARGA POR ÁREA</div>
-              <div id="decision-area-load"></div>
-            </div>
-          </div>
-        </div>
+        <div id="dashboard-operativo" class="dashboard-operativo" style="margin-bottom:18px;"></div>
 
         <div class="trend-card">
           <div class="chart-card-header" style="margin-bottom:6px;">
@@ -723,43 +723,24 @@
           <div class="chart-canvas-wrap"><canvas id="chart-tendencia"></canvas></div>
         </div>
 
+        <div id="dashboard-performance" class="dashboard-performance"></div>
+
         <div class="stats-section-title">📊 Resumen por periodo</div>
-        <div class="stats-filter-row">
-          <label for="stats-periodo">Periodo:</label>
-          <select id="stats-periodo" onchange="renderStats()">
-            <option value="todo" selected>Todo el historial</option>
-            <option value="mes">Este mes</option>
-            <option value="trimestre">Últimos 3 meses</option>
-            <option value="anio">Este año</option>
-          </select>
-          <label class="stats-status-filter-label" for="stats-estado">Estado de OP:</label>
-          <select id="stats-estado" onchange="renderStats()" aria-label="Filtrar Dashboard por estado de OP">
-            <option value="TODOS">Todos los estados</option>
-            <option value="EN CURSO" selected>EN CURSO</option>
-            <option value="EN PAUSA">EN PAUSA</option>
-            <option value="POR INSPECCIONAR">POR INSPECCIONAR</option>
-            <option value="TERMINADA">TERMINADA</option>
-            <option value="DESPACHADA">DESPACHADA</option>
-            <option value="ANULADA">ANULADA</option>
-          </select>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="clearStatsFilters()">✕ Limpiar filtros</button>
-          <span id="stats-periodo-count" style="font-size:.78rem;color:var(--text-muted);"></span>
-        </div>
 
         <div class="kpi-grid">
           <div class="kpi-card">
             <div class="kpi-num" id="kpi-total">0</div>
             <div class="kpi-label">Total OPs</div>
           </div>
-          <div class="kpi-card" style="border-top-color: var(--accent);">
+          <div class="kpi-card dashboard-drill-card" style="border-top-color: var(--accent); cursor:pointer;" onclick="filterHistoryByField('prioridad','NORMAL')" title="Ver OP de prioridad Normal">
             <div class="kpi-num" id="kpi-normal" style="color:var(--accent);">0</div>
             <div class="kpi-label">Prioridad Normal</div>
           </div>
-          <div class="kpi-card" style="border-top-color: #dc2626;">
+          <div class="kpi-card dashboard-drill-card" style="border-top-color: #dc2626; cursor:pointer;" onclick="filterHistoryByField('prioridad','ALTA')" title="Ver OP de prioridad Alta">
             <div class="kpi-num" id="kpi-alta" style="color:#dc2626;">0</div>
             <div class="kpi-label">Prioridad Alta</div>
           </div>
-          <div class="kpi-card" style="border-top-color: #7f1d1d;">
+          <div class="kpi-card dashboard-drill-card" style="border-top-color: #7f1d1d; cursor:pointer;" onclick="filterHistoryByField('prioridad','URGENTE')" title="Ver OP de prioridad Urgente">
             <div class="kpi-num" id="kpi-urgente" style="color:#7f1d1d;">0</div>
             <div class="kpi-label">Prioridad Urgente</div>
           </div>
@@ -3649,11 +3630,33 @@
       renderStats();
     }
 
+    function filterHistoryByField(campo, valor) {
+      const input = $('search-op');
+      if (!input) return;
+      filtroDashboardCampo = String(campo || '').trim();
+      filtroDashboardValor = String(valor || '').trim();
+      input.value = '';
+      filtroPlazo = 'todas';
+      filtroSoldadura = 'todas';
+      const soldBtn = document.querySelector('[data-filtro-soldadura="si"]');
+      if (soldBtn) soldBtn.classList.remove('active');
+      const group = document.querySelector('#deadline-filter-group');
+      if (group) group.querySelectorAll('.deadline-filter-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.filtro === 'todas'));
+      renderOPsTable();
+      switchTab('tab-list');
+    }
     function renderOPsTable() {
       const tbody = $('ops-table-body');
       const query = normalizeStr($('search-op') ? $('search-op').value : '');
 
+      const matchesDashboardFilter = o => {
+        if (!filtroDashboardCampo || !filtroDashboardValor) return true;
+        const actual = normalizeStr(o?.[filtroDashboardCampo] || '');
+        return actual === normalizeStr(filtroDashboardValor);
+      };
+
       const matchesQuery = o => {
+        if (!matchesDashboardFilter(o)) return false;
         const num = normalizeStr(o.numero);
         const parte = normalizeStr(o.parteOp);
         const est = normalizeStr(o.estadoOp);
@@ -3683,7 +3686,6 @@
 
       let filteredOTs = otsConQuery.filter(o => {
         if (filtroSoldadura === 'si' && (o.soldadura || 'NO').toUpperCase() !== 'SI') return false;
-        if (filtroDecision !== 'todas' && getDecisionDeadline(o).key !== filtroDecision) return false;
         if (filtroPlazo === 'todas') return true;
         if (filtroPlazo === 'encurso') return String(o.estadoOp || 'EN CURSO').trim().toUpperCase() === 'EN CURSO';
         const cls = getDeadlineClass(o.entrega, o.estadoOp);
@@ -4502,6 +4504,8 @@
       const estadoFiltro = $('stats-estado') ? $('stats-estado').value : 'TODOS';
       const matchesEstado = o => estadoFiltro === 'TODOS' || String(o.estadoOp || 'EN CURSO').trim().toUpperCase() === estadoFiltro;
       const otsFiltradasEstado = db.ots.filter(matchesEstado);
+      renderDashboardOperativo(otsFiltradasEstado);
+      renderDashboardPerformance(otsFiltradasEstado);
 
       // ---------- Bloque "en vivo": alertas y carga actual ----------
       const otsActivas = otsFiltradasEstado.filter(o => !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
@@ -4511,7 +4515,7 @@
       hoy.setHours(0, 0, 0, 0);
 
       let vencidas = 0, porVencer = 0, sumaDiasPlazo = 0, cuentaDiasPlazo = 0;
-      otsActivasParaPlazo.forEach(o => {
+      otsActivas.forEach(o => {
         if (!o.entrega) return;
         const parts = String(o.entrega).split('-');
         if (parts.length !== 3) return;
@@ -4604,13 +4608,345 @@
         clientCounts[c].ops.push(o.numero);
       });
 
-      renderDonutChart('chart-estado', statusCounts, ESTADO_COLORS);
-      renderBarChart('chart-area', areaCounts, 'var(--primary)');
-      renderBarChart('chart-planificador', plannerCounts, 'var(--accent)');
-      renderBarChart('chart-cliente', clientCounts, '#0891b2', 8);
+      renderDonutChart('chart-estado', statusCounts, ESTADO_COLORS, 'estadoOp');
+      renderBarChart('chart-area', areaCounts, 'var(--primary)', undefined, 'area');
+      renderBarChart('chart-planificador', plannerCounts, 'var(--accent)', undefined, 'planificador');
+      renderBarChart('chart-cliente', clientCounts, '#0891b2', 8, 'cliente');
       renderTrendChart();
       renderClienteReporteSelect(clientCounts);
-      renderDecisionCenter();
+    }
+    function renderClienteReporteSelect(clientCounts) {
+      const sel = $('stats-cliente-reporte-select');
+      if (!sel) return;
+      const seleccionPrevia = sel.value;
+      const clientes = Object.keys(clientCounts).sort((a, b) => a.localeCompare(b));
+      sel.innerHTML = '<option value="">📄 Generar reporte de cliente…</option>' +
+        clientes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      if (clientes.includes(seleccionPrevia)) sel.value = seleccionPrevia;
+    }
+
+
+    function getDashboardPerformanceRange() {
+      const sel = $('stats-periodo') ? $('stats-periodo').value : 'mes';
+      const ahora = new Date(); ahora.setHours(0,0,0,0);
+      if (sel === 'todo') return { desde: null, hasta: ahora, label: 'Todo el historial' };
+      if (sel === 'mes') return { desde: new Date(ahora.getFullYear(), ahora.getMonth(), 1), hasta: ahora, label: 'Este mes' };
+      if (sel === 'trimestre') return { desde: new Date(ahora.getFullYear(), ahora.getMonth()-2, 1), hasta: ahora, label: 'Últimos 3 meses' };
+      return { desde: new Date(ahora.getFullYear(), 0, 1), hasta: ahora, label: 'Este año' };
+    }
+
+    function renderDashboardOperativo(otsFiltradasEstado) {
+      const host = $('dashboard-operativo');
+      if (!host) return;
+      const hoy = new Date(); hoy.setHours(0,0,0,0);
+      const active = otsFiltradasEstado.filter(o => !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
+      // Las OP en pausa siguen siendo visibles como activas, pero el tiempo en pausa no genera atraso.
+      const activeParaPlazo = active.filter(o => String(o.estadoOp || 'EN CURSO').trim().toUpperCase() !== 'EN PAUSA');
+      const prioridadPeso = p => { const v=String(p||'NORMAL').trim().toUpperCase(); return v==='URGENTE'?3:v==='ALTA'?2:1; };
+      const prioridadLabel = p => { const v=String(p||'NORMAL').trim().toUpperCase(); return ['URGENTE','ALTA','NORMAL'].includes(v)?v:'NORMAL'; };
+      const diasEntrega = o => o.entrega ? Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000) : 9999;
+      const prioridadAlerta = (a,b) => { const da=diasEntrega(a), db=diasEntrega(b); return da-db || prioridadPeso(b.prioridad)-prioridadPeso(a) || String(a.entrega||'').localeCompare(String(b.entrega||'')); };
+      const vencidas = activeParaPlazo.filter(o => o.entrega && new Date(o.entrega + 'T00:00:00') < hoy).sort(prioridadAlerta);
+      const proximas = active.filter(o => {
+        if (!o.entrega) return false;
+        const d = new Date(o.entrega + 'T00:00:00');
+        const diff = Math.ceil((d-hoy)/86400000);
+        return diff >= 0 && diff <= 2;
+      }).sort(prioridadAlerta);
+      const areaMap = {};
+      active.forEach(o => { const a=o.area||'SIN ÁREA'; areaMap[a]=(areaMap[a]||0)+1; });
+      const areas = Object.entries(areaMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+      const prefMes = `${hoy.getFullYear()}-${pad2(hoy.getMonth()+1)}-`;
+      const heMes = (db.horasExtra||[]).filter(h => String(h.fecha||'').startsWith(prefMes));
+      const heTotal = heMes.reduce((a,h)=>a+(Number(h.horas)||0),0);
+      const heTrab = new Set(heMes.map(h=>String(h.trabajador||'').trim()).filter(Boolean)).size;
+      const rowOP = o => `<div class="dash-alert-row dash-click-row" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g, "\\'")}')" title="Ver OP en Historial"><span><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')} <span class="priority-mini priority-${prioridadLabel(o.prioridad).toLowerCase()}">${prioridadLabel(o.prioridad)}</span></span><span>${o.entrega ? esc(formatDateCL(o.entrega)) : 'Sin fecha'}</span></div>`;
+      host.innerHTML = `
+        <div class="stats-section-title">🎯 Centro de control <span class="stats-live-pulse"><span class="stats-live-dot"></span>RESUMEN OPERATIVO</span></div>
+        <div class="dashboard-op-grid">
+          <div class="dash-op-card dash-op-danger dash-click-row" onclick="setFiltroPlazo('vencidas');switchTab('tab-list')" title="Ver todas las OP vencidas"><div class="dash-op-number">${vencidas.length}</div><div class="dash-op-label">OP atrasadas</div><div class="dash-op-sub">requieren atención</div></div>
+          <div class="dash-op-card dash-op-warning dash-click-row" onclick="setFiltroPlazo('porvencer');switchTab('tab-list')" title="Ver OP por vencer"><div class="dash-op-number">${proximas.length}</div><div class="dash-op-label">Vencen en 48 h</div><div class="dash-op-sub">priorizar producción</div></div>
+          <div class="dash-op-card dash-op-info"><div class="dash-op-number">${active.length}</div><div class="dash-op-label">OP activas</div><div class="dash-op-sub">en planta / proceso</div></div>
+          <div class="dash-op-card dash-op-he"><div class="dash-op-number">${heTotal} h</div><div class="dash-op-label">Horas extras del mes</div><div class="dash-op-sub">${heTrab} trabajador(es)</div></div>
+        </div>
+
+        <div class="smart-alerts">
+          <div class="stats-section-title">🧠 Alertas inteligentes <span class="stats-live-pulse"><span class="stats-live-dot"></span>PRIORIZACIÓN AUTOMÁTICA</span></div>
+          <div class="smart-alert-grid">
+            <div class="smart-alert-card smart-alert-danger">
+              <div class="smart-alert-head"><span class="smart-alert-title">🔴 Requiere atención hoy</span><span class="smart-alert-count">${vencidas.length + activeParaPlazo.filter(o => { if(!o.entrega) return false; const d=new Date(o.entrega+'T00:00:00'); return Math.round((d-hoy)/86400000)===0; }).length}</span></div>
+              <div class="smart-alert-desc">OP atrasadas o con entrega para hoy.</div>
+              <div class="smart-alert-list">
+                ${[...vencidas, ...activeParaPlazo.filter(o => { if(!o.entrega) return false; const d=new Date(o.entrega+'T00:00:00'); return Math.round((d-hoy)/86400000)===0; })].slice(0,5).map(o => {
+                  const dias = o.entrega ? Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000) : null;
+                  const etiqueta = dias < 0 ? `${Math.abs(dias)} d atrasada${Math.abs(dias)===1?'':'s'}` : 'entrega hoy';
+                  return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')} <span class="priority-mini priority-${prioridadLabel(o.prioridad).toLowerCase()}">${prioridadLabel(o.prioridad)}</span></span><span class="smart-alert-item-meta">${esc(etiqueta)}</span></div>`;
+                }).join('') || '<div class="smart-alert-empty">No hay OP críticas hoy 🎉</div>'}
+              </div>
+              ${vencidas.length + active.filter(o => o.entrega && Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000)===0).length > 5 ? `<button type="button" class="btn btn-secondary btn-sm smart-alert-more" onclick="setFiltroPlazo('vencidas');switchTab('tab-list')">Ver todas las atrasadas</button>` : ''}
+            </div>
+
+            <div class="smart-alert-card smart-alert-warning">
+              <div class="smart-alert-head"><span class="smart-alert-title">🟠 Riesgo de atraso</span><span class="smart-alert-count">${activeParaPlazo.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff >= 1 && diff <= 2; }).length}</span></div>
+              <div class="smart-alert-desc">Entregas dentro de las próximas 48 horas.</div>
+              <div class="smart-alert-list">
+                ${activeParaPlazo.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff >= 1 && diff <= 2; }).sort(prioridadAlerta).slice(0,5).map(o => {
+                  const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000);
+                  return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')} <span class="priority-mini priority-${prioridadLabel(o.prioridad).toLowerCase()}">${prioridadLabel(o.prioridad)}</span></span><span class="smart-alert-item-meta">${diff===1?'mañana':'en 2 días'}</span></div>`;
+                }).join('') || '<div class="smart-alert-empty">No hay OP en riesgo inmediato.</div>'}
+              </div>
+              ${proximas.length > 5 ? `<button type="button" class="btn btn-secondary btn-sm smart-alert-more" onclick="setFiltroPlazo('porvencer');switchTab('tab-list')">Ver todas las próximas</button>` : ''}
+            </div>
+
+            <div class="smart-alert-card smart-alert-ok">
+              <div class="smart-alert-head"><span class="smart-alert-title">🟢 En plazo</span><span class="smart-alert-count">${activeParaPlazo.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff > 2; }).length}</span></div>
+              <div class="smart-alert-desc">OP activas con más de 48 h de margen.</div>
+              <div class="smart-alert-list">
+                ${activeParaPlazo.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff > 2; }).sort(prioridadAlerta).slice(0,5).map(o => {
+                  const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000);
+                  return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')} <span class="priority-mini priority-${prioridadLabel(o.prioridad).toLowerCase()}">${prioridadLabel(o.prioridad)}</span></span><span class="smart-alert-item-meta">${diff} días</span></div>`;
+                }).join('') || '<div class="smart-alert-empty">No hay OP activas con fecha suficiente.</div>'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="priority-summary"><div class="priority-summary-title">🚦 Semáforo de prioridad</div><div class="priority-summary-items">${['URGENTE','ALTA','NORMAL'].map(p=>{const n=active.filter(o=>prioridadLabel(o.prioridad)===p).length;return `<div class="priority-summary-item priority-summary-${p.toLowerCase()} dash-click-row" onclick="filterHistoryByField('prioridad','${p}')" title="Ver OP ${p.toLowerCase()}"><span class="priority-summary-dot"></span><b>${p}</b><strong>${n}</strong></div>`;}).join('')}</div></div>
+
+        <div class="dashboard-op-panels">
+          <div class="dash-panel"><div class="dash-panel-title">🚨 Atención inmediata</div>${vencidas.slice(0,5).map(rowOP).join('') || '<div class="dash-empty">No hay OP atrasadas 🎉</div>'}</div>
+          <div class="dash-panel"><div class="dash-panel-title">🏭 Carga por área</div>${areas.map(([a,n])=>`<div class="dash-area-row"><span>${esc(a)}</span><b>${n}</b></div>`).join('') || '<div class="dash-empty">Sin OP activas</div>'}</div>
+          <div class="dash-panel"><div class="dash-panel-title">⏰ Próximas entregas</div>${proximas.slice(0,5).map(rowOP).join('') || '<div class="dash-empty">No hay entregas en las próximas 48 h</div>'}</div>
+        </div>
+        <div class="dashboard-extra-grid">
+          <div class="dash-panel">
+            <div class="dash-panel-title">⏱️ Horas extras por trabajador · mes actual</div>
+            ${(() => {
+              const map = {};
+              heMes.forEach(h => { const n=String(h.trabajador||'Sin trabajador').trim(); map[n]=(map[n]||0)+(Number(h.horas)||0); });
+              const rows = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
+              const max = rows[0]?.[1] || 1;
+              return rows.length ? `<table class="dash-table"><thead><tr><th>Trabajador</th><th>Horas</th><th style="width:35%;">Carga</th></tr></thead><tbody>${rows.map(([n,h])=>`<tr><td>${esc(n)}</td><td class="num">${h} h</td><td><div class="dash-progress"><span style="width:${Math.min(100,h/max*100)}%"></span></div></td></tr>`).join('')}</tbody></table>` : '<div class="dash-empty">No hay horas extras registradas este mes.</div>';
+            })()}
+          </div>
+          <div class="dash-panel">
+            <div class="dash-panel-title">📌 OP con más horas extras · mes actual</div>
+            ${(() => {
+              const map = {};
+              heMes.forEach(h => { const n=String(h.op||'').trim(); if(n) map[n]=(map[n]||0)+(Number(h.horas)||0); });
+              const rows = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
+              return rows.length ? `<table class="dash-table"><thead><tr><th>N° OP</th><th>Horas extras</th></tr></thead><tbody>${rows.map(([n,h])=>`<tr class="dash-click-row" onclick="filterHistoryByOP('${String(n).replace(/'/g, "\\'")}')" title="Ver OP en Historial"><td><b>OP ${esc(n)}</b></td><td class="num">${h} h</td></tr>`).join('')}</tbody></table>` : '<div class="dash-empty">No hay horas extras asociadas a OP este mes.</div>';
+            })()}
+          </div>
+        </div>
+        ${window.dagometCurrentProfile?.rol === 'admin' ? `
+        <div class="dash-panel" style="margin-top:10px;">
+          <div class="dash-panel-title">🧾 Últimos cambios</div>
+          ${((db.auditoria||[]).slice(0,8).map(a => `<div class="dash-alert-row"><span><b>${esc(a.accion||'-')}</b> · ${esc(a.detalle||'')}</span><span>${esc(new Date(a.fecha).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</span></div>`).join('')) || '<div class="dash-empty">Aún no hay cambios registrados.</div>'}
+        </div>` : ''}`;
+    }
+
+    function getDashboardPerformanceRange() {
+      const sel = $('stats-periodo') ? $('stats-periodo').value : 'mes';
+      const ahora = new Date(); ahora.setHours(0,0,0,0);
+      if (sel === 'todo') return { desde: null, hasta: ahora, label: 'Todo el historial' };
+      if (sel === 'mes') return { desde: new Date(ahora.getFullYear(), ahora.getMonth(), 1), hasta: ahora, label: 'Este mes' };
+      if (sel === 'trimestre') return { desde: new Date(ahora.getFullYear(), ahora.getMonth()-2, 1), hasta: ahora, label: 'Últimos 3 meses' };
+      return { desde: new Date(ahora.getFullYear(), 0, 1), hasta: ahora, label: 'Este año' };
+    }
+
+    function renderDashboardPerformance(otsFiltradasEstado) {
+      const host = $('dashboard-performance');
+      if (!host) return;
+      const rango = getDashboardPerformanceRange();
+      const inicioKey = rango.desde ? `${rango.desde.getFullYear()}-${pad2(rango.desde.getMonth()+1)}-${pad2(rango.desde.getDate())}` : '';
+      const finKey = `${rango.hasta.getFullYear()}-${pad2(rango.hasta.getMonth()+1)}-${pad2(rango.hasta.getDate())}`;
+      const cerradas = otsFiltradasEstado.filter(o => {
+        const estado = String(o.estadoOp || '').trim().toUpperCase();
+        if (!['TERMINADA','DESPACHADA'].includes(estado) || !o.fechaTermino) return false;
+        const fecha = String(o.fechaTermino).slice(0,10);
+        return (!inicioKey || fecha >= inicioKey) && fecha <= finKey;
+      });
+
+      let aTiempo = 0, atrasadas = 0, sumaDesvio = 0, cuentaDesvio = 0, sumaCiclo = 0, cuentaCiclo = 0, kilos = 0;
+      const areaMap = {};
+      cerradas.forEach(o => {
+        const termino = String(o.fechaTermino || '').slice(0,10);
+        const entrega = String(o.entrega || '').slice(0,10);
+        let estadoCumplimiento = 'sin fecha';
+        if (entrega && termino) {
+          const t = new Date(termino+'T00:00:00');
+          const e = new Date(entrega+'T00:00:00');
+          const diff = Math.round((t-e)/86400000);
+          sumaDesvio += diff; cuentaDesvio++;
+          if (diff <= 0) { aTiempo++; estadoCumplimiento='a tiempo'; }
+          else { atrasadas++; estadoCumplimiento='atrasada'; }
+        }
+        if (o.fechaInicio) {
+          const ini = new Date(String(o.fechaInicio).slice(0,10)+'T00:00:00');
+          const ter = new Date(termino+'T00:00:00');
+          const ciclo = Math.round((ter-ini)/86400000);
+          if (!isNaN(ciclo) && ciclo >= 0) { sumaCiclo += ciclo; cuentaCiclo++; }
+        }
+        kilos += (o.materiales||[]).reduce((a,m)=>a+(Number(m.kilos)||0),0);
+        const area = String(o.area||'SIN ÁREA').trim() || 'SIN ÁREA';
+        if (!areaMap[area]) areaMap[area] = { total:0, aTiempo:0, atrasadas:0, kilos:0 };
+        areaMap[area].total++;
+        if (estadoCumplimiento === 'a tiempo') areaMap[area].aTiempo++;
+        if (estadoCumplimiento === 'atrasada') areaMap[area].atrasadas++;
+        areaMap[area].kilos += (o.materiales||[]).reduce((a,m)=>a+(Number(m.kilos)||0),0);
+      });
+
+      const totalConFecha = aTiempo + atrasadas;
+      const cumplimiento = totalConFecha ? (aTiempo/totalConFecha*100) : 0;
+      const promedioDesvio = cuentaDesvio ? sumaDesvio/cuentaDesvio : 0;
+      const promedioCiclo = cuentaCiclo ? sumaCiclo/cuentaCiclo : 0;
+      const areas = Object.entries(areaMap).sort((a,b)=>b[1].total-a[1].total).slice(0,8);
+      const maxCum = Math.max(1,...areas.map(([,v])=>v.total ? v.aTiempo/v.total*100 : 0));
+      const formatSigned = n => n === 0 ? '0 días' : `${n > 0 ? '+' : ''}${n.toFixed(1)} días`;
+
+      host.innerHTML = `
+        <div class="stats-section-title">📈 Desempeño de entregas <span class="stats-live-pulse"><span class="stats-live-dot"></span>${esc(rango.label.toUpperCase())}</span></div>
+        <div class="performance-kpis">
+          <div class="performance-card performance-ok"><div class="performance-number">${cumplimiento.toFixed(0)}%</div><div class="performance-label">Cumplimiento de entrega</div><div class="performance-sub">${aTiempo} a tiempo de ${totalConFecha}</div></div>
+          <div class="performance-card performance-danger"><div class="performance-number">${atrasadas}</div><div class="performance-label">Entregas con atraso</div><div class="performance-sub">según fecha de término</div></div>
+          <div class="performance-card performance-warning"><div class="performance-number">${formatSigned(promedioDesvio)}</div><div class="performance-label">Desviación promedio</div><div class="performance-sub">respecto a la fecha comprometida</div></div>
+          <div class="performance-card performance-info"><div class="performance-number">${promedioCiclo.toFixed(1)} días</div><div class="performance-label">Ciclo promedio</div><div class="performance-sub">desde inicio hasta término</div></div>
+        </div>
+        <div class="performance-layout">
+          <div class="dash-panel">
+            <div class="dash-panel-title">🏭 Cumplimiento por área <span style="font-size:.68rem;font-weight:600;color:var(--text-muted);">· haz clic para ver las OP</span></div>
+            ${areas.length ? `<table class="performance-table"><thead><tr><th>Área</th><th>OP</th><th>Cumplimiento</th><th style="width:30%;">Nivel</th></tr></thead><tbody>${areas.map(([a,v])=>{const pct=v.total?(v.aTiempo/v.total*100):0; return `<tr class="performance-click-row" onclick="filterHistoryByField('area','${String(a).replace(/'/g, "\\'")}')" title="Ver las OP de ${esc(a)} en Historial"><td><button type="button" class="dashboard-drill-link" onclick="event.stopPropagation();filterHistoryByField('area','${String(a).replace(/'/g, "\\'")}')">${esc(a)}</button></td><td class="num">${v.total}</td><td class="num">${pct.toFixed(0)}%</td><td><div class="performance-bar"><span style="width:${Math.min(100,pct)}%"></span></div></td></tr>`;}).join('')}</tbody></table>` : '<div class="performance-empty">No hay OP terminadas en el período seleccionado.</div>'}
+          </div>
+          <div class="dash-panel">
+            <div class="dash-panel-title">📦 Producción cerrada</div>
+            <table class="performance-table">
+              <tbody>
+                <tr><td>OP terminadas/despachadas</td><td class="num">${cerradas.length}</td></tr>
+                <tr><td>Kilos asociados</td><td class="num">${Math.round(kilos).toLocaleString('es-CL')} kg</td></tr>
+                <tr><td>Entregadas a tiempo</td><td class="num">${aTiempo}</td></tr>
+                <tr><td>Entregadas atrasadas</td><td class="num">${atrasadas}</td></tr>
+              </tbody>
+            </table>
+            <div class="performance-note">El cumplimiento compara la fecha real de término con la fecha de entrega registrada en cada OP.</div>
+          </div>
+        </div>`;
+    }
+
+    function renderStats() {
+      const estadoFiltro = $('stats-estado') ? $('stats-estado').value : 'TODOS';
+      const matchesEstado = o => estadoFiltro === 'TODOS' || String(o.estadoOp || 'EN CURSO').trim().toUpperCase() === estadoFiltro;
+      const otsFiltradasEstado = db.ots.filter(matchesEstado);
+      renderDashboardOperativo(otsFiltradasEstado);
+      renderDashboardPerformance(otsFiltradasEstado);
+
+      // ---------- Bloque "en vivo": alertas y carga actual ----------
+      const otsActivas = otsFiltradasEstado.filter(o => !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
+      const otsActivasParaPlazo = otsActivas.filter(o => String(o.estadoOp || 'EN CURSO').trim().toUpperCase() !== 'EN PAUSA');
+
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+
+      let vencidas = 0, porVencer = 0, sumaDiasPlazo = 0, cuentaDiasPlazo = 0;
+      otsActivas.forEach(o => {
+        if (!o.entrega) return;
+        const parts = String(o.entrega).split('-');
+        if (parts.length !== 3) return;
+        const entregaDate = new Date(parts[0], parts[1] - 1, parts[2]);
+        entregaDate.setHours(0, 0, 0, 0);
+        const diffDias = Math.ceil((entregaDate - hoy) / (1000 * 60 * 60 * 24));
+        if (diffDias < 0) vencidas++;
+        else if (diffDias <= 2) porVencer++;
+
+        if (o.createdAt) {
+          const creada = new Date(o.createdAt);
+          creada.setHours(0, 0, 0, 0);
+          const diasPlazo = Math.round((entregaDate - creada) / (1000 * 60 * 60 * 24));
+          if (!isNaN(diasPlazo)) { sumaDiasPlazo += diasPlazo; cuentaDiasPlazo++; }
+        }
+      });
+
+      const kilosTotales = otsActivas.reduce((acc, o) =>
+        acc + (o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0), 0);
+
+      const otsSoldaduraActivas = otsActivas.filter(o => (o.soldadura || 'NO').toUpperCase() === 'SI');
+      const soldaduraPendiente = otsSoldaduraActivas.filter(o => !(o.soldaduraSeguimiento && o.soldaduraSeguimiento.ensayos && o.soldaduraSeguimiento.ensayos.check)).length;
+      const soldaduraSinEnviar = otsSoldaduraActivas.filter(o => !(o.soldaduraSeguimiento && o.soldaduraSeguimiento.enviado && o.soldaduraSeguimiento.enviado.check)).length;
+      const soldaduraEnRecilindrado = otsSoldaduraActivas.filter(o => o.soldaduraSeguimiento && o.soldaduraSeguimiento.enviado && o.soldaduraSeguimiento.enviado.check && !(o.soldaduraSeguimiento.ensayos && o.soldaduraSeguimiento.ensayos.check)).length;
+
+      $('kpi-vencidas').innerText = vencidas;
+      $('kpi-porvencer').innerText = porVencer;
+      $('kpi-kilos').innerText = Math.round(kilosTotales).toLocaleString('es-CL') + ' kg';
+      $('kpi-soldadura').innerText = soldaduraPendiente;
+      if ($('kpi-soldadura-sub')) $('kpi-soldadura-sub').innerText = `${soldaduraSinEnviar} sin enviar · ${soldaduraEnRecilindrado} en recilindrado`;
+      $('kpi-diasplazo').innerText = cuentaDiasPlazo ? Math.round(sumaDiasPlazo / cuentaDiasPlazo) : '—';
+
+      // ---------- Bloque "por periodo": totales, prioridad y desgloses ----------
+      const rango = getPeriodoRange();
+      const otsPeriodo = rango
+        ? otsFiltradasEstado.filter(o => o.createdAt && o.createdAt >= rango.desde.getTime() && o.createdAt <= rango.hasta.getTime())
+        : otsFiltradasEstado;
+
+      $('stats-periodo-count').innerText = `${otsPeriodo.length} de ${db.ots.length} OP(s) totales`;
+
+      const total = otsPeriodo.length;
+      const normal = otsPeriodo.filter(o => o.prioridad === 'NORMAL').length;
+      const alta = otsPeriodo.filter(o => o.prioridad === 'ALTA').length;
+      const urgente = otsPeriodo.filter(o => o.prioridad === 'URGENTE').length;
+
+      $('kpi-total').innerHTML = total + deltaVsPeriodoAnterior(rango, otsFiltradasEstado, total);
+      $('kpi-normal').innerText = normal;
+      $('kpi-alta').innerText = alta;
+      $('kpi-urgente').innerText = urgente;
+
+      // Recuento de OPs por estado. Se muestran todos los estados definidos
+      // en el formulario, incluso cuando alguno tiene 0 OPs.
+      const estados = ['EN CURSO', 'EN PAUSA', 'POR INSPECCIONAR', 'TERMINADA', 'DESPACHADA', 'ANULADA'];
+      const statusCounts = {};
+      estados.forEach(e => statusCounts[e] = { count: 0, ops: [] });
+      otsPeriodo.forEach(o => {
+        const estado = String(o.estadoOp || 'EN CURSO').trim().toUpperCase();
+        if (!(estado in statusCounts)) statusCounts[estado] = { count: 0, ops: [] };
+        statusCounts[estado].count++;
+        statusCounts[estado].ops.push(o.numero);
+      });
+
+      const areaCounts = {};
+      otsPeriodo.forEach(o => {
+        const a = o.area || 'SIN ÁREA';
+        if (!areaCounts[a]) areaCounts[a] = { count: 0, ops: [] };
+        areaCounts[a].count++;
+        areaCounts[a].ops.push(o.numero);
+      });
+
+      const plannerCounts = {};
+      otsPeriodo.forEach(o => {
+        const p = o.planificador || 'GCC';
+        if (!plannerCounts[p]) plannerCounts[p] = { count: 0, ops: [] };
+        plannerCounts[p].count++;
+        plannerCounts[p].ops.push(o.numero);
+      });
+
+      // OPs por Cliente: por defecto solo OPs en curso (no cerradas), con un filtro
+      // (checkbox "Solo en curso") para poder ver el total del periodo si se necesita.
+      const soloActivasCliente = $('stats-cliente-solo-activas') ? $('stats-cliente-solo-activas').checked : true;
+      const otsParaCliente = soloActivasCliente
+        ? otsPeriodo.filter(o => !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()))
+        : otsPeriodo;
+      const clientCounts = {};
+      otsParaCliente.forEach(o => {
+        const c = (o.cliente || 'SIN CLIENTE').trim() || 'SIN CLIENTE';
+        if (!clientCounts[c]) clientCounts[c] = { count: 0, ops: [] };
+        clientCounts[c].count++;
+        clientCounts[c].ops.push(o.numero);
+      });
+
+      renderDonutChart('chart-estado', statusCounts, ESTADO_COLORS, 'estadoOp');
+      renderBarChart('chart-area', areaCounts, 'var(--primary)', undefined, 'area');
+      renderBarChart('chart-planificador', plannerCounts, 'var(--accent)', undefined, 'planificador');
+      renderBarChart('chart-cliente', clientCounts, '#0891b2', 8, 'cliente');
+      renderTrendChart();
+      renderClienteReporteSelect(clientCounts);
     }
 
     function renderClienteReporteSelect(clientCounts) {
