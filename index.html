@@ -29,7 +29,27 @@
         white-space: nowrap;
       }
       .dashboard-op-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}.dash-op-card{border:1px solid var(--border);border-top:4px solid var(--primary);border-radius:10px;padding:12px 14px;background:#fff;min-width:0}.dash-op-danger{border-top-color:#dc2626}.dash-op-warning{border-top-color:#f59e0b}.dash-op-info{border-top-color:#0369a1}.dash-op-he{border-top-color:#7c3aed}.dash-op-number{font-size:1.55rem;font-weight:800;line-height:1.1}.dash-op-label{font-size:.78rem;font-weight:800;margin-top:4px}.dash-op-sub{font-size:.7rem;color:var(--text-muted);margin-top:2px}.dashboard-op-panels{display:grid;grid-template-columns:1.15fr 1fr 1.15fr;gap:10px}.dash-panel{border:1px solid var(--border);border-radius:10px;background:#fff;padding:12px}.dash-panel-title{font-size:.8rem;font-weight:800;color:var(--primary);margin-bottom:8px}.dash-alert-row,.dash-area-row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #eef2f7;font-size:.73rem}.dash-alert-row:last-child,.dash-area-row:last-child{border-bottom:0}.dash-alert-row span:last-child{color:var(--text-muted);white-space:nowrap}.dash-empty{padding:14px 4px;color:var(--text-muted);font-size:.74rem;text-align:center}@media(max-width:900px){.dashboard-op-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-op-panels{grid-template-columns:1fr}}@media(max-width:520px){.dashboard-op-grid{grid-template-columns:1fr}}
-.dashboard-extra-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.dashboard-performance{margin-top:10px}.performance-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.performance-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:#fff;min-width:0}.performance-number{font-size:1.45rem;font-weight:800;line-height:1.1}.performance-label{font-size:.74rem;font-weight:800;margin-top:4px}.performance-sub{font-size:.68rem;color:var(--text-muted);margin-top:2px}.performance-ok{border-top:4px solid #16a34a}.performance-warn{border-top:4px solid #f59e0b}.performance-danger{border-top:4px solid #dc2626}.performance-info{border-top:4px solid #0369a1}.performance-layout{display:grid;grid-template-columns:1.1fr 1fr;gap:10px;margin-top:10px}.performance-table{width:100%;border-collapse:collapse;font-size:.72rem}.performance-table th{padding:7px 6px;text-align:left;color:var(--text-muted);font-size:.63rem;text-transform:uppercase;border-bottom:1px solid var(--border)}.performance-table td{padding:7px 6px;border-bottom:1px solid #eef2f7}.performance-table tr:last-child td{border-bottom:0}.performance-table .num{text-align:right;font-weight:800;white-space:nowrap}.performance-bar{height:8px;background:#eef2f7;border-radius:999px;overflow:hidden;min-width:75px}.performance-bar>span{display:block;height:100%;border-radius:999px;background:#16a34a}.performance-note{font-size:.68rem;color:var(--text-muted);margin-top:7px}.performance-empty{padding:18px 4px;text-align:center;color:var(--text-muted);font-size:.74rem}@media(max-width:900px){.performance-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.performance-layout{grid-template-columns:1fr}}@media(max-width:520px){.performance-kpis{grid-template-columns:1fr}}
+
+.smart-alerts{margin:0 0 12px 0}
+.smart-alert-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.smart-alert-card{border:1px solid var(--border);border-radius:10px;background:#fff;padding:11px 12px;min-width:0}
+.smart-alert-card.smart-alert-danger{border-left:5px solid #dc2626}
+.smart-alert-card.smart-alert-warning{border-left:5px solid #f59e0b}
+.smart-alert-card.smart-alert-ok{border-left:5px solid #16a34a}
+.smart-alert-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
+.smart-alert-title{font-size:.78rem;font-weight:800}
+.smart-alert-count{font-size:1.25rem;font-weight:900;line-height:1}
+.smart-alert-desc{font-size:.68rem;color:var(--text-muted);margin-bottom:7px}
+.smart-alert-list{display:flex;flex-direction:column;gap:4px}
+.smart-alert-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 7px;border-radius:7px;background:#f8fafc;font-size:.7rem;cursor:pointer}
+.smart-alert-item:hover{background:#f1f5f9}
+.smart-alert-item-main{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.smart-alert-item-meta{font-size:.65rem;color:var(--text-muted);white-space:nowrap}
+.smart-alert-more{margin-top:7px;width:100%}
+.smart-alert-empty{font-size:.7rem;color:var(--text-muted);padding:6px 0}
+@media(max-width:900px){.smart-alert-grid{grid-template-columns:1fr}}
+
+      .dashboard-extra-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.dashboard-performance{margin-top:10px}.performance-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.performance-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:#fff;min-width:0}.performance-number{font-size:1.45rem;font-weight:800;line-height:1.1}.performance-label{font-size:.74rem;font-weight:800;margin-top:4px}.performance-sub{font-size:.68rem;color:var(--text-muted);margin-top:2px}.performance-ok{border-top:4px solid #16a34a}.performance-warn{border-top:4px solid #f59e0b}.performance-danger{border-top:4px solid #dc2626}.performance-info{border-top:4px solid #0369a1}.performance-layout{display:grid;grid-template-columns:1.1fr 1fr;gap:10px;margin-top:10px}.performance-table{width:100%;border-collapse:collapse;font-size:.72rem}.performance-table th{padding:7px 6px;text-align:left;color:var(--text-muted);font-size:.63rem;text-transform:uppercase;border-bottom:1px solid var(--border)}.performance-table td{padding:7px 6px;border-bottom:1px solid #eef2f7}.performance-table tr:last-child td{border-bottom:0}.performance-table .num{text-align:right;font-weight:800;white-space:nowrap}.performance-bar{height:8px;background:#eef2f7;border-radius:999px;overflow:hidden;min-width:75px}.performance-bar>span{display:block;height:100%;border-radius:999px;background:#16a34a}.performance-note{font-size:.68rem;color:var(--text-muted);margin-top:7px}.performance-empty{padding:18px 4px;text-align:center;color:var(--text-muted);font-size:.74rem}@media(max-width:900px){.performance-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.performance-layout{grid-template-columns:1fr}}@media(max-width:520px){.performance-kpis{grid-template-columns:1fr}}
 .dash-table{width:100%;border-collapse:collapse;font-size:.72rem}.dash-table th{padding:7px 6px;text-align:left;color:var(--text-muted);font-size:.65rem;text-transform:uppercase;border-bottom:1px solid var(--border)}.dash-table td{padding:7px 6px;border-bottom:1px solid #eef2f7}.dash-table tr:last-child td{border-bottom:0}.dash-table .num{text-align:right;font-weight:800;white-space:nowrap}.dash-progress{height:7px;background:#eef2f7;border-radius:999px;overflow:hidden;min-width:70px}.dash-progress>span{display:block;height:100%;border-radius:999px;background:var(--primary)}.planta-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}.planta-summary-card{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#fff}.planta-summary-num{font-size:1.35rem;font-weight:800;line-height:1.1}.planta-summary-label{font-size:.7rem;color:var(--text-muted);font-weight:700;margin-top:3px}.planta-summary-danger{border-top:4px solid #dc2626}.planta-summary-warning{border-top:4px solid #f59e0b}.planta-summary-info{border-top:4px solid #0369a1}.planta-summary-ok{border-top:4px solid #16a34a}@media(max-width:900px){.dashboard-extra-grid{grid-template-columns:1fr}.planta-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.planta-summary{grid-template-columns:1fr 1fr}}
 
       /* Barra de filtros de Horas Extras: nunca debe salirse del encuadre. */
@@ -4405,11 +4425,53 @@
       host.innerHTML = `
         <div class="stats-section-title">🎯 Centro de control <span class="stats-live-pulse"><span class="stats-live-dot"></span>RESUMEN OPERATIVO</span></div>
         <div class="dashboard-op-grid">
-          <div class="dash-op-card dash-op-danger"><div class="dash-op-number">${vencidas.length}</div><div class="dash-op-label">OP atrasadas</div><div class="dash-op-sub">requieren atención</div></div>
-          <div class="dash-op-card dash-op-warning"><div class="dash-op-number">${proximas.length}</div><div class="dash-op-label">Vencen en 48 h</div><div class="dash-op-sub">priorizar producción</div></div>
+          <div class="dash-op-card dash-op-danger dash-click-row" onclick="setFiltroPlazo('vencidas');switchTab('tab-list')" title="Ver todas las OP vencidas"><div class="dash-op-number">${vencidas.length}</div><div class="dash-op-label">OP atrasadas</div><div class="dash-op-sub">requieren atención</div></div>
+          <div class="dash-op-card dash-op-warning dash-click-row" onclick="setFiltroPlazo('porvencer');switchTab('tab-list')" title="Ver OP por vencer"><div class="dash-op-number">${proximas.length}</div><div class="dash-op-label">Vencen en 48 h</div><div class="dash-op-sub">priorizar producción</div></div>
           <div class="dash-op-card dash-op-info"><div class="dash-op-number">${active.length}</div><div class="dash-op-label">OP activas</div><div class="dash-op-sub">en planta / proceso</div></div>
           <div class="dash-op-card dash-op-he"><div class="dash-op-number">${heTotal} h</div><div class="dash-op-label">Horas extras del mes</div><div class="dash-op-sub">${heTrab} trabajador(es)</div></div>
         </div>
+
+        <div class="smart-alerts">
+          <div class="stats-section-title">🧠 Alertas inteligentes <span class="stats-live-pulse"><span class="stats-live-dot"></span>PRIORIZACIÓN AUTOMÁTICA</span></div>
+          <div class="smart-alert-grid">
+            <div class="smart-alert-card smart-alert-danger">
+              <div class="smart-alert-head"><span class="smart-alert-title">🔴 Requiere atención hoy</span><span class="smart-alert-count">${vencidas.length + active.filter(o => { if(!o.entrega) return false; const d=new Date(o.entrega+'T00:00:00'); return Math.round((d-hoy)/86400000)===0; }).length}</span></div>
+              <div class="smart-alert-desc">OP atrasadas o con entrega para hoy.</div>
+              <div class="smart-alert-list">
+                ${[...vencidas, ...active.filter(o => { if(!o.entrega) return false; const d=new Date(o.entrega+'T00:00:00'); return Math.round((d-hoy)/86400000)===0; })].slice(0,5).map(o => {
+                  const dias = o.entrega ? Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000) : null;
+                  const etiqueta = dias < 0 ? `${Math.abs(dias)} d atrasada${Math.abs(dias)===1?'':'s'}` : 'entrega hoy';
+                  return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')}</span><span class="smart-alert-item-meta">${esc(etiqueta)}</span></div>`;
+                }).join('') || '<div class="smart-alert-empty">No hay OP críticas hoy 🎉</div>'}
+              </div>
+              ${vencidas.length + active.filter(o => o.entrega && Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000)===0).length > 5 ? `<button type="button" class="btn btn-secondary btn-sm smart-alert-more" onclick="setFiltroPlazo('vencidas');switchTab('tab-list')">Ver todas las atrasadas</button>` : ''}
+            </div>
+
+            <div class="smart-alert-card smart-alert-warning">
+              <div class="smart-alert-head"><span class="smart-alert-title">🟠 Riesgo de atraso</span><span class="smart-alert-count">${active.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff >= 1 && diff <= 2; }).length}</span></div>
+              <div class="smart-alert-desc">Entregas dentro de las próximas 48 horas.</div>
+              <div class="smart-alert-list">
+                ${active.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff >= 1 && diff <= 2; }).sort((a,b)=>(a.entrega||'').localeCompare(b.entrega||'')).slice(0,5).map(o => {
+                  const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000);
+                  return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')}</span><span class="smart-alert-item-meta">${diff===1?'mañana':'en 2 días'}</span></div>`;
+                }).join('') || '<div class="smart-alert-empty">No hay OP en riesgo inmediato.</div>'}
+              </div>
+              ${proximas.length > 5 ? `<button type="button" class="btn btn-secondary btn-sm smart-alert-more" onclick="setFiltroPlazo('porvencer');switchTab('tab-list')">Ver todas las próximas</button>` : ''}
+            </div>
+
+            <div class="smart-alert-card smart-alert-ok">
+              <div class="smart-alert-head"><span class="smart-alert-title">🟢 En plazo</span><span class="smart-alert-count">${active.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff > 2; }).length}</span></div>
+              <div class="smart-alert-desc">OP activas con más de 48 h de margen.</div>
+              <div class="smart-alert-list">
+                ${active.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff > 2; }).sort((a,b)=>(a.entrega||'').localeCompare(b.entrega||'')).slice(0,5).map(o => {
+                  const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000);
+                  return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')}</span><span class="smart-alert-item-meta">${diff} días</span></div>`;
+                }).join('') || '<div class="smart-alert-empty">No hay OP activas con fecha suficiente.</div>'}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="dashboard-op-panels">
           <div class="dash-panel"><div class="dash-panel-title">🚨 Atención inmediata</div>${vencidas.slice(0,5).map(rowOP).join('') || '<div class="dash-empty">No hay OP atrasadas 🎉</div>'}</div>
           <div class="dash-panel"><div class="dash-panel-title">🏭 Carga por área</div>${areas.map(([a,n])=>`<div class="dash-area-row"><span>${esc(a)}</span><b>${n}</b></div>`).join('') || '<div class="dash-empty">Sin OP activas</div>'}</div>
