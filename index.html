@@ -226,8 +226,17 @@
             <input type="date" id="fechaGuiaMat">
           </div>
           <div class="field">
+            <label>Plazo de Producción (días hábiles)</label>
+            <input type="number" id="plazoProduccion" min="1" max="60" step="1" value="8" placeholder="8">
+            <small style="display:block;margin-top:4px;color:#64748b;">Se cuentan desde la fecha de llegada de la guía.</small>
+          </div>
+          <div class="field">
             <label>Fecha de Entrega *</label>
             <input type="date" id="entrega">
+            <label style="display:flex;align-items:center;gap:7px;margin-top:6px;font-size:12px;font-weight:500;color:#64748b;cursor:pointer;">
+              <input type="checkbox" id="entregaAuto" checked style="width:auto;margin:0;">
+              Calcular automáticamente desde la guía
+            </label>
           </div>
 
           <div class="field">
@@ -2887,6 +2896,66 @@
       return list;
     }
 
+    // =====================================================================
+    // CÁLCULO AUTOMÁTICO DE FECHA DE ENTREGA
+    // La fecha base es la llegada del material (Fecha Guía) y el plazo se
+    // cuenta en días hábiles (lunes a viernes). El valor por defecto es 8.
+    // Si el usuario modifica manualmente la fecha de entrega, se desactiva
+    // el cálculo automático para no volver a pisar su corrección.
+    // =====================================================================
+    function sumarDiasHabiles(fechaStr, dias) {
+      if (!fechaStr || !Number.isFinite(Number(dias)) || Number(dias) < 1) return '';
+      const parts = String(fechaStr).split('-').map(Number);
+      if (parts.length !== 3 || parts.some(n => !Number.isFinite(n))) return '';
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      if (isNaN(d.getTime())) return '';
+      let restantes = Math.floor(Number(dias));
+      while (restantes > 0) {
+        d.setDate(d.getDate() + 1);
+        const diaSemana = d.getDay();
+        if (diaSemana !== 0 && diaSemana !== 6) restantes--;
+      }
+      return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+    }
+
+    function recalcularEntregaAutomatica() {
+      const guia = $('fechaGuiaMat')?.value || '';
+      const plazo = Math.max(1, Math.floor(Number($('plazoProduccion')?.value) || 8));
+      if (!$('plazoProduccion')?.value) $('plazoProduccion').value = plazo;
+      if ($('entregaAuto')?.checked && guia) {
+        const calculada = sumarDiasHabiles(guia, plazo);
+        if (calculada) $('entrega').value = calculada;
+      }
+    }
+
+    $('fechaGuiaMat').addEventListener('change', function() {
+      if ($('entregaAuto')?.checked) {
+        recalcularEntregaAutomatica();
+        markFormDirty();
+      }
+    });
+
+    $('plazoProduccion').addEventListener('input', function() {
+      const valor = Math.max(1, Math.min(60, Math.floor(Number(this.value) || 8)));
+      this.value = valor;
+      if ($('entregaAuto')?.checked) {
+        recalcularEntregaAutomatica();
+      }
+      markFormDirty();
+    });
+
+    $('entrega').addEventListener('input', function() {
+      if ($('entregaAuto')?.checked) {
+        $('entregaAuto').checked = false;
+      }
+      markFormDirty();
+    });
+
+    $('entregaAuto').addEventListener('change', function() {
+      if (this.checked) recalcularEntregaAutomatica();
+      markFormDirty();
+    });
+
     $('area').addEventListener('change', function() {
       const selectedArea = this.value;
       $('notaImportante').value = defaultNotes[selectedArea] || '';
@@ -3008,6 +3077,8 @@
         $('cliente-input').value = '';
       }
       $('entrega').value = '';
+      $('plazoProduccion').value = 8;
+      $('entregaAuto').checked = true;
       $('ocCliente').value = '';
       $('fechaGuiaMat').value = '';
       $('folio').value = '';
@@ -3085,6 +3156,8 @@
         planificador: $('planificador').value.toUpperCase(),
         cliente: clientInput,
         entrega: entregaInput,
+        plazoProduccion: Number($('plazoProduccion').value) || 8,
+        entregaAuto: $('entregaAuto').checked,
         ocCliente: $('ocCliente').value || '',
         fechaGuiaMat: $('fechaGuiaMat').value || '',
         folio: $('folio').value,
@@ -3153,6 +3226,8 @@
       $('planificador').value = o.planificador || 'GCC';
       $('cliente-input').value = o.cliente || (db.clients[0] ? `${db.clients[0].rut} - ${db.clients[0].name}` : '');
       $('entrega').value = o.entrega || '';
+      $('plazoProduccion').value = Number(o.plazoProduccion) || 8;
+      $('entregaAuto').checked = false;
       $('ocCliente').value = o.ocCliente || '';
       $('fechaGuiaMat').value = o.fechaGuiaMat || '';
       $('folio').value = o.folio || '';
@@ -3219,8 +3294,11 @@
       $('planificador').value = o.planificador || 'GCC';
       $('cliente-input').value = o.cliente || '';
       $('entrega').value = '';
+      $('plazoProduccion').value = Number(o.plazoProduccion) || 8;
+      $('entregaAuto').checked = true;
       $('ocCliente').value = o.ocCliente || '';
       $('fechaGuiaMat').value = o.fechaGuiaMat || '';
+      recalcularEntregaAutomatica();
       $('folio').value = o.folio || '';
       $('area').value = o.area || db.areas[0];
       $('maquina').value = o.maquina || '';
@@ -3865,6 +3943,7 @@
       $('cliente-input').value = g.cliente;
       $('folio').value = g.cd;
       $('fechaGuiaMat').value = g.fecha;
+      recalcularEntregaAutomatica();
       if (g.notas) $('instrucciones').value = g.notas;
       guiaVinculadaId = g.id;
 
