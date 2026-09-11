@@ -111,7 +111,161 @@
          en dos archivos. Ver ahí: "#preview-modal:not(.is-report)
          :not(.is-chart) #modal-preview-container". */
     .priority-mini{display:inline-block;padding:2px 7px;border-radius:999px;font-size:.68rem;font-weight:800;margin-left:5px}.priority-urgente{background:#fee2e2;color:#991b1b}.priority-alta{background:#ffedd5;color:#9a3412}.priority-normal{background:#dcfce7;color:#166534}.priority-summary{margin:10px 0 16px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface,#fff)}.priority-summary-title{font-weight:800;margin-bottom:9px}.priority-summary-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.priority-summary-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);cursor:pointer}.priority-summary-item strong{margin-left:auto;font-size:1.15rem}.priority-summary-dot{width:10px;height:10px;border-radius:50%;display:inline-block}.priority-summary-urgente .priority-summary-dot{background:#dc2626}.priority-summary-alta .priority-summary-dot{background:#f59e0b}.priority-summary-normal .priority-summary-dot{background:#22c55e}@media(max-width:700px){.priority-summary-items{grid-template-columns:1fr}}
+
+/* =====================================================================
+   REDISEÑO VISUAL — pestaña "Dashboard / Estadísticas" (#tab-stats)
+   Unifica el lenguaje visual de las tarjetas que se fueron agregando en
+   momentos distintos (KPI, Centro de control, Alertas inteligentes,
+   Desempeño, Semáforo) y ordena el contenido en zonas con más aire.
+   Solo estilos: no cambia ids, estructura ni lógica.
+   ===================================================================== */
+#tab-stats {
+  --ds-radius: 16px;
+  --ds-radius-sm: 12px;
+  --ds-border-soft: rgba(15,23,42,.08);
+  --ds-shadow: 0 1px 2px rgba(15,23,42,.04), 0 10px 24px -20px rgba(15,23,42,.45);
+  --ds-shadow-hover: 0 4px 10px -4px rgba(15,23,42,.18), 0 16px 32px -18px rgba(15,23,42,.5);
+}
+
+/* Encabezados de sección: más aire y una línea divisoria sutil entre
+   zonas, en vez de que todo flote junto dentro de la misma tarjeta. */
+#tab-stats .stats-section-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 30px 0 14px;
+  padding-top: 18px;
+  border-top: 1px solid var(--ds-border-soft);
+}
+#tab-stats .card > .stats-section-title:first-of-type {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 22px;
+}
+
+/* Insignia "en vivo": una píldora discreta en vez de un bloque marcado. */
+#tab-stats .stats-live-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .64rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: #15803d;
+  background: rgba(22,163,74,.1);
+  border: 1px solid rgba(22,163,74,.22);
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
+}
+#tab-stats .stats-live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #16a34a;
+  animation: ds-pulse 2s infinite;
+}
+@keyframes ds-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(22,163,74,.45); }
+  70% { box-shadow: 0 0 0 6px rgba(22,163,74,0); }
+  100% { box-shadow: 0 0 0 0 rgba(22,163,74,0); }
+}
+
+/* ---- Sistema unificado de tarjetas (mismo radio y sombra en todas) ---- */
+#tab-stats .kpi-card,
+#tab-stats .dash-op-card,
+#tab-stats .performance-card,
+#tab-stats .smart-alert-card,
+#tab-stats .dash-panel,
+#tab-stats .priority-summary,
+#tab-stats .priority-summary-item,
+#tab-stats .chart-card,
+#tab-stats .trend-card {
+  border-radius: var(--ds-radius);
+  box-shadow: var(--ds-shadow);
+}
+#tab-stats .kpi-card,
+#tab-stats .dash-op-card,
+#tab-stats .performance-card {
+  border-top-width: 3px;
+  padding: 14px 16px 13px;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+#tab-stats .kpi-num,
+#tab-stats .dash-op-number,
+#tab-stats .performance-number {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+}
+#tab-stats .kpi-label,
+#tab-stats .dash-op-label,
+#tab-stats .performance-label {
+  font-weight: 700;
+}
+/* Solo se "levantan" al pasar el mouse las tarjetas que de verdad son
+   clickeables — evita insinuar interacción donde no la hay. */
+#tab-stats .kpi-card.dashboard-drill-card:hover,
+#tab-stats .dash-op-card.dash-click-row:hover,
+#tab-stats .priority-summary-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ds-shadow-hover);
+}
+
+/* ---- Alertas inteligentes: tarjetas de estado con acento lateral ---- */
+#tab-stats .smart-alert-card {
+  border-left-width: 4px;
+  padding: 13px 14px;
+}
+#tab-stats .smart-alert-item {
+  border-radius: 10px;
+  transition: background .15s ease;
+}
+
+/* ---- Paneles del Centro de control ---- */
+#tab-stats .dash-panel {
+  padding: 14px 15px;
+}
+#tab-stats .dash-panel-title {
+  font-size: .78rem;
+  margin-bottom: 10px;
+}
+#tab-stats .dash-alert-row,
+#tab-stats .dash-area-row {
+  border-radius: 8px;
+  padding: 8px 6px;
+  margin: 0 -6px;
+}
+#tab-stats .dash-alert-row.dash-click-row:hover {
+  background: rgba(15,23,42,.035);
+}
+
+/* ---- Semáforo de prioridad: tarjetas con fondo suave por prioridad ---- */
+#tab-stats .priority-summary {
+  padding: 16px;
+}
+#tab-stats .priority-summary-item {
+  box-shadow: none;
+  border-radius: var(--ds-radius-sm);
+  transition: background .15s ease, transform .15s ease;
+}
+#tab-stats .priority-summary-urgente { background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.18); }
+#tab-stats .priority-summary-alta { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.22); }
+#tab-stats .priority-summary-normal { background: rgba(34,197,94,.07); border-color: rgba(34,197,94,.2); }
+
+/* ---- Gráficos: mismo lenguaje visual que el resto del dashboard ---- */
+#tab-stats .chart-card { padding: 16px; }
+
+/* ---- Más aire entre tarjetas dentro de cada grilla ---- */
+#tab-stats .kpi-grid,
+#tab-stats .dashboard-op-grid,
+#tab-stats .smart-alert-grid,
+#tab-stats .performance-kpis,
+#tab-stats .dashboard-op-panels,
+#tab-stats .dashboard-extra-grid,
+#tab-stats .performance-layout,
+#tab-stats .grid {
+  gap: 14px;
+}
 </style>
+
   </head>
 <body>
 
