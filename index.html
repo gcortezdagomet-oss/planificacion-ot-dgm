@@ -558,6 +558,8 @@
                 <option value="">Todos los trabajadores</option>
               </select>
             </label>
+            <button class="btn btn-secondary btn-sm" onclick="setHEReportCurrentMonth()">📅 Mes actual</button>
+            <button class="btn btn-secondary btn-sm" onclick="clearHEReportFilters()">✕ Limpiar</button>
             <button class="btn btn-success btn-sm" onclick="imprimirReporteHorasExtra()">🖨️ Imprimir reporte</button>
           </div>
         </div>
@@ -4757,7 +4759,7 @@
     }
 
     // =====================================================================
-    // HORAS EXTRAS DE TRABAJADORES (SOLO ADMIN)
+    // HORAS EXTRAS DE TRABAJADORES (ADMIN + SOLO LECTURA)
     // Registro por día, en un calendario propio, de las horas extra
     // trabajadas por cada persona del catálogo db.people. Se guarda en
     // db.horasExtra = [{ id, fecha, trabajador, op, horas, motivo, registradoPor, createdAt }]
@@ -4793,6 +4795,7 @@
       if (window.dagometCurrentProfile?.rol !== 'admin' && window.dagometCurrentProfile?.rol !== 'read_only') return;
       ensureHorasExtra();
       renderHEReportWorkerOptions();
+      initHEReportFilters();
       renderHEGrid();
       renderHESelectedDetail();
       renderHEMonthSummary();
@@ -4980,6 +4983,8 @@
       // El lector únicamente puede corregir la cantidad de horas.
       if (isReadOnly) {
         r.horas = n;
+        r.modificadoPor = window.dagometCurrentProfile?.nombre || '-';
+        r.modificadoAt = Date.now();
       } else {
         const nuevoOP = prompt('N° OP (opcional):', r.op || '');
         if (nuevoOP === null) return;
@@ -5042,12 +5047,13 @@
       const previewContainer = $('modal-preview-container');
       if (!previewContainer) return;
 
-      // Columnas del reporte (sin horas: solo se listan los registros).
+      // Columnas del reporte, incluyendo horas y resumen por trabajador.
       const heCols = [
-        { label: 'Fecha', align: 'left', weight: 20 },
-        { label: 'Trabajador', align: 'left', weight: 28 },
-        { label: 'N° OP', align: 'center', weight: 14 },
-        { label: 'Motivo', align: 'left', weight: 38 }
+        { label: 'Fecha', align: 'left', weight: 18 },
+        { label: 'Trabajador', align: 'left', weight: 25 },
+        { label: 'N° OP', align: 'center', weight: 13 },
+        { label: 'Horas', align: 'center', weight: 10 },
+        { label: 'Motivo', align: 'left', weight: 34 }
       ];
       const totalWeight = heCols.reduce((a, c) => a + c.weight, 0);
       const colgroupHtml = heCols.map(c => `<col style="width:${(c.weight / totalWeight * 100).toFixed(2)}%;">`).join('');
@@ -5058,12 +5064,22 @@
           <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:left; font-size:12px; vertical-align:top;">${esc(formatDateWithDayUpper(r.fecha))}</td>
           <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:left; font-size:12px; vertical-align:top;"><b>${esc(r.trabajador || '-')}</b></td>
           <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:center; font-size:12px; vertical-align:top;">${r.op ? `OP ${esc(r.op)}` : '-'}</td>
+          <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:center; font-size:12px; font-weight:800; vertical-align:top;">${esc(String(r.horas || 0))} h</td>
           <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:left; font-size:12px; vertical-align:top; word-break:normal; overflow-wrap:anywhere; white-space:normal;">${esc(r.motivo || '-')}</td>
         </tr>`).join('');
 
       const fechaRango = `${formatDateWithDayUpper(desde)} al ${formatDateWithDayUpper(hasta)}`;
       const totalHoras = registros.reduce((a, r) => a + (Number(r.horas) || 0), 0);
       const filtroTrabajador = trabajador ? `Trabajador: ${esc(trabajador)}` : 'Trabajador: Todos los trabajadores';
+      const resumenTrabajadores = {};
+      registros.forEach(r => {
+        const nombre = String(r.trabajador || 'SIN TRABAJADOR').trim();
+        if (!resumenTrabajadores[nombre]) resumenTrabajadores[nombre] = 0;
+        resumenTrabajadores[nombre] += Number(r.horas) || 0;
+      });
+      const resumenHtml = Object.entries(resumenTrabajadores).sort((a,b) => b[1]-a[1]).map(([nombre, horas]) =>
+        `<span style="display:inline-flex;align-items:center;gap:5px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:5px 9px;"><b>${esc(nombre)}</b> ${horas} h</span>`
+      ).join('');
 
       const container = document.createElement('div');
       container.className = 'he-print-report';
@@ -5083,6 +5099,8 @@
           </div>
         </div>
 
+        ${registros.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;"><span style="font-weight:800;color:#334155;">Resumen:</span>${resumenHtml}</div>` : ''}
+
         <table style="width:100%; max-width:100%; border-collapse:collapse; table-layout:fixed;">
           <colgroup>${colgroupHtml}</colgroup>
           <thead>
@@ -5100,12 +5118,61 @@
       previewContainer.innerHTML = '';
       previewContainer.appendChild(container);
 
-      $('modal-download-btn').style.display = 'none';
-      $('modal-download-excel-btn').style.display = 'none';
+      $('modal-download-btn').style.display = '';
+      $('modal-download-btn').onclick = () => downloadHEReportPDF(container, fechaRango, trabajador);
+      $('modal-download-excel-btn').style.display = '';
+      $('modal-download-excel-btn').onclick = () => exportHorasExtraToExcel(registros, trabajador, desde, hasta);
       $('modal-print-btn').style.display = '';
       $('preview-modal').classList.remove('is-chart');
       $('preview-modal').classList.add('is-report');
       $('preview-modal').style.display = 'flex';
+    }
+
+    async function downloadHEReportPDF(container, fechaRango, trabajador) {
+      if (typeof html2pdf !== 'function') {
+        alert('No se pudo cargar el generador de PDF. Comprueba tu conexión a Internet y vuelve a intentarlo.');
+        return;
+      }
+      const filename = `Reporte_Horas_Extras_${trabajador ? trabajador.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]+/g, '_') : 'Todos'}_${fechaRango.replace(/[^0-9]+/g, '_')}.pdf`;
+      const opts = {
+        margin: 8,
+        filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 1.6, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'letter', orientation: 'landscape' },
+        pagebreak: { mode: ['css', 'legacy'] }
+      };
+      await html2pdf().set(opts).from(container).save();
+    }
+
+    function exportHorasExtraToExcel(registros, trabajador, desde, hasta) {
+      if (typeof XLSX === 'undefined') {
+        alert('No se pudo cargar el exportador de Excel. Comprueba tu conexión a Internet y vuelve a intentarlo.');
+        return;
+      }
+      const rows = registros.map(r => ({
+        'Fecha': r.fecha || '',
+        'Trabajador': r.trabajador || '',
+        'N° OP': r.op || '',
+        'Horas': Number(r.horas) || 0,
+        'Motivo': r.motivo || '',
+        'Registrado por': r.registradoPor || ''
+      }));
+      rows.push({
+        'Fecha': '',
+        'Trabajador': trabajador || 'TODOS',
+        'N° OP': '',
+        'Horas': registros.reduce((a, r) => a + (Number(r.horas) || 0), 0),
+        'Motivo': `TOTAL · ${desde} al ${hasta}`,
+        'Registrado por': ''
+      });
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 14 }, { wch: 28 }, { wch: 14 }, { wch: 10 }, { wch: 45 }, { wch: 24 }
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Horas Extras');
+      XLSX.writeFile(wb, `Horas_Extras_${trabajador ? trabajador.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]+/g,'_') : 'Todos'}_${desde}_${hasta}.xlsx`);
     }
 
     function renderHEMonthSummary() {
@@ -5114,26 +5181,81 @@
       ensureHorasExtra();
       const prefijoMes = `${heYear}-${pad2(heMonth + 1)}-`;
       const registrosMes = db.horasExtra.filter(h => (h.fecha || '').startsWith(prefijoMes));
+      const totalMes = registrosMes.reduce((a, r) => a + (Number(r.horas) || 0), 0);
+      const trabajadores = new Set(registrosMes.map(r => String(r.trabajador || '').trim()).filter(Boolean));
+      const dias = new Set(registrosMes.map(r => r.fecha).filter(Boolean));
+
       if (registrosMes.length === 0) {
-        container.innerHTML = `<h3>Resumen de ${CAL_MESES[heMonth]} ${heYear}</h3><div class="stat-empty">No hay horas extra registradas este mes.</div>`;
+        container.innerHTML = `
+          <h3>Resumen de ${CAL_MESES[heMonth]} ${heYear}</h3>
+          <div class="stat-empty">No hay horas extra registradas este mes.</div>`;
         return;
       }
+
       const porTrabajador = {};
       registrosMes.forEach(r => {
-        porTrabajador[r.trabajador] = (porTrabajador[r.trabajador] || 0) + (Number(r.horas) || 0);
+        const nombre = String(r.trabajador || 'SIN TRABAJADOR').trim();
+        if (!porTrabajador[nombre]) porTrabajador[nombre] = { horas: 0, registros: 0, dias: new Set() };
+        porTrabajador[nombre].horas += Number(r.horas) || 0;
+        porTrabajador[nombre].registros++;
+        if (r.fecha) porTrabajador[nombre].dias.add(r.fecha);
       });
+
       const filas = Object.entries(porTrabajador)
-        .sort((a, b) => b[1] - a[1])
-        .map(([nombre, horas]) => `<tr><td>${esc(nombre)}</td><td style="text-align:center;"><b>${horas}</b> h</td></tr>`)
-        .join('');
-      const totalMes = registrosMes.reduce((a, r) => a + (Number(r.horas) || 0), 0);
+        .sort((a, b) => b[1].horas - a[1].horas)
+        .map(([nombre, d]) => `
+          <tr>
+            <td>${esc(nombre)}</td>
+            <td style="text-align:center;"><b>${d.horas}</b> h</td>
+            <td style="text-align:center;">${d.dias.size}</td>
+            <td style="text-align:center;">${d.registros}</td>
+          </tr>`).join('');
+
       container.innerHTML = `
-        <h3>Resumen de ${CAL_MESES[heMonth]} ${heYear} — Total: ${totalMes}h</h3>
+        <h3 style="margin-bottom:12px;">Resumen de ${CAL_MESES[heMonth]} ${heYear}</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;">
+          <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:12px 14px;">
+            <div style="font-size:.72rem;font-weight:800;color:#64748b;text-transform:uppercase;">Horas extra</div>
+            <div style="font-size:1.45rem;font-weight:800;color:var(--primary);">${totalMes} h</div>
+          </div>
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;">
+            <div style="font-size:.72rem;font-weight:800;color:#64748b;text-transform:uppercase;">Trabajadores</div>
+            <div style="font-size:1.45rem;font-weight:800;">${trabajadores.size}</div>
+          </div>
+          <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;">
+            <div style="font-size:.72rem;font-weight:800;color:#64748b;text-transform:uppercase;">Días con HE</div>
+            <div style="font-size:1.45rem;font-weight:800;">${dias.size}</div>
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+            <div style="font-size:.72rem;font-weight:800;color:#64748b;text-transform:uppercase;">Registros</div>
+            <div style="font-size:1.45rem;font-weight:800;">${registrosMes.length}</div>
+          </div>
+        </div>
         <table>
-          <thead><tr><th>Trabajador</th><th>Horas extra del mes</th></tr></thead>
+          <thead><tr><th>Trabajador</th><th>Horas extra</th><th>Días con HE</th><th>Registros</th></tr></thead>
           <tbody>${filas}</tbody>
         </table>
       `;
+    }
+
+    function setHEReportCurrentMonth() {
+      const desde = $('he-report-from'), hasta = $('he-report-to');
+      if (!desde || !hasta) return;
+      desde.value = `${heYear}-${pad2(heMonth + 1)}-01`;
+      hasta.value = `${heYear}-${pad2(heMonth + 1)}-${pad2(new Date(heYear, heMonth + 1, 0).getDate())}`;
+    }
+
+    function clearHEReportFilters() {
+      const desde = $('he-report-from'), hasta = $('he-report-to'), trabajador = $('he-report-worker');
+      if (desde) desde.value = '';
+      if (hasta) hasta.value = '';
+      if (trabajador) trabajador.value = '';
+    }
+
+    function initHEReportFilters() {
+      const desde = $('he-report-from'), hasta = $('he-report-to');
+      if (!desde || !hasta) return;
+      if (!desde.value || !hasta.value) setHEReportCurrentMonth();
     }
 
     // =====================================================================
