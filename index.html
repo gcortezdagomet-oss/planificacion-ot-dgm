@@ -28,6 +28,48 @@
         font-size: .72rem;
         white-space: nowrap;
       }
+      .dashboard-op-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}.dash-op-card{border:1px solid var(--border);border-top:4px solid var(--primary);border-radius:10px;padding:12px 14px;background:#fff;min-width:0}.dash-op-danger{border-top-color:#dc2626}.dash-op-warning{border-top-color:#f59e0b}.dash-op-info{border-top-color:#0369a1}.dash-op-he{border-top-color:#7c3aed}.dash-op-number{font-size:1.55rem;font-weight:800;line-height:1.1}.dash-op-label{font-size:.78rem;font-weight:800;margin-top:4px}.dash-op-sub{font-size:.7rem;color:var(--text-muted);margin-top:2px}.dashboard-op-panels{display:grid;grid-template-columns:1.15fr 1fr 1.15fr;gap:10px}.dash-panel{border:1px solid var(--border);border-radius:10px;background:#fff;padding:12px}.dash-panel-title{font-size:.8rem;font-weight:800;color:var(--primary);margin-bottom:8px}.dash-alert-row,.dash-area-row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #eef2f7;font-size:.73rem}.dash-alert-row:last-child,.dash-area-row:last-child{border-bottom:0}.dash-alert-row span:last-child{color:var(--text-muted);white-space:nowrap}.dash-empty{padding:14px 4px;color:var(--text-muted);font-size:.74rem;text-align:center}@media(max-width:900px){.dashboard-op-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-op-panels{grid-template-columns:1fr}}@media(max-width:520px){.dashboard-op-grid{grid-template-columns:1fr}}
+
+      /* Barra de filtros de Horas Extras: nunca debe salirse del encuadre. */
+      .he-report-toolbar {
+        width:100% !important;
+        max-width:100%;
+        box-sizing:border-box !important;
+        align-content:center;
+      }
+      .he-report-toolbar > label {
+        flex:0 1 auto;
+        min-width:0;
+      }
+      .he-report-toolbar > select,
+      .he-report-toolbar > input,
+      .he-report-toolbar .btn {
+        flex:0 0 auto;
+      }
+      #he-report-worker {
+        max-width:min(260px, 100%);
+      }
+      @media (max-width: 900px) {
+        .he-report-toolbar {
+          gap:7px !important;
+        }
+        .he-report-toolbar > label {
+          flex:1 1 150px;
+        }
+        .he-report-toolbar > label input,
+        .he-report-toolbar > label select {
+          max-width:100%;
+        }
+      }
+      @media (max-width: 650px) {
+        .he-report-toolbar > label {
+          flex:1 1 100%;
+        }
+        .he-report-toolbar .btn {
+          flex:1 1 auto;
+        }
+      }
+
       /* Reporte de horas extras: aprovecha el mismo formato horizontal de reportes. */
       @media print {
         #preview-modal.is-report .he-print-report { width:100% !important; max-width:none !important; }
@@ -504,8 +546,8 @@
 
         <div id="cal-today-card" style="background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; padding:14px 18px; margin-bottom:22px;"></div>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
-          <div style="display:flex; align-items:center; gap:8px;">
+        <div class="he-report-toolbar-wrap" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+          <div class="he-report-toolbar" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; width:100%; min-width:0; box-sizing:border-box;">
             <button class="btn btn-secondary btn-sm" onclick="changeCalMonth(-1)">◀</button>
             <span id="cal-month-title" style="font-weight:800; color:var(--primary); font-size:1.05rem; min-width:170px; text-align:center;"></span>
             <button class="btn btn-secondary btn-sm" onclick="changeCalMonth(1)">▶</button>
@@ -645,6 +687,8 @@
             <div class="kpi-label">Plazo Promedio (días)</div>
           </div>
         </div>
+
+        <div id="dashboard-operativo" class="dashboard-operativo" style="margin-bottom:18px;"></div>
 
         <div class="trend-card">
           <div class="chart-card-header" style="margin-bottom:6px;">
@@ -1265,6 +1309,7 @@
     if(!Array.isArray(db.pesosMateriales)) db.pesosMateriales = null;
     if (!Array.isArray(db.guias)) db.guias = [];
     if (!Array.isArray(db.horasExtra)) db.horasExtra = [];
+    if (!Array.isArray(db.auditoria)) db.auditoria = [];
 
     if (db.clients && db.clients.length > 0 && typeof db.clients[0] === 'string') {
       db.clients = db.clients.map(c => ({ rut: 'S/RUT', name: c }));
@@ -1285,6 +1330,25 @@
 
     let remoteSaveTimer = null;
     let remoteSaveInFlight = false;
+
+    // Registro simple de acciones importantes para trazabilidad.
+    function registrarAuditoria(accion, detalle, entidad = '') {
+      try {
+        if (!Array.isArray(db.auditoria)) db.auditoria = [];
+        db.auditoria.unshift({
+          id: 'aud-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+          fecha: new Date().toISOString(),
+          usuario: window.dagometCurrentProfile?.nombre || window.dagometCurrentUser?.email || '-',
+          rol: window.dagometCurrentProfile?.rol || '-',
+          accion,
+          entidad,
+          detalle: String(detalle || '')
+        });
+        // Conservamos las últimas 500 acciones para evitar que el archivo crezca indefinidamente.
+        if (db.auditoria.length > 500) db.auditoria.length = 500;
+      } catch (e) { console.warn('No se pudo registrar auditoría:', e); }
+    }
+
     function saveDB() {
       try { localStorage.setItem('dagomet_db', JSON.stringify(db)); } catch (err) { console.error('Error al guardar cache local:', err); }
       if (window.dagometSupabase && window.dagometCurrentUser && window.dagometCurrentProfile?.rol !== 'read_only') {
@@ -1299,6 +1363,34 @@
         if (error) console.error('No se pudo sincronizar con Supabase:', error);
       } finally { remoteSaveInFlight = false; }
     }
+    // Las correcciones de horas extras hechas por Solo Lectura sí deben
+    // quedar compartidas. Actualizamos únicamente horasExtra + auditoria en
+    // la copia remota para no bloquear el resto de los datos del sistema.
+    async function saveHorasExtraRemote() {
+      if (!window.dagometSupabase || !window.dagometCurrentUser) return;
+      try {
+        const { data: remoto, error: readError } = await window.dagometSupabase.from('app_data').select('data').eq('id', 1).maybeSingle();
+        if (readError) throw readError;
+        const remoteData = (remoto?.data && typeof remoto.data === 'object') ? remoto.data : {};
+        remoteData.horasExtra = Array.isArray(db.horasExtra) ? db.horasExtra : [];
+        remoteData.auditoria = Array.isArray(db.auditoria) ? db.auditoria : [];
+        const { error } = await window.dagometSupabase.from('app_data').upsert({
+          id: 1,
+          data: remoteData,
+          updated_at: new Date().toISOString(),
+          updated_by: window.dagometCurrentUser.id
+        });
+        if (error) throw error;
+      } catch (err) {
+        console.error('No se pudieron sincronizar las horas extras:', err);
+      }
+    }
+
+    async function guardarHorasExtraCambios() {
+      saveDB();
+      if (window.dagometCurrentProfile?.rol === 'read_only') await saveHorasExtraRemote();
+    }
+
     async function loadDBRemote() {
       if (!window.dagometSupabase || !window.dagometCurrentUser) return false;
       const { data, error } = await window.dagometSupabase.from('app_data').select('data').eq('id',1).maybeSingle();
@@ -3008,6 +3100,7 @@
       }
       guiaVinculadaId = null;
 
+      registrarAuditoria(editId ? 'EDITAR OP' : 'CREAR OP', `${editId ? 'OP modificada' : 'OP creada'} N° ${opData.numero || '-'} · ${opData.cliente || 'Sin cliente'} · ${opData.area || 'Sin área'}`, opData.numero || '');
       saveDB();
       formDirty = false;
       alert('OP Guardada con éxito.');
@@ -3151,6 +3244,7 @@
       if (confirm(`¿Seguro que deseas eliminar la OP N° ${op.numero || ''} ${op.parteOp || ''}?`)) {
         await borrarAdjuntosDeOP(op);
         db.ots = db.ots.filter(x => x.id !== id);
+        registrarAuditoria('ELIMINAR OP', `OP eliminada N° ${op.numero || '-'} · ${op.cliente || 'Sin cliente'}`, op.numero || '');
         saveDB();
         renderOPsTable();
       }
@@ -4248,10 +4342,51 @@
       return { desde, hasta: ahora };
     }
 
+    function renderDashboardOperativo(otsFiltradasEstado) {
+      const host = $('dashboard-operativo');
+      if (!host) return;
+      const hoy = new Date(); hoy.setHours(0,0,0,0);
+      const active = otsFiltradasEstado.filter(o => !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
+      const vencidas = active.filter(o => o.entrega && new Date(o.entrega + 'T00:00:00') < hoy).sort((a,b)=>(a.entrega||'').localeCompare(b.entrega||''));
+      const proximas = active.filter(o => {
+        if (!o.entrega) return false;
+        const d = new Date(o.entrega + 'T00:00:00');
+        const diff = Math.ceil((d-hoy)/86400000);
+        return diff >= 0 && diff <= 2;
+      }).sort((a,b)=>(a.entrega||'').localeCompare(b.entrega||''));
+      const areaMap = {};
+      active.forEach(o => { const a=o.area||'SIN ÁREA'; areaMap[a]=(areaMap[a]||0)+1; });
+      const areas = Object.entries(areaMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+      const prefMes = `${hoy.getFullYear()}-${pad2(hoy.getMonth()+1)}-`;
+      const heMes = (db.horasExtra||[]).filter(h => String(h.fecha||'').startsWith(prefMes));
+      const heTotal = heMes.reduce((a,h)=>a+(Number(h.horas)||0),0);
+      const heTrab = new Set(heMes.map(h=>String(h.trabajador||'').trim()).filter(Boolean)).size;
+      const rowOP = o => `<div class="dash-alert-row"><span><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')}</span><span>${o.entrega ? esc(formatDateCL(o.entrega)) : 'Sin fecha'}</span></div>`;
+      host.innerHTML = `
+        <div class="stats-section-title">🎯 Centro de control <span class="stats-live-pulse"><span class="stats-live-dot"></span>RESUMEN OPERATIVO</span></div>
+        <div class="dashboard-op-grid">
+          <div class="dash-op-card dash-op-danger"><div class="dash-op-number">${vencidas.length}</div><div class="dash-op-label">OP atrasadas</div><div class="dash-op-sub">requieren atención</div></div>
+          <div class="dash-op-card dash-op-warning"><div class="dash-op-number">${proximas.length}</div><div class="dash-op-label">Vencen en 48 h</div><div class="dash-op-sub">priorizar producción</div></div>
+          <div class="dash-op-card dash-op-info"><div class="dash-op-number">${active.length}</div><div class="dash-op-label">OP activas</div><div class="dash-op-sub">en planta / proceso</div></div>
+          <div class="dash-op-card dash-op-he"><div class="dash-op-number">${heTotal} h</div><div class="dash-op-label">Horas extras del mes</div><div class="dash-op-sub">${heTrab} trabajador(es)</div></div>
+        </div>
+        <div class="dashboard-op-panels">
+          <div class="dash-panel"><div class="dash-panel-title">🚨 Atención inmediata</div>${vencidas.slice(0,5).map(rowOP).join('') || '<div class="dash-empty">No hay OP atrasadas 🎉</div>'}</div>
+          <div class="dash-panel"><div class="dash-panel-title">🏭 Carga por área</div>${areas.map(([a,n])=>`<div class="dash-area-row"><span>${esc(a)}</span><b>${n}</b></div>`).join('') || '<div class="dash-empty">Sin OP activas</div>'}</div>
+          <div class="dash-panel"><div class="dash-panel-title">⏰ Próximas entregas</div>${proximas.slice(0,5).map(rowOP).join('') || '<div class="dash-empty">No hay entregas en las próximas 48 h</div>'}</div>
+        </div>
+        ${window.dagometCurrentProfile?.rol === 'admin' ? `
+        <div class="dash-panel" style="margin-top:10px;">
+          <div class="dash-panel-title">🧾 Últimos cambios</div>
+          ${((db.auditoria||[]).slice(0,8).map(a => `<div class="dash-alert-row"><span><b>${esc(a.accion||'-')}</b> · ${esc(a.detalle||'')}</span><span>${esc(new Date(a.fecha).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</span></div>`).join('')) || '<div class="dash-empty">Aún no hay cambios registrados.</div>'}
+        </div>` : ''}`;
+    }
+
     function renderStats() {
       const estadoFiltro = $('stats-estado') ? $('stats-estado').value : 'TODOS';
       const matchesEstado = o => estadoFiltro === 'TODOS' || String(o.estadoOp || 'EN CURSO').trim().toUpperCase() === estadoFiltro;
       const otsFiltradasEstado = db.ots.filter(matchesEstado);
+      renderDashboardOperativo(otsFiltradasEstado);
 
       // ---------- Bloque "en vivo": alertas y carga actual ----------
       const otsActivas = otsFiltradasEstado.filter(o => !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
@@ -4963,7 +5098,8 @@
         registradoPor: window.dagometCurrentProfile?.nombre || '-',
         createdAt: Date.now()
       });
-      saveDB();
+      registrarAuditoria('CREAR HORA EXTRA', `${trabajador} · ${horas} h · ${heSelectedDate}${op ? ` · OP ${op}` : ''}`, trabajador);
+      guardarHorasExtraCambios();
       renderHESelectedDetail();
       renderHEGrid();
       renderHEMonthSummary();
@@ -4993,7 +5129,8 @@
         r.op = (nuevoOP || '').trim();
         r.motivo = (nuevoMotivo || '').trim();
       }
-      saveDB();
+      registrarAuditoria('EDITAR HORA EXTRA', `${r.trabajador || '-'} · ${r.horas} h${r.op ? ` · OP ${r.op}` : ''}`, r.trabajador || '');
+      guardarHorasExtraCambios();
       renderHESelectedDetail();
       renderHEGrid();
       renderHEMonthSummary();
@@ -5005,9 +5142,12 @@
         return;
       }
       ensureHorasExtra();
+      const r = db.horasExtra.find(h => h.id === id);
+      if (!r) return;
       if (!confirm('¿Eliminar este registro de horas extra?')) return;
       db.horasExtra = db.horasExtra.filter(h => h.id !== id);
-      saveDB();
+      registrarAuditoria('ELIMINAR HORA EXTRA', `${r.trabajador || '-'} · ${r.horas || 0} h · ${r.fecha || '-'}`, r.trabajador || '');
+      guardarHorasExtraCambios();
       renderHESelectedDetail();
       renderHEGrid();
       renderHEMonthSummary();
