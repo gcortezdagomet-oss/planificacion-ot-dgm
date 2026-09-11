@@ -153,7 +153,7 @@
     <div class="global-search-row">
       <div class="global-search-wrap" id="global-search-wrap">
         <span class="global-search-icon">🔎</span>
-        <input type="search" id="global-search-input" placeholder="Buscar en todo el sistema: N° OP, cliente, guía (CD), material..." autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="search" aria-label="Búsqueda global" oninput="renderGlobalSearchResults()" onfocus="renderGlobalSearchResults()" onkeydown="handleGlobalSearchKeydown(event)">
+        <input type="search" id="global-search-input" placeholder="Buscar en todo el sistema: N° OP, cliente, guía (CD), material..." autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="search" aria-label="Búsqueda global" oninput="debouncedGlobalSearch()" onfocus="renderGlobalSearchResults()" onkeydown="handleGlobalSearchKeydown(event)">
         <button type="button" class="btn btn-secondary btn-sm global-search-clear" id="global-search-clear" onclick="clearGlobalSearch()" title="Limpiar búsqueda" style="display:none;">✕</button>
         <div id="global-search-results" class="global-search-results"></div>
       </div>
@@ -3557,6 +3557,13 @@
     // correspondiente (abre la OP para editar, o filtra Guías/Historial).
     // =====================================================================
     let globalSearchSelectedIndex = -1;
+    let globalSearchDebounceTimer = null;
+    // Evita recorrer todas las OP y guías (con normalizeStr en varios campos) en
+    // cada tecla presionada; espera un breve instante de pausa al escribir.
+    function debouncedGlobalSearch() {
+      clearTimeout(globalSearchDebounceTimer);
+      globalSearchDebounceTimer = setTimeout(renderGlobalSearchResults, 150);
+    }
 
     function getGlobalSearchMatches(rawQuery) {
       const query = normalizeStr(rawQuery);
@@ -4508,6 +4515,19 @@
       const heMes = (db.horasExtra||[]).filter(h => String(h.fecha||'').startsWith(prefMes));
       const heTotal = heMes.reduce((a,h)=>a+(Number(h.horas)||0),0);
       const heTrab = new Set(heMes.map(h=>String(h.trabajador||'').trim()).filter(Boolean)).size;
+      // Optimización: una sola pasada sobre activeParaPlazo para clasificar las OP por
+      // urgencia (hoy / riesgo 1-2 días / en plazo), en vez de filtrar el arreglo completo
+      // varias veces recalculando la misma fecha (antes: hasta 6 pasadas por render).
+      const hoyExtra = [], riesgo = [], enPlazo = [];
+      activeParaPlazo.forEach(o => {
+        if (!o.entrega) return;
+        const diff = diasEntrega(o);
+        if (diff === 0) hoyExtra.push(o);
+        else if (diff >= 1 && diff <= 2) riesgo.push(o);
+        else if (diff > 2) enPlazo.push(o);
+      });
+      hoyExtra.sort(prioridadAlerta); riesgo.sort(prioridadAlerta); enPlazo.sort(prioridadAlerta);
+      const hoyActivasCount = active.filter(o => o.entrega && diasEntrega(o) === 0).length;
       const rowOP = o => `<div class="dash-alert-row dash-click-row" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g, "\\'")}')" title="Ver OP en Historial"><span><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')} <span class="priority-mini priority-${prioridadLabel(o.prioridad).toLowerCase()}">${prioridadLabel(o.prioridad)}</span></span><span>${o.entrega ? esc(formatDateCL(o.entrega)) : 'Sin fecha'}</span></div>`;
       host.innerHTML = `
         <div class="stats-section-title">🎯 Centro de control <span class="stats-live-pulse"><span class="stats-live-dot"></span>RESUMEN OPERATIVO</span></div>
@@ -4522,24 +4542,24 @@
           <div class="stats-section-title">🧠 Alertas inteligentes <span class="stats-live-pulse"><span class="stats-live-dot"></span>PRIORIZACIÓN AUTOMÁTICA</span></div>
           <div class="smart-alert-grid">
             <div class="smart-alert-card smart-alert-danger">
-              <div class="smart-alert-head"><span class="smart-alert-title">🔴 Requiere atención hoy</span><span class="smart-alert-count">${vencidas.length + activeParaPlazo.filter(o => { if(!o.entrega) return false; const d=new Date(o.entrega+'T00:00:00'); return Math.round((d-hoy)/86400000)===0; }).length}</span></div>
+              <div class="smart-alert-head"><span class="smart-alert-title">🔴 Requiere atención hoy</span><span class="smart-alert-count">${vencidas.length + hoyExtra.length}</span></div>
               <div class="smart-alert-desc">OP atrasadas o con entrega para hoy.</div>
               <div class="smart-alert-list">
-                ${[...vencidas, ...activeParaPlazo.filter(o => { if(!o.entrega) return false; const d=new Date(o.entrega+'T00:00:00'); return Math.round((d-hoy)/86400000)===0; })].slice(0,5).map(o => {
-                  const dias = o.entrega ? Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000) : null;
+                ${[...vencidas, ...hoyExtra].slice(0,5).map(o => {
+                  const dias = o.entrega ? diasEntrega(o) : null;
                   const etiqueta = dias < 0 ? `${Math.abs(dias)} d atrasada${Math.abs(dias)===1?'':'s'}` : 'entrega hoy';
                   return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')} <span class="priority-mini priority-${prioridadLabel(o.prioridad).toLowerCase()}">${prioridadLabel(o.prioridad)}</span></span><span class="smart-alert-item-meta">${esc(etiqueta)}</span></div>`;
                 }).join('') || '<div class="smart-alert-empty">No hay OP críticas hoy 🎉</div>'}
               </div>
-              ${vencidas.length + active.filter(o => o.entrega && Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000)===0).length > 5 ? `<button type="button" class="btn btn-secondary btn-sm smart-alert-more" onclick="setFiltroPlazo('vencidas');switchTab('tab-list')">Ver todas las atrasadas</button>` : ''}
+              ${vencidas.length + hoyActivasCount > 5 ? `<button type="button" class="btn btn-secondary btn-sm smart-alert-more" onclick="setFiltroPlazo('vencidas');switchTab('tab-list')">Ver todas las atrasadas</button>` : ''}
             </div>
 
             <div class="smart-alert-card smart-alert-warning">
-              <div class="smart-alert-head"><span class="smart-alert-title">🟠 Riesgo de atraso</span><span class="smart-alert-count">${activeParaPlazo.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff >= 1 && diff <= 2; }).length}</span></div>
+              <div class="smart-alert-head"><span class="smart-alert-title">🟠 Riesgo de atraso</span><span class="smart-alert-count">${riesgo.length}</span></div>
               <div class="smart-alert-desc">Entregas dentro de las próximas 48 horas.</div>
               <div class="smart-alert-list">
-                ${activeParaPlazo.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff >= 1 && diff <= 2; }).sort(prioridadAlerta).slice(0,5).map(o => {
-                  const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000);
+                ${riesgo.slice(0,5).map(o => {
+                  const diff=diasEntrega(o);
                   return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')} <span class="priority-mini priority-${prioridadLabel(o.prioridad).toLowerCase()}">${prioridadLabel(o.prioridad)}</span></span><span class="smart-alert-item-meta">${diff===1?'mañana':'en 2 días'}</span></div>`;
                 }).join('') || '<div class="smart-alert-empty">No hay OP en riesgo inmediato.</div>'}
               </div>
@@ -4547,11 +4567,11 @@
             </div>
 
             <div class="smart-alert-card smart-alert-ok">
-              <div class="smart-alert-head"><span class="smart-alert-title">🟢 En plazo</span><span class="smart-alert-count">${activeParaPlazo.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff > 2; }).length}</span></div>
+              <div class="smart-alert-head"><span class="smart-alert-title">🟢 En plazo</span><span class="smart-alert-count">${enPlazo.length}</span></div>
               <div class="smart-alert-desc">OP activas con más de 48 h de margen.</div>
               <div class="smart-alert-list">
-                ${activeParaPlazo.filter(o => { if(!o.entrega) return false; const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000); return diff > 2; }).sort(prioridadAlerta).slice(0,5).map(o => {
-                  const diff=Math.round((new Date(o.entrega+'T00:00:00')-hoy)/86400000);
+                ${enPlazo.slice(0,5).map(o => {
+                  const diff=diasEntrega(o);
                   return `<div class="smart-alert-item" onclick="filterHistoryByOP('${String(o.numero||'').replace(/'/g,"\\'")}')" title="Abrir OP en Historial"><span class="smart-alert-item-main"><b>OP ${esc(o.numero||'-')}</b> · ${esc(o.cliente||'Sin cliente')} <span class="priority-mini priority-${prioridadLabel(o.prioridad).toLowerCase()}">${prioridadLabel(o.prioridad)}</span></span><span class="smart-alert-item-meta">${diff} días</span></div>`;
                 }).join('') || '<div class="smart-alert-empty">No hay OP activas con fecha suficiente.</div>'}
               </div>
@@ -4636,13 +4656,14 @@
           const ciclo = Math.round((ter-ini)/86400000);
           if (!isNaN(ciclo) && ciclo >= 0) { sumaCiclo += ciclo; cuentaCiclo++; }
         }
-        kilos += (o.materiales||[]).reduce((a,m)=>a+(Number(m.kilos)||0),0);
+        const opKilos = (o.materiales||[]).reduce((a,m)=>a+(Number(m.kilos)||0),0);
+        kilos += opKilos;
         const area = String(o.area||'SIN ÁREA').trim() || 'SIN ÁREA';
         if (!areaMap[area]) areaMap[area] = { total:0, aTiempo:0, atrasadas:0, kilos:0 };
         areaMap[area].total++;
         if (estadoCumplimiento === 'a tiempo') areaMap[area].aTiempo++;
         if (estadoCumplimiento === 'atrasada') areaMap[area].atrasadas++;
-        areaMap[area].kilos += (o.materiales||[]).reduce((a,m)=>a+(Number(m.kilos)||0),0);
+        areaMap[area].kilos += opKilos;
       });
 
       const totalConFecha = aTiempo + atrasadas;
@@ -4717,10 +4738,15 @@
       const kilosTotales = otsActivas.reduce((acc, o) =>
         acc + (o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0), 0);
 
-      const otsSoldaduraActivas = otsActivas.filter(o => (o.soldadura || 'NO').toUpperCase() === 'SI');
-      const soldaduraPendiente = otsSoldaduraActivas.filter(o => !(o.soldaduraSeguimiento && o.soldaduraSeguimiento.ensayos && o.soldaduraSeguimiento.ensayos.check)).length;
-      const soldaduraSinEnviar = otsSoldaduraActivas.filter(o => !(o.soldaduraSeguimiento && o.soldaduraSeguimiento.enviado && o.soldaduraSeguimiento.enviado.check)).length;
-      const soldaduraEnRecilindrado = otsSoldaduraActivas.filter(o => o.soldaduraSeguimiento && o.soldaduraSeguimiento.enviado && o.soldaduraSeguimiento.enviado.check && !(o.soldaduraSeguimiento.ensayos && o.soldaduraSeguimiento.ensayos.check)).length;
+      let soldaduraPendiente = 0, soldaduraSinEnviar = 0, soldaduraEnRecilindrado = 0;
+      otsActivas.forEach(o => {
+        if ((o.soldadura || 'NO').toUpperCase() !== 'SI') return;
+        const enviado = !!(o.soldaduraSeguimiento && o.soldaduraSeguimiento.enviado && o.soldaduraSeguimiento.enviado.check);
+        const ensayado = !!(o.soldaduraSeguimiento && o.soldaduraSeguimiento.ensayos && o.soldaduraSeguimiento.ensayos.check);
+        if (!ensayado) soldaduraPendiente++;
+        if (!enviado) soldaduraSinEnviar++;
+        if (enviado && !ensayado) soldaduraEnRecilindrado++;
+      });
 
       $('kpi-vencidas').innerText = vencidas;
       $('kpi-porvencer').innerText = porVencer;
@@ -4738,9 +4764,12 @@
       $('stats-periodo-count').innerText = `${otsPeriodo.length} de ${db.ots.length} OP(s) totales`;
 
       const total = otsPeriodo.length;
-      const normal = otsPeriodo.filter(o => o.prioridad === 'NORMAL').length;
-      const alta = otsPeriodo.filter(o => o.prioridad === 'ALTA').length;
-      const urgente = otsPeriodo.filter(o => o.prioridad === 'URGENTE').length;
+      let normal = 0, alta = 0, urgente = 0;
+      otsPeriodo.forEach(o => {
+        if (o.prioridad === 'NORMAL') normal++;
+        else if (o.prioridad === 'ALTA') alta++;
+        else if (o.prioridad === 'URGENTE') urgente++;
+      });
 
       $('kpi-total').innerHTML = total + deltaVsPeriodoAnterior(rango, otsFiltradasEstado, total);
       $('kpi-normal').innerText = normal;
