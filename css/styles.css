@@ -22,60 +22,33 @@
       --radius-sm: 6px;
       --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
       --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.08);
-
-      /* ---------- Escala tipográfica y de espaciado ----------
-         Unifica los ~20 tamaños de fuente sueltos (.6rem, .62rem,
-         .68rem, .72rem, .75rem, .78rem, .82rem, .85rem, .87rem,
-         .9rem, .92rem, .95rem, 1.05rem, 1.15rem...) en 7 pasos.
-         Cada valor se eligió cerca del tamaño real que ya se usaba
-         más en esa categoría, para consolidar sin generar un salto
-         visual brusco. Por ahora se aplica al header, la navegación,
-         las tarjetas, los formularios, las tablas y los botones
-         (lo de mayor visibilidad); el resto de componentes muy
-         específicos (calendario, KPIs, materiales, modales) se deja
-         para una segunda pasada. */
-      --fs-2xs: 11px;
-      --fs-xs: 12px;
-      --fs-sm: 13px;
-      --fs-base: 14px;
-      --fs-md: 15px;
-      --fs-lg: 17px;
-      --fs-xl: 19px;
-
-      --sp-1: 4px;
-      --sp-2: 8px;
-      --sp-3: 12px;
-      --sp-4: 16px;
-      --sp-5: 20px;
-      --sp-6: 24px;
-      --sp-7: 32px;
     }
     * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
     html { -webkit-font-smoothing: antialiased; }
-    body { margin: 0; background-color: var(--bg); color: var(--text); padding: var(--sp-6); font-size: var(--fs-base); line-height: 1.5; }
+    body { margin: 0; background-color: var(--bg); color: var(--text); padding: 24px; font-size: 14px; line-height: 1.5; }
     .container { max-width: 1200px; margin: 0 auto; }
 
     /* ---------- Header ---------- */
     header {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: var(--sp-6); background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      padding: var(--sp-5) var(--sp-6); border-radius: var(--radius); box-shadow: var(--shadow-md);
+      margin-bottom: 22px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      padding: 18px 26px; border-radius: var(--radius); box-shadow: var(--shadow-md);
     }
-    header .header-titles { display: flex; flex-direction: column; gap: var(--sp-1); }
-    header .header-brand { display: flex; align-items: center; gap: var(--sp-4); }
+    header .header-titles { display: flex; flex-direction: column; gap: 2px; }
+    header .header-brand { display: flex; align-items: center; gap: 14px; }
     header .header-logo { height: 42px; width: auto; object-fit: contain; }
-    h1 { margin: 0; font-size: var(--fs-xl); color: #ffffff; font-weight: 700; letter-spacing: -0.2px; }
-    header .header-subtitle { font-size: var(--fs-xs); color: #c7d0f5; font-weight: 500; letter-spacing: 0.3px; text-transform: uppercase; }
+    h1 { margin: 0; font-size: 1.15rem; color: #ffffff; font-weight: 700; letter-spacing: -0.2px; }
+    header .header-subtitle { font-size: 0.75rem; color: #c7d0f5; font-weight: 500; letter-spacing: 0.3px; text-transform: uppercase; }
 
     /* ---------- Nav tabs ---------- */
     .nav-tabs {
-      display: flex; gap: var(--sp-1); margin-bottom: var(--sp-5); flex-wrap: wrap;
-      background: var(--surface); padding: var(--sp-2); border-radius: var(--radius);
+      display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap;
+      background: var(--surface); padding: 6px; border-radius: var(--radius);
       box-shadow: var(--shadow-sm); border: 1px solid var(--border);
     }
     .tab-btn {
-      padding: var(--sp-2) var(--sp-4); border: none; background: transparent; border-radius: var(--radius-sm);
-      font-weight: 600; font-size: var(--fs-base); cursor: pointer; color: var(--text-muted);
+      padding: 9px 18px; border: none; background: transparent; border-radius: var(--radius-sm);
+      font-weight: 600; font-size: 0.85rem; cursor: pointer; color: var(--text-muted);
       transition: all 0.15s ease; flex: 1; min-width: 140px;
     }
     .tab-btn:hover { background: var(--primary-light); color: var(--primary); }
@@ -86,16 +59,16 @@
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
     /* ---------- Cards ---------- */
-    .card { background: var(--surface); padding: var(--sp-6); border-radius: var(--radius); box-shadow: var(--shadow-sm); margin-bottom: var(--sp-5); border: 1px solid var(--border); }
+    .card { background: var(--surface); padding: 26px; border-radius: var(--radius); box-shadow: var(--shadow-sm); margin-bottom: 20px; border: 1px solid var(--border); }
     .card h2 {
-      color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: var(--sp-3); margin: 0 0 var(--sp-5) 0;
-      font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.1px;
+      color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 12px; margin: 0 0 20px 0;
+      font-size: 1.05rem; font-weight: 700; letter-spacing: -0.1px;
     }
-    .card h3 { color: var(--primary-dark); font-size: var(--fs-md); font-weight: 700; margin: 0 0 var(--sp-1) 0; }
+    .card h3 { color: var(--primary-dark); font-size: 0.95rem; font-weight: 700; margin: 0 0 4px 0; }
 
     /* ---------- Forms ---------- */
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-4); margin-bottom: var(--sp-4); }
-    .field { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px 18px; margin-bottom: 16px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
     .soldadura-seguimiento-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
     .soldadura-step { display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #fecaca; border-radius:6px; padding:8px 10px; cursor:pointer; font-size:0.85rem; font-weight:600; color:#7f1d1d; }
     .soldadura-step input[type="checkbox"] { width:16px; height:16px; flex-shrink:0; cursor:pointer; }
@@ -104,10 +77,10 @@
     .soldadura-step input[type="date"]:disabled { opacity:0.45; background:#fef2f2; }
     .badge-soldadura-track { display:inline-flex; align-items:center; gap:3px; font-size:0.68rem; font-weight:700; padding:3px 7px; border-radius:10px; white-space:nowrap; }
     @media (max-width: 900px) { .soldadura-seguimiento-grid { grid-template-columns: 1fr; } }
-    label { font-size: var(--fs-2xs); font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    label { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
     input, select, textarea {
       padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
-      font-size: var(--fs-md); width: 100%; transition: border-color 0.15s, box-shadow 0.15s; background: var(--surface); color: var(--text);
+      font-size: 0.9rem; width: 100%; transition: border-color 0.15s, box-shadow 0.15s; background: var(--surface); color: var(--text);
     }
     input::placeholder, textarea::placeholder { color: var(--text-faint); }
     input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(38, 53, 129, 0.12); }
@@ -119,14 +92,14 @@
     #tab-form h3:first-of-type { border-top: none; margin-top: 4px !important; }
 
     /* ---------- Tables ---------- */
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: var(--fs-base); }
-    th, td { padding: var(--sp-3); text-align: left; border-bottom: 1px solid var(--border); }
-    th { background: var(--bg); color: var(--text-muted); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 1px solid var(--border-strong); }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+    th, td { padding: 11px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: var(--bg); color: var(--text-muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 1px solid var(--border-strong); }
     tbody tr { transition: background 0.1s; }
     tbody tr:hover { background-color: var(--primary-light); }
     tbody tr:last-child td { border-bottom: none; }
 
-    .btn { padding: 10px 18px; border: none; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-base); transition: filter 0.15s, transform 0.05s; box-shadow: var(--shadow-sm); }
+    .btn { padding: 10px 18px; border: none; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; transition: filter 0.15s, transform 0.05s; box-shadow: var(--shadow-sm); }
     .btn:active { transform: translateY(1px); }
     .btn-primary { background: var(--accent); color: white; }
     .btn-primary:hover { background: var(--accent-hover); }
@@ -140,7 +113,7 @@
     .btn-success:hover { background: #15803d; }
     .btn-info { background: var(--primary); color: white; }
     .btn-info:hover { background: var(--primary-dark); }
-    .btn-sm { padding: 6px 12px; font-size: var(--fs-sm); box-shadow: none; }
+    .btn-sm { padding: 6px 12px; font-size: 0.78rem; box-shadow: none; }
     .sort-arrows { display:inline-flex; flex-direction:column; gap:2px; margin-right:4px; vertical-align:middle; }
     .sort-arrows button { width:26px; height:22px; padding:0; border:1px solid var(--border-strong); background:#fff; color:var(--primary); border-radius:4px; cursor:pointer; font-weight:800; line-height:1; }
     .sort-arrows button:hover { background:var(--primary-light); }
@@ -485,7 +458,7 @@
       .card h2 { font-size:1rem; }
       .grid { grid-template-columns:1fr !important; }
       .history-search-wrap { min-width:100% !important; width:100%; }
-      #deadline-filter-group { width:100%; overflow-x:auto; flex-wrap:nowrap; padding-bottom:2px; }
+      #deadline-filter-group { width:100%; flex-wrap:wrap; }
       #deadline-filter-group .deadline-filter-btn { flex:0 0 auto; white-space:nowrap; }
       .stats-filter-row { align-items:stretch; }
       .stats-filter-row label.stats-status-filter-label { display:flex; align-items:center; }
@@ -498,14 +471,92 @@
       .stat-bar-row { gap:6px; }
       .stat-bar-row > span:first-child { flex-basis:110px !important; }
       .stat-bar-label { font-size:.7rem; }
+      #tab-calendar .cal-grid { font-size:.68rem; gap:3px !important; }
+      #tab-calendar .cal-cell { min-height:70px !important; padding:4px !important; }
+      #tab-calendar .cal-day-number { font-size:.7rem; }
+      .modal-content { width:calc(100vw - 18px) !important; max-width:none !important; margin:9px; }
+      .users-table { min-width:620px; }
+    }
+
+    /* ===== HISTORIAL DE OPs: tarjetas responsive para tablet y teléfono =====
+       La tabla de 10 columnas no cabe en pantallas angostas: en tablet se
+       achicaba tanto que "Cliente" partía el texto en 5 líneas y la columna
+       de Acciones quedaba enorme; en teléfono el bloque de filtros rápidos
+       se cortaba a mitad de palabra. Por eso, desde 1024px hacia abajo cada
+       fila se transforma en una tarjeta con etiquetas, y el N° de OP queda
+       arriba como encabezado. */
+    @media (max-width: 1024px) {
       #tab-list table { display:block; width:100%; border:0; }
       #tab-list table thead { display:none; }
       #tab-list table tbody, #tab-list table tr { display:block; width:100%; }
-      #tab-list table tr { margin:0 0 10px; padding:10px; border:1px solid var(--border); border-radius:9px; background:#fff; box-shadow:var(--shadow-sm); box-sizing:border-box; }
-      #tab-list table td { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:7px 2px; border:0; border-bottom:1px solid #eef2f7; text-align:right; min-width:0; }
-      #tab-list table td:last-child { border-bottom:0; flex-wrap:wrap; justify-content:flex-start; }
-      #tab-list table td::before { content:''; color:var(--text-muted); font-size:.67rem; font-weight:800; text-transform:uppercase; text-align:left; flex:0 0 82px; }
-      #tab-list table td:nth-child(1)::before { content:'OP'; }
+      #tab-list table tr {
+        display:grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap:16px;
+        margin:0 0 12px;
+        padding:14px 14px 12px;
+        border:1px solid var(--border);
+        border-left-width:4px;
+        border-radius:10px;
+        background:#fff;
+        box-shadow:var(--shadow-sm);
+        box-sizing:border-box;
+      }
+      #tab-list table tr:last-child { margin-bottom:0; }
+      #tab-list table td {
+        display:flex;
+        flex-direction:column;
+        align-items:flex-start;
+        gap:3px;
+        padding:8px 0;
+        border:0;
+        border-bottom:1px solid #eef2f7;
+        text-align:left;
+        min-width:0;
+      }
+      #tab-list table td::before {
+        content:'';
+        color:var(--text-muted);
+        font-size:.63rem;
+        font-weight:800;
+        text-transform:uppercase;
+        letter-spacing:.4px;
+      }
+      /* Encabezado de la tarjeta: N° de OP bien visible, ocupa todo el ancho */
+      #tab-list table td:nth-child(1) {
+        grid-column:1 / -1;
+        order:1;
+        padding-top:0;
+        padding-bottom:10px;
+        border-bottom:1px solid var(--border);
+        margin-bottom:2px;
+      }
+      #tab-list table td:nth-child(1) .op-number-filter { font-size:1.05rem; padding:0; }
+      /* Estado y Prioridad van juntos, justo debajo del encabezado */
+      #tab-list table td:nth-child(3) { order:2; }
+      #tab-list table td:nth-child(8) { order:3; }
+      /* Cliente ocupa todo el ancho: los nombres largos no deben apretujarse */
+      #tab-list table td:nth-child(5) { grid-column:1 / -1; order:4; }
+      #tab-list table td:nth-child(2) { order:5; }
+      #tab-list table td:nth-child(4) { order:6; }
+      #tab-list table td:nth-child(6) { order:7; }
+      #tab-list table td:nth-child(7) { order:8; }
+      #tab-list table td:nth-child(9) { order:9; }
+      /* Acciones al final, ocupa todo el ancho y agrupa los botones en fila */
+      #tab-list table td:nth-child(10) {
+        grid-column:1 / -1;
+        order:10;
+        border-bottom:0;
+        padding-top:12px;
+        margin-top:4px;
+        border-top:1px solid var(--border);
+        flex-direction:row;
+        flex-wrap:wrap;
+        align-items:center;
+        gap:6px;
+      }
+      #tab-list table td:nth-child(10)::before { display:none; }
+      #tab-list table td:nth-child(1)::before { content:'N° OP'; }
       #tab-list table td:nth-child(2)::before { content:'Parte'; }
       #tab-list table td:nth-child(3)::before { content:'Estado'; }
       #tab-list table td:nth-child(4)::before { content:'Planificador'; }
@@ -513,16 +564,21 @@
       #tab-list table td:nth-child(6)::before { content:'Área'; }
       #tab-list table td:nth-child(7)::before { content:'Entrega'; }
       #tab-list table td:nth-child(8)::before { content:'Prioridad'; }
-      #tab-list table td:nth-child(9)::before { content:'Soldadura'; }
-      #tab-list table td:nth-child(10)::before { content:'Acciones'; }
-      #tab-list table td:nth-child(10) > * { margin:2px 0; }
-      #tab-list table td:nth-child(10) .sort-arrows { order:10; width:100%; }
-      #tab-list table td:nth-child(10) .btn { font-size:.68rem; padding:6px 8px; }
-      #tab-calendar .cal-grid { font-size:.68rem; gap:3px !important; }
-      #tab-calendar .cal-cell { min-height:70px !important; padding:4px !important; }
-      #tab-calendar .cal-day-number { font-size:.7rem; }
-      .modal-content { width:calc(100vw - 18px) !important; max-width:none !important; margin:9px; }
-      .users-table { min-width:620px; }
+      #tab-list table td:nth-child(9)::before { content:'Soldadura Ext.'; }
+      /* El "-" de Soldadura Ext. es casi invisible sobre fondo blanco en tarjeta */
+      #tab-list table td:nth-child(9) span[style*="cbd5e1"] { color:var(--text-muted) !important; }
+      /* Grupo de reordenar (▲▼) + botones de acción, todos del mismo tamaño */
+      #tab-list table td:nth-child(10) .sort-arrows { flex-direction:row; margin-right:2px; }
+      #tab-list table td:nth-child(10) .btn { font-size:.72rem; padding:7px 10px; }
+    }
+
+    /* En tablet angosto y teléfono, una sola columna por tarjeta (los pares
+       ya no caben cómodamente uno junto al otro). */
+    @media (max-width: 640px) {
+      #tab-list table tr { grid-template-columns:1fr; }
+      #tab-list table td:nth-child(1),
+      #tab-list table td:nth-child(5) { grid-column:1; }
+      #tab-list table td:nth-child(10) .btn { flex:1 1 auto; justify-content:center; }
     }
 
     /* ===== AJUSTE MÓVIL 2: más aire para Calendario y Dashboard ===== */
@@ -968,10 +1024,10 @@
     padding: 3px 6px 3px 14px; box-shadow: var(--shadow-sm); transition: border-color .15s, box-shadow .15s;
   }
   .global-search-wrap:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(38,53,129,.12); }
-  .global-search-icon { font-size: var(--fs-lg); flex: 0 0 auto; opacity: .8; }
+  .global-search-icon { font-size: 1rem; flex: 0 0 auto; opacity: .8; }
   .global-search-wrap input {
     border: 0 !important; outline: 0 !important; box-shadow: none !important; background: transparent;
-    flex: 1; min-width: 0; padding: 11px 4px !important; margin: 0 !important; font-size: var(--fs-md);
+    flex: 1; min-width: 0; padding: 11px 4px !important; margin: 0 !important; font-size: .92rem;
   }
   .global-search-wrap input::-webkit-search-cancel-button { display: none; }
   .global-search-clear { flex: 0 0 auto; }
@@ -983,7 +1039,7 @@
   }
   .global-search-results.open { display: block; }
   .global-search-group-title {
-    font-size: var(--fs-2xs); font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+    font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
     color: var(--text-muted); padding: 8px 10px 4px;
   }
   .global-search-item {
@@ -992,16 +1048,16 @@
   }
   .global-search-item:hover, .global-search-item.gsi-active { background: var(--primary-light); }
   .global-search-item .gsi-main { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .global-search-item .gsi-title { font-weight: 700; font-size: var(--fs-base); color: var(--text); }
-  .global-search-item .gsi-sub { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 2px; }
-  .global-search-item .gsi-hit { font-size: var(--fs-xs); color: var(--primary-dark); margin-top: 3px; font-weight: 600; }
+  .global-search-item .gsi-title { font-weight: 700; font-size: .87rem; color: var(--text); }
+  .global-search-item .gsi-sub { font-size: .76rem; color: var(--text-muted); margin-top: 2px; }
+  .global-search-item .gsi-hit { font-size: .74rem; color: var(--primary-dark); margin-top: 3px; font-weight: 600; }
   .global-search-more {
     display: block; width: 100%; text-align: center; background: var(--bg); border: none; border-top: 1px solid var(--border);
-    padding: 9px 10px; margin-top: 4px; cursor: pointer; font-family: inherit; font-size: var(--fs-sm); font-weight: 700;
+    padding: 9px 10px; margin-top: 4px; cursor: pointer; font-family: inherit; font-size: .78rem; font-weight: 700;
     color: var(--primary); border-radius: var(--radius-sm);
   }
   .global-search-more:hover { background: var(--primary-light); }
-  .global-search-empty { padding: 16px 10px; text-align: center; color: var(--text-faint); font-size: var(--fs-base); font-style: italic; }
+  .global-search-empty { padding: 16px 10px; text-align: center; color: var(--text-faint); font-size: .85rem; font-style: italic; }
 
   @media (max-width: 700px) {
     .global-search-wrap input { font-size: .88rem; }
