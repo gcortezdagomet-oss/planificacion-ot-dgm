@@ -8216,10 +8216,16 @@
         return;
       }
 
-      const nombres = Array.isArray(info.responsableTrabajo) ? info.responsableTrabajo : [];
+      // Preferimos los responsables asignados a esta OP puntual; si esa lista
+      // viene vacía, usamos el listado general de trabajadores que manda la
+      // función como respaldo (trabajadoresDisponibles).
+      const responsables = Array.isArray(info.responsableTrabajo) ? info.responsableTrabajo : [];
+      const nombres = responsables.length > 0
+        ? responsables
+        : (Array.isArray(info.trabajadoresDisponibles) ? info.trabajadoresDisponibles : []);
       card.innerHTML = `
         <h2>OP N° ${info.numero || ''}</h2>
-        <p class="liberar-sub">${info.area || ''}${info.parteOp ? ' · ' + info.parteOp : ''} — ${info.cliente || ''}</p>
+        <p class="liberar-sub">${info.area || ''}${info.parteOp ? ' · ' + info.parteOp : ''}</p>
 
         <label for="liberar-nombre">Tu nombre</label>
         <select id="liberar-nombre">
