@@ -988,8 +988,12 @@
              Soldadura, Plazo) se fusionaron dentro del grid de "Centro de
              control" que arma renderDashboardOperativo(), para no repetir
              "OP atrasadas" / "Por vencer" en dos tarjetas distintas. -->
-        <div id="dashboard-operativo" class="dashboard-operativo" style="margin-bottom:18px;"></div>
+        <!-- "Centro de control" (KPIs en vivo) se renderiza solo, en su propio
+             contenedor, para poder poner TODOS los gráficos justo debajo y
+             antes del resto del panel operativo (alertas, semáforo, etc.). -->
+        <div id="dashboard-centro-control" class="dashboard-operativo" style="margin-bottom:18px;"></div>
 
+        <!-- ===== TODOS LOS GRÁFICOS, agrupados justo después del Centro de control ===== -->
         <div class="trend-card">
           <div class="chart-card-header" style="margin-bottom:6px;">
             <div>
@@ -1010,19 +1014,6 @@
             </div>
           </div>
           <div class="chart-canvas-wrap"><canvas id="chart-tendencia"></canvas></div>
-        </div>
-
-        <div id="dashboard-performance" class="dashboard-performance"></div>
-
-        <!-- El antiguo grid de 4 tarjetas (Total/Normal/Alta/Urgente) mostraba
-             lo mismo que el Semáforo de prioridad de más arriba, solo que
-             filtrado por periodo. Se deja como una sola línea compacta. -->
-        <div class="stats-period-summary" title="Prioridad de las OP dentro del periodo elegido arriba">
-          <span class="stats-period-summary-title"><svg class="section-ico" aria-hidden="true"><use href="#ico-bar-chart"/></svg>Resumen del periodo:</span>
-          <span class="stats-period-chip"><b id="kpi-total">0</b> total</span>
-          <span class="stats-period-chip stats-period-chip-click" style="color:var(--accent);" onclick="filterHistoryByField('prioridad','NORMAL')" title="Ver OP de prioridad Normal"><b id="kpi-normal">0</b> normal</span>
-          <span class="stats-period-chip stats-period-chip-click" style="color:#dc2626;" onclick="filterHistoryByField('prioridad','ALTA')" title="Ver OP de prioridad Alta"><b id="kpi-alta">0</b> alta</span>
-          <span class="stats-period-chip stats-period-chip-click" style="color:#7f1d1d;" onclick="filterHistoryByField('prioridad','URGENTE')" title="Ver OP de prioridad Urgente"><b id="kpi-urgente">0</b> urgente</span>
         </div>
 
         <div class="grid">
@@ -1068,6 +1059,22 @@
               <button type="button" class="btn btn-info btn-sm" onclick="const c=$('stats-cliente-reporte-select').value; if(c) imprimirReporteCliente(c);">Generar</button>
             </div>
           </div>
+        </div>
+        <!-- ===== FIN de los gráficos ===== -->
+
+        <div id="dashboard-operativo" class="dashboard-operativo" style="margin-bottom:18px;"></div>
+
+        <div id="dashboard-performance" class="dashboard-performance"></div>
+
+        <!-- El antiguo grid de 4 tarjetas (Total/Normal/Alta/Urgente) mostraba
+             lo mismo que el Semáforo de prioridad de más arriba, solo que
+             filtrado por periodo. Se deja como una sola línea compacta. -->
+        <div class="stats-period-summary" title="Prioridad de las OP dentro del periodo elegido arriba">
+          <span class="stats-period-summary-title"><svg class="section-ico" aria-hidden="true"><use href="#ico-bar-chart"/></svg>Resumen del periodo:</span>
+          <span class="stats-period-chip"><b id="kpi-total">0</b> total</span>
+          <span class="stats-period-chip stats-period-chip-click" style="color:var(--accent);" onclick="filterHistoryByField('prioridad','NORMAL')" title="Ver OP de prioridad Normal"><b id="kpi-normal">0</b> normal</span>
+          <span class="stats-period-chip stats-period-chip-click" style="color:#dc2626;" onclick="filterHistoryByField('prioridad','ALTA')" title="Ver OP de prioridad Alta"><b id="kpi-alta">0</b> alta</span>
+          <span class="stats-period-chip stats-period-chip-click" style="color:#7f1d1d;" onclick="filterHistoryByField('prioridad','URGENTE')" title="Ver OP de prioridad Urgente"><b id="kpi-urgente">0</b> urgente</span>
         </div>
       </div>
     </div>
@@ -4757,8 +4764,9 @@
 
     function renderDashboardOperativo(otsFiltradasEstado, extra) {
       extra = extra || {};
+      const hostCentro = $('dashboard-centro-control');
       const host = $('dashboard-operativo');
-      if (!host) return;
+      if (!hostCentro || !host) return;
       const hoy = new Date(); hoy.setHours(0,0,0,0);
       const active = otsFiltradasEstado.filter(o => !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
       // Las OP en pausa siguen siendo visibles como activas, pero el tiempo en pausa no genera atraso.
@@ -4794,7 +4802,7 @@
       });
       hoyExtra.sort(prioridadAlerta); riesgo.sort(prioridadAlerta); enPlazo.sort(prioridadAlerta);
       const hoyActivasCount = active.filter(o => o.entrega && diasEntrega(o) === 0).length;
-      host.innerHTML = `
+      hostCentro.innerHTML = `
         <div class="stats-section-title"><svg class="section-ico" aria-hidden="true"><use href="#ico-target"/></svg>Centro de control <span class="stats-live-pulse"><span class="stats-live-dot"></span>EN VIVO</span></div>
         <div class="dashboard-op-grid">
           <div class="dash-op-card dash-op-danger dash-click-row" onclick="setFiltroPlazo('vencidas');switchTab('tab-list')" title="Ver todas las OP vencidas"><div class="dash-op-number">${vencidas.length}</div><div class="dash-op-label">Atrasadas</div></div>
@@ -4804,8 +4812,9 @@
           <div class="dash-op-card" style="border-top-color: #991b1b;"><div class="dash-op-number" style="color:#991b1b;">${extra.soldaduraPendiente ?? 0}</div><div class="dash-op-label">Soldadura pendiente</div><div class="dash-op-sub">${extra.soldaduraSinEnviar ?? 0} sin enviar · ${extra.soldaduraEnRecilindrado ?? 0} en recilindrado</div></div>
           <div class="dash-op-card" style="border-top-color: #0369a1;"><div class="dash-op-number" style="color:#0369a1;">${extra.diasPlazoProm ?? '—'}</div><div class="dash-op-label">Plazo promedio (días)</div></div>
           <div class="dash-op-card dash-op-he"><div class="dash-op-number">${heTotal} h</div><div class="dash-op-label">Horas extra (mes)</div><div class="dash-op-sub">${heTrab} trabajador(es)</div></div>
-        </div>
+        </div>`;
 
+      host.innerHTML = `
         <div class="smart-alerts">
           <div class="stats-section-title"><svg class="section-ico" aria-hidden="true"><use href="#ico-zap"/></svg>Alertas inteligentes</div>
           <div class="smart-alert-grid">
