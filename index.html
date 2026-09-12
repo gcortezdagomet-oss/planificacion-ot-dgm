@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Generador de QR 100% local (sin red, sin CORS): usado para el QR de
+       liberación de OP que va en el PDF/impresión, y para la vista de
+       liberación del trabajador. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="css/styles.css">
@@ -350,6 +354,62 @@
 
   </head>
 <body>
+  <script>
+    // ===== VISTA DE LIBERACIÓN DE OP (QR, sin login) =====
+    // Si la URL trae ?liberar=<idOP> (viene del QR impreso en la OP),
+    // marcamos <html> para que el CSS oculte la app normal (login, tablero,
+    // etc.) y mostremos en su lugar la vista simple para el trabajador.
+    // Se hace lo antes posible para evitar el parpadeo del formulario de login.
+    (function () {
+      const liberarId = new URLSearchParams(location.search).get('liberar');
+      if (liberarId) document.documentElement.classList.add('modo-liberacion');
+    })();
+  </script>
+  <style>
+    html.modo-liberacion #auth-overlay,
+    html.modo-liberacion #app-root,
+    html.modo-liberacion #user-session-bar { display: none !important; }
+    html:not(.modo-liberacion) #liberar-view { display: none !important; }
+    #liberar-view {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f1f5f9;
+      font-family: "Inter", sans-serif;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    #liberar-view .liberar-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+      padding: 26px 22px;
+      width: 100%;
+      max-width: 420px;
+      box-sizing: border-box;
+    }
+    #liberar-view h2 { margin: 0 0 4px; font-size: 18px; color: #263581; }
+    #liberar-view p.liberar-sub { margin: 0 0 18px; font-size: 13px; color: #64748b; }
+    #liberar-view label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin: 14px 0 5px; }
+    #liberar-view select, #liberar-view input[type=file] {
+      width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; background: #fff;
+    }
+    #liberar-view .liberar-foto-preview { margin-top: 10px; max-width: 100%; border-radius: 8px; display: none; }
+    #liberar-view button.liberar-btn {
+      margin-top: 20px; width: 100%; padding: 13px; border: none; border-radius: 9px;
+      background: #16a34a; color: #fff; font-weight: 800; font-size: 15px; cursor: pointer;
+    }
+    #liberar-view button.liberar-btn:disabled { background: #94a3b8; cursor: default; }
+    #liberar-view .liberar-msg { margin-top: 14px; font-size: 13px; font-weight: 600; text-align: center; }
+    #liberar-view .liberar-msg.err { color: #b91c1c; }
+    #liberar-view .liberar-msg.ok { color: #15803d; }
+  </style>
+  <div id="liberar-view">
+    <div class="liberar-card" id="liberar-card">
+      <div id="liberar-cargando">Cargando datos de la OP…</div>
+    </div>
+  </div>
   <!-- Sprite de íconos en línea (reemplaza los emojis del Dashboard por un
        set consistente: mismo trazo, mismo tamaño, se ve igual en cualquier
        sistema operativo e imprime bien en los reportes). -->
@@ -1893,6 +1953,22 @@
         window.open(data.signedUrl, '_blank');
       } catch (err) {
         alert('No se pudo abrir el archivo: ' + (err.message || err));
+      }
+    }
+
+    // Bucket donde la Edge Function dagomet-liberar-op sube la foto que el
+    // trabajador toma al liberar su OP (ver supabase/functions/dagomet-liberar-op).
+    const LIBERACION_FOTO_BUCKET = 'fotos-liberacion';
+    async function verFotoLiberacionOP(opId) {
+      const o = db.ots.find(x => x.id === opId);
+      const sb = window.dagometSupabase;
+      if (!o || !o.fotoLiberacionPath || !sb) return;
+      try {
+        const { data, error } = await sb.storage.from(LIBERACION_FOTO_BUCKET).createSignedUrl(o.fotoLiberacionPath, 3600);
+        if (error) throw error;
+        window.open(data.signedUrl, '_blank');
+      } catch (err) {
+        alert('No se pudo abrir la foto de liberación: ' + (err.message || err));
       }
     }
 
@@ -4101,6 +4177,7 @@
               <button class="btn btn-secondary btn-sm" onclick="duplicateOP('${o.id}')" title="Duplicar OP">📋 Duplicar</button>
               <button class="btn btn-warning btn-sm" onclick="editOP('${o.id}')">✏️ Editar</button>
               <button class="btn btn-info btn-sm" onclick="previewPDF('${o.id}')">👁️ Ver</button>
+              ${o.fotoLiberacionPath ? `<button class="btn btn-secondary btn-sm" onclick="verFotoLiberacionOP('${o.id}')" title="Liberada por ${esc(o.liberadoPor || '-')}${o.liberadoEn ? ' · ' + new Date(o.liberadoEn).toLocaleString('es-CL') : ''}">📷 Foto liberación</button>` : ''}
               <button class="btn btn-danger btn-sm" onclick="deleteOP('${o.id}')">🗑️ Eliminar</button>
             </td>
           </tr>
@@ -7210,8 +7287,9 @@
           <span><b>TÉRMINO:</b> ${o.fechaTermino ? formatDateStandard(o.fechaTermino) : '_____/_____/___'} — ${esc(o.horaTermino) || '__:__'}</span>
         </div>
 
-        <div style="display: flex; justify-content: flex-end; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; padding-top: 2px;">
-          PLANIFICADOR(A): <b style="color: #263581; margin-left: 4px;">${esc(o.planificador || 'GCC')}</b>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; padding-top: 2px;">
+          ${buildLiberarFooterBlockHtml(o)}
+          <span>PLANIFICADOR(A): <b style="color: #263581; margin-left: 4px;">${esc(o.planificador || 'GCC')}</b></span>
         </div>
       `;
 
@@ -7304,6 +7382,42 @@
             ${totalRowHtml}
           </tbody>
         </table>
+      `;
+    }
+
+    // ===== QR de liberación de OP (para que el trabajador escanee) =====
+    // El QR apunta a este mismo sitio publicado, agregando ?liberar=<idOP>.
+    // Esa vista especial (ver más abajo, bloque "VISTA DE LIBERACIÓN DE OP
+    // PARA EL TRABAJADOR") no requiere iniciar sesión.
+    //
+    // Generamos el QR en el momento (data URL, sin red) con qrcode-generator
+    // para que el PDF/impresión no dependa de internet ni sufra problemas de
+    // CORS al rasterizar con html2canvas (igual que los logos embebidos).
+    const LIBERAR_OP_BASE_URL = 'https://gcortezdagomet-oss.github.io/planificacion-ot-dgm/';
+    function buildLiberarQRDataUrl(opId) {
+      if (typeof qrcode !== 'function' || !opId || opId === 'preview' || opId === '__preview_current__') return '';
+      try {
+        const url = `${LIBERAR_OP_BASE_URL}?liberar=${encodeURIComponent(opId)}`;
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        return qr.createDataURL(5, 4);
+      } catch (e) {
+        console.warn('No se pudo generar el QR de liberación de OP:', e);
+        return '';
+      }
+    }
+
+    function buildLiberarFooterBlockHtml(o) {
+      const qrDataUrl = buildLiberarQRDataUrl(o.id);
+      if (!qrDataUrl) return '<span></span>';
+      return `
+        <div style="display:flex; align-items:center; gap:7px; text-transform:none;">
+          <img src="${qrDataUrl}" style="width:52px; height:52px; image-rendering:pixelated; border:1px solid #e2e8f0; border-radius:4px; background:#fff;">
+          <div style="font-size:8px; color:#64748b; max-width:110px; line-height:1.25; text-transform:uppercase; font-weight:700;">
+            Escanea para liberar el trabajo y subir foto
+          </div>
+        </div>
       `;
     }
 
@@ -7480,8 +7594,9 @@
 
         ${notaHtml}
 
-        <div style="display: flex; justify-content: flex-end; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; padding-top: 4px;">
-          PLANIFICADOR(A): <b style="color: #263581; margin-left: 4px;">${esc(o.planificador || 'GCC')}</b>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; padding-top: 4px;">
+          ${buildLiberarFooterBlockHtml(o)}
+          <span>PLANIFICADOR(A): <b style="color: #263581; margin-left: 4px;">${esc(o.planificador || 'GCC')}</b></span>
         </div>
       `;
 
@@ -7989,7 +8104,38 @@
       renderGuiasTable();
       setTimeout(checkCloudBackup, 1200);
       applyReadOnlyPermissions();
+      mostrarAvisosLiberacionOP();
     };
+
+    // Avisos de "OP liberada por el trabajador" (generados por la Edge
+    // Function dagomet-liberar-op en db.notificacionesLiberacion). Se
+    // muestran como tarjetas descartables; al cerrarlas quedan marcadas
+    // como leídas y no vuelven a aparecer.
+    function mostrarAvisosLiberacionOP() {
+      const avisos = Array.isArray(db.notificacionesLiberacion) ? db.notificacionesLiberacion.filter(a => !a.leida) : [];
+      let cont = document.getElementById('avisos-liberacion-op');
+      if (!cont) {
+        cont = document.createElement('div');
+        cont.id = 'avisos-liberacion-op';
+        cont.style.cssText = 'position:fixed; top:70px; right:16px; z-index:99999; display:flex; flex-direction:column; gap:8px; max-width:320px;';
+        document.body.appendChild(cont);
+      }
+      cont.innerHTML = '';
+      avisos.forEach(a => {
+        const box = document.createElement('div');
+        box.style.cssText = 'background:#16a34a; color:#fff; border-radius:8px; padding:10px 14px; font-size:12px; font-weight:600; box-shadow:0 4px 12px rgba(0,0,0,.18); display:flex; justify-content:space-between; gap:10px; align-items:center;';
+        const span = document.createElement('span');
+        span.textContent = `✅ OP N° ${a.numero || ''} liberada por ${a.trabajador || 'trabajador'}`;
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.title = 'Marcar como leída';
+        closeBtn.style.cssText = 'background:none; border:none; color:#fff; font-weight:800; cursor:pointer; font-size:14px; line-height:1;';
+        closeBtn.onclick = () => { a.leida = true; saveDB(); box.remove(); };
+        box.appendChild(span);
+        box.appendChild(closeBtn);
+        cont.appendChild(box);
+      });
+    }
 
     function applyReadOnlyPermissions() {
       if (window.dagometCurrentProfile?.rol !== 'read_only') return;
@@ -8008,6 +8154,134 @@
         if(!allow) btn.disabled=true;
       });
     }
+  </script>
+  <script>
+  // ===== LÓGICA DE LA VISTA DE LIBERACIÓN (sin login) =====
+  // Habla con la Edge Function "dagomet-liberar-op" (ver archivo aparte
+  // supabase/functions/dagomet-liberar-op/index.ts) usando SOLO la clave
+  // anon: la función, corriendo con la service role del lado del servidor,
+  // es la única que lee/edita la OP puntual dentro de app_data. Así el
+  // trabajador nunca necesita una sesión ni permisos sobre toda la base.
+  (function () {
+    const liberarId = new URLSearchParams(location.search).get('liberar');
+    if (!liberarId) return;
+
+    const FN_URL = window.DAGOMET_SUPABASE_URL + '/functions/v1/dagomet-liberar-op';
+    const ANON_KEY = window.DAGOMET_SUPABASE_ANON_KEY;
+    const card = document.getElementById('liberar-card');
+
+    async function llamarFuncion(body) {
+      const res = await fetch(FN_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + ANON_KEY,
+          'apikey': ANON_KEY
+        },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) throw new Error(data.error || ('Error del servidor (' + res.status + ')'));
+      return data;
+    }
+
+    function renderError(msg) {
+      card.innerHTML = `<h2>No se pudo abrir la OP</h2><p class="liberar-sub">${msg}</p>`;
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function init() {
+      let info;
+      try {
+        info = await llamarFuncion({ action: 'info', opId: liberarId });
+      } catch (e) {
+        renderError(e.message || 'La OP no existe o el enlace ya no es válido.');
+        return;
+      }
+
+      if (info.estadoOp === 'TERMINADA') {
+        card.innerHTML = `
+          <h2>OP N° ${info.numero || ''}</h2>
+          <p class="liberar-sub">${info.area || ''}${info.parteOp ? ' · ' + info.parteOp : ''}</p>
+          <div class="liberar-msg ok">✅ Este trabajo ya fue liberado${info.liberadoPor ? ' por ' + info.liberadoPor : ''}${info.liberadoEn ? ' el ' + new Date(info.liberadoEn).toLocaleString('es-CL') : ''}.</div>
+        `;
+        return;
+      }
+
+      const nombres = Array.isArray(info.responsableTrabajo) ? info.responsableTrabajo : [];
+      card.innerHTML = `
+        <h2>OP N° ${info.numero || ''}</h2>
+        <p class="liberar-sub">${info.area || ''}${info.parteOp ? ' · ' + info.parteOp : ''} — ${info.cliente || ''}</p>
+
+        <label for="liberar-nombre">Tu nombre</label>
+        <select id="liberar-nombre">
+          <option value="">Selecciona tu nombre…</option>
+          ${nombres.map(n => `<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join('')}
+        </select>
+
+        <label for="liberar-foto">Foto del trabajo terminado</label>
+        <input type="file" id="liberar-foto" accept="image/*" capture="environment">
+        <img id="liberar-foto-preview" class="liberar-foto-preview">
+
+        <button type="button" class="liberar-btn" id="liberar-btn">✅ Liberar trabajo</button>
+        <div id="liberar-msg"></div>
+      `;
+
+      const fotoInput = document.getElementById('liberar-foto');
+      const preview = document.getElementById('liberar-foto-preview');
+      fotoInput.addEventListener('change', () => {
+        const file = fotoInput.files[0];
+        if (!file) { preview.style.display = 'none'; return; }
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+      });
+
+      const msgEl = document.getElementById('liberar-msg');
+      const btn = document.getElementById('liberar-btn');
+      btn.addEventListener('click', async () => {
+        msgEl.className = 'liberar-msg';
+        msgEl.textContent = '';
+        const trabajador = document.getElementById('liberar-nombre').value;
+        const file = fotoInput.files[0];
+        if (!trabajador) { msgEl.className = 'liberar-msg err'; msgEl.textContent = 'Selecciona tu nombre.'; return; }
+        if (!file) { msgEl.className = 'liberar-msg err'; msgEl.textContent = 'Adjunta una foto del trabajo.'; return; }
+
+        btn.disabled = true;
+        btn.textContent = 'Enviando…';
+        try {
+          const fotoBase64 = await fileToBase64(file);
+          await llamarFuncion({
+            action: 'liberar',
+            opId: liberarId,
+            trabajador,
+            fotoBase64,
+            fotoContentType: file.type || 'image/jpeg'
+          });
+          card.innerHTML = `
+            <h2>OP N° ${info.numero || ''}</h2>
+            <div class="liberar-msg ok">✅ ¡Trabajo liberado con éxito! Planificación ya fue notificada. Gracias, ${trabajador}.</div>
+          `;
+        } catch (e) {
+          msgEl.className = 'liberar-msg err';
+          msgEl.textContent = e.message || 'No se pudo liberar la OP. Intenta de nuevo.';
+          btn.disabled = false;
+          btn.textContent = '✅ Liberar trabajo';
+        }
+      });
+    }
+
+    // window.DAGOMET_SUPABASE_URL / ANON_KEY se definen más arriba, en el
+    // bloque de autenticación; para cuando este script corre ya existen.
+    init();
+  })();
   </script>
 </body>
 </html>
