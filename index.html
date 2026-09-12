@@ -4635,6 +4635,8 @@
       if (modo === 'dia') {
         for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
           const fecha = new Date(d);
+          const diaSemana = fecha.getDay(); // 0 = domingo, 6 = sábado
+          if (diaSemana === 0 || diaSemana === 6) continue; // se excluyen fines de semana
           const key = `${fecha.getFullYear()}-${pad2(fecha.getMonth()+1)}-${pad2(fecha.getDate())}`;
           buckets.push({ key, label: `${pad2(fecha.getDate())}/${pad2(fecha.getMonth()+1)}`, count: 0 });
         }
@@ -4647,15 +4649,25 @@
 
       db.ots.forEach(o => {
         const estado = String(o.estadoOp || '').trim().toUpperCase();
-        if (estado !== 'TERMINADA' || !o.fechaTermino) return;
+        // Igual que en "Desempeño de entregas": una OP se considera cerrada/terminada
+        // tanto si quedó en TERMINADA como si ya se despachó (DESPACHADA). Antes solo
+        // se contaba TERMINADA, así que una OP despachada el mismo día desaparecía del gráfico.
+        if (!['TERMINADA','DESPACHADA'].includes(estado) || !o.fechaTermino) return;
         const fechaStr = String(o.fechaTermino).slice(0, 10);
         const parts = fechaStr.split('-').map(Number);
         if (parts.length !== 3 || parts.some(Number.isNaN)) return;
         const fecha = new Date(parts[0], parts[1] - 1, parts[2]);
         fecha.setHours(0,0,0,0);
         if (fecha < inicio || fecha > fin) return;
+        if (modo === 'dia') {
+          // Algunos sábados sí se trabaja (horas extra), así que una OP terminada
+          // en fin de semana no se pierde: se contabiliza en el próximo día hábil.
+          const diaSemana = fecha.getDay();
+          if (diaSemana === 6) fecha.setDate(fecha.getDate() + 2);      // sábado -> lunes
+          else if (diaSemana === 0) fecha.setDate(fecha.getDate() + 1); // domingo -> lunes
+        }
         const key = modo === 'dia'
-          ? fechaStr
+          ? `${fecha.getFullYear()}-${pad2(fecha.getMonth()+1)}-${pad2(fecha.getDate())}`
           : `${fecha.getFullYear()}-${pad2(fecha.getMonth()+1)}`;
         const b = buckets.find(bk => bk.key === key);
         if (b) b.count++;
