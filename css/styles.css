@@ -681,7 +681,16 @@
          el elemento; por eso el último renglón (PLANIFICADOR) podía saltar a
          una hoja nueva. Zoom sí reduce el layout y mantiene todo sincronizado. */
       #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container {
+        /* Centrado con flex en el PADRE (no con margin:auto en el hijo con
+           zoom): al combinar zoom con margin:auto, Chrome resuelve el
+           auto-margin usando el ancho ORIGINAL del elemento (190mm) en vez
+           del ancho ya escalado (190mm x 0.87), por eso el documento salía
+           corrido hacia la izquierda en vez de centrado. Con flex, el
+           centrado se calcula sobre el tamaño final ya renderizado. */
+        display: flex !important;
+        justify-content: center !important;
         align-items: flex-start !important;
+        width: 100% !important;
       }
       #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container > .ot-print-document {
         width: 190mm !important;
@@ -691,8 +700,7 @@
         gap: 8px !important;
         font-size: 11px !important;
         zoom: var(--ot-print-zoom, 0.87) !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
+        flex-shrink: 0 !important;
       }
       #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:first-child {
         padding-bottom: 6px !important;
