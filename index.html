@@ -444,6 +444,9 @@
     #liberar-view .liberar-foto-preview { margin-top: 10px; max-width: 100%; border-radius: 8px; display: none; }
     #liberar-view .liberar-fotos-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
     #liberar-view .liberar-fotos-grid img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; }
+    #liberar-view .liberar-foto-item { position: relative; width: 84px; height: 84px; }
+    #liberar-view .liberar-foto-item img { width: 100%; height: 100%; }
+    #liberar-view .liberar-foto-quitar { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; background: #dc2626; color: #fff; border: 2px solid #fff; font-size: 13px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
     #liberar-view button.liberar-btn {
       margin-top: 20px; width: 100%; padding: 13px; border: none; border-radius: 9px;
       background: #16a34a; color: #fff; font-weight: 800; font-size: 15px; cursor: pointer;
@@ -8613,7 +8616,8 @@
         </select>
 
         <label for="liberar-foto">Fotos del trabajo terminado (máx. 4)</label>
-        <input type="file" id="liberar-foto" accept="image/*" capture="environment" multiple>
+        <input type="file" id="liberar-foto" accept="image/*" capture="environment" multiple style="display:none;">
+        <button type="button" class="btn btn-secondary btn-sm" id="liberar-foto-btn">📷 Agregar foto</button>
         <div id="liberar-fotos-preview" class="liberar-fotos-grid"></div>
 
         <button type="button" class="liberar-btn" id="liberar-btn">✅ Liberar trabajo</button>
@@ -8622,31 +8626,67 @@
 
       const MAX_FOTOS_LIBERACION = 4;
       const fotoInput = document.getElementById('liberar-foto');
+      const fotoBtn = document.getElementById('liberar-foto-btn');
       const preview = document.getElementById('liberar-fotos-preview');
       const msgEl = document.getElementById('liberar-msg');
 
-      // Devuelve como máximo MAX_FOTOS_LIBERACION archivos, avisando si el
-      // trabajador seleccionó más de la cuenta.
-      function fotosSeleccionadas() {
-        const files = Array.from(fotoInput.files || []);
-        if (files.length > MAX_FOTOS_LIBERACION) {
+      // En celulares, el input con capture="environment" abre la cámara y
+      // entrega UNA foto a la vez (multiple casi siempre se ignora ahí), y
+      // cada disparo de la cámara REEMPLAZA la selección anterior del input.
+      // Por eso acumulamos las fotos nosotros mismos en este arreglo, en vez
+      // de leerlas directo desde fotoInput.files cada vez.
+      let fotosAcumuladas = [];
+
+      function renderFotosPreview() {
+        preview.innerHTML = '';
+        fotosAcumuladas.forEach((file, idx) => {
+          const item = document.createElement('div');
+          item.className = 'liberar-foto-item';
+          const img = document.createElement('img');
+          img.src = URL.createObjectURL(file);
+          const quitar = document.createElement('button');
+          quitar.type = 'button';
+          quitar.className = 'liberar-foto-quitar';
+          quitar.textContent = '✕';
+          quitar.title = 'Quitar esta foto';
+          quitar.onclick = () => {
+            fotosAcumuladas.splice(idx, 1);
+            renderFotosPreview();
+          };
+          item.appendChild(img);
+          item.appendChild(quitar);
+          preview.appendChild(item);
+        });
+        fotoBtn.disabled = fotosAcumuladas.length >= MAX_FOTOS_LIBERACION;
+        fotoBtn.textContent = fotosAcumuladas.length >= MAX_FOTOS_LIBERACION
+          ? `Máximo ${MAX_FOTOS_LIBERACION} fotos alcanzado`
+          : '📷 Agregar foto';
+      }
+
+      fotoBtn.addEventListener('click', () => fotoInput.click());
+
+      fotoInput.addEventListener('change', () => {
+        const nuevos = Array.from(fotoInput.files || []);
+        fotoInput.value = ''; // libera el input para poder volver a disparar la cámara
+        if (!nuevos.length) return;
+
+        const espacioDisponible = MAX_FOTOS_LIBERACION - fotosAcumuladas.length;
+        const aAgregar = nuevos.slice(0, Math.max(espacioDisponible, 0));
+        fotosAcumuladas = fotosAcumuladas.concat(aAgregar);
+
+        if (nuevos.length > aAgregar.length) {
           msgEl.className = 'liberar-msg err';
-          msgEl.textContent = `Solo se pueden subir hasta ${MAX_FOTOS_LIBERACION} fotos; se usarán las primeras ${MAX_FOTOS_LIBERACION}.`;
+          msgEl.textContent = `Solo se pueden subir hasta ${MAX_FOTOS_LIBERACION} fotos.`;
         } else {
           msgEl.className = 'liberar-msg';
           msgEl.textContent = '';
         }
-        return files.slice(0, MAX_FOTOS_LIBERACION);
-      }
-
-      fotoInput.addEventListener('change', () => {
-        preview.innerHTML = '';
-        fotosSeleccionadas().forEach(file => {
-          const img = document.createElement('img');
-          img.src = URL.createObjectURL(file);
-          preview.appendChild(img);
-        });
+        renderFotosPreview();
       });
+
+      function fotosSeleccionadas() {
+        return fotosAcumuladas;
+      }
 
       const btn = document.getElementById('liberar-btn');
       btn.addEventListener('click', async () => {
