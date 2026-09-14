@@ -1106,3 +1106,123 @@ body.read-only-mode button[onclick*="toggleEstadoGuia("] { display:none !importa
 /* Los lectores no pueden exportar OPs (Historial de OPs / catálogo). */
 body.read-only-mode button[onclick*="exportToCSV("],
 body.read-only-mode button[onclick*="descargarCatalogoDefinitivo("] { display:none !important; }
+
+/* ============================================================
+   MODO OSCURO (html.dagomet-dark)
+   Reemplaza el antiguo truco de filter: invert() (que vivía en
+   el HTML) por una paleta real basada en variables CSS. La mayor
+   parte del sistema ya usa var(--bg), var(--surface), var(--text),
+   var(--border), etc., así que sobreescribir esas variables aquí
+   arregla automáticamente la mayoría de la interfaz. El resto de
+   reglas puntuales cubre componentes que tenían colores fijos
+   (blancos, grises o "badges" pastel) en vez de variables — incluye
+   los que están definidos como <style> en línea dentro del HTML,
+   porque "html.dagomet-dark .clase" tiene más especificidad que
+   ".clase" sola y gana igual aunque esté en otro archivo.
+   ============================================================ */
+html.dagomet-dark {
+  --primary: #7c8ce0;
+  --primary-dark: #5865c4;
+  --primary-light: #1c2447;
+  --accent: #ff8a4c;
+  --accent-hover: #ff9d68;
+  --accent-light: #3a2313;
+  --border: #2a3348;
+  --border-strong: #3d4863;
+  --bg: #0d1220;
+  --surface: #161d31;
+  --text: #e6e9f2;
+  --text-muted: #9aa5c0;
+  --text-faint: #6b7593;
+  --danger: #f87171;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.45);
+  --shadow-md: 0 4px 14px rgba(0,0,0,.55);
+  color-scheme: dark;
+}
+html.dagomet-dark body { background-color: var(--bg); color: var(--text); }
+html.dagomet-dark header .header-subtitle { color: #b7c0ea; }
+html.dagomet-dark #dark-mode-toggle-btn { background: #475569; color: #fff; }
+
+/* Superficies fijas en blanco -> pasan a var(--surface) */
+html.dagomet-dark .soldadura-step,
+html.dagomet-dark .sort-arrows button,
+html.dagomet-dark .doc-chip,
+html.dagomet-dark .materials-table .m-peso-final,
+html.dagomet-dark .materials-table .m-descripcion,
+html.dagomet-dark .materials-table tbody tr,
+html.dagomet-dark .history-search-wrap,
+html.dagomet-dark #auth-card,
+html.dagomet-dark #user-session-bar .user-badge,
+html.dagomet-dark .users-table th,
+html.dagomet-dark #user-form-grid input,
+html.dagomet-dark #user-form-grid select,
+html.dagomet-dark .dash-op-card,
+html.dagomet-dark .dash-panel,
+html.dagomet-dark .smart-alert-card,
+html.dagomet-dark .performance-card,
+html.dagomet-dark .planta-summary-card,
+html.dagomet-dark .priority-summary-item,
+html.dagomet-dark #change-password-modal .modal-content,
+html.dagomet-dark #area.campo-faltante {
+  background: var(--surface) !important;
+  color: var(--text);
+  border-color: var(--border);
+}
+html.dagomet-dark .sort-arrows button:disabled,
+html.dagomet-dark .sort-arrows button:disabled:hover,
+html.dagomet-dark .kpi-delta.flat { background: var(--border) !important; }
+html.dagomet-dark .materials-table .m-autofill { background: var(--bg) !important; color: var(--text-muted) !important; }
+html.dagomet-dark .doc-selector { background: var(--bg) !important; color: var(--text-muted) !important; border-color: var(--border-strong); }
+html.dagomet-dark .doc-selector:hover { border-color: var(--primary); color: var(--primary); }
+html.dagomet-dark .doc-selector.active { background: var(--primary) !important; color: #fff !important; border-color: var(--primary); }
+html.dagomet-dark .materials-table .m-ducto-check,
+html.dagomet-dark .materials-table .m-ducto-check input { color: var(--primary); accent-color: var(--primary); }
+
+/* Modales, overlay, scrollbar */
+html.dagomet-dark .modal-content { background: var(--surface); color: var(--text); }
+html.dagomet-dark .modal-overlay { background: rgba(0,0,0,.7); }
+html.dagomet-dark #auth-overlay { background: linear-gradient(135deg, #10162a 0%, #0d1220 100%); }
+html.dagomet-dark #auth-error { background: #3a1616; color: #fca5a5; }
+html.dagomet-dark ::-webkit-scrollbar-thumb { background: var(--border-strong); }
+html.dagomet-dark ::-webkit-scrollbar-thumb:hover { background: #4d5b80; }
+
+/* Badges de prioridad y estado: versiones oscuras con buen contraste */
+html.dagomet-dark .badge-normal { background: var(--accent-light); color: #ffb27a; border-color: #5a3a1e; }
+html.dagomet-dark .badge-alta { background: #3a1616; color: #fca5a5; border-color: #5c2626; }
+html.dagomet-dark .badge-urgente { background: #7f1d1d; color: #fff; border-color: #a13030; }
+html.dagomet-dark .status-en-curso { background: #12293d; color: #7dd3fc; }
+html.dagomet-dark .status-terminada { background: #113322; color: #6ee7b7; }
+html.dagomet-dark .status-despachada { background: #2c1f42; color: #d8b4fe; }
+html.dagomet-dark .status-por-inspeccionar { background: #3a2a0e; color: #fcd34d; }
+html.dagomet-dark .status-en-pausa { background: #3a1616; color: #fca5a5; }
+html.dagomet-dark .status-anulada { background: #262e40; color: #94a3b8; }
+html.dagomet-dark .deadline-vencido { background-color: #2c1414; }
+html.dagomet-dark .deadline-proximo { background-color: #302708; }
+html.dagomet-dark .cal-day.cal-day-vencido { background: #2c1414; border-color: #5c2626; }
+html.dagomet-dark .cal-day.cal-day-conentregas { background: #302708; border-color: #5c4a10; }
+html.dagomet-dark .cal-feriado-tag { background: #2c1f42; color: #d8b4fe; }
+html.dagomet-dark .kpi-delta.up { background: #113322; color: #6ee7b7; }
+html.dagomet-dark .kpi-delta.down { background: #3a1616; color: #fca5a5; }
+html.dagomet-dark .user-status.on { background: #113322; color: #6ee7b7; }
+html.dagomet-dark .user-status.off { background: #3a1616; color: #fca5a5; }
+html.dagomet-dark #users-feedback.ok { background: #113322; color: #6ee7b7; }
+html.dagomet-dark #users-feedback.err { background: #3a1616; color: #fca5a5; }
+html.dagomet-dark .label-revisar,
+html.dagomet-dark .label-revisar::after,
+html.dagomet-dark .calidad-edit-option { color: #fbbf24 !important; }
+
+/* Filas/paneles de dashboard con bordes o fondos fijos claros */
+html.dagomet-dark .dash-alert-row,
+html.dagomet-dark .dash-area-row,
+html.dagomet-dark .performance-table td,
+html.dagomet-dark .dash-table td,
+html.dagomet-dark .autocomplete-item,
+html.dagomet-dark .materials-table td,
+html.dagomet-dark .users-table td { border-bottom-color: var(--border) !important; }
+html.dagomet-dark .performance-bar,
+html.dagomet-dark .dash-progress { background: var(--border) !important; }
+html.dagomet-dark .smart-alert-item { background: var(--bg) !important; }
+html.dagomet-dark .smart-alert-item:hover,
+html.dagomet-dark .performance-click-row:hover { background: var(--border) !important; }
