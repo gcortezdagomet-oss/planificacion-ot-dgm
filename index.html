@@ -1087,6 +1087,11 @@
             </div>
           </div>
           <div class="planta-toolbar-right">
+            <div class="planta-zoom-toggle" role="group" aria-label="Tamaño de la información">
+              <button class="btn btn-sm tv-control-btn planta-zoom-btn" onclick="changePlantaZoom(-1)" title="Achicar información">A−</button>
+              <span id="planta-zoom-label" class="planta-zoom-label">100%</span>
+              <button class="btn btn-sm tv-control-btn planta-zoom-btn" onclick="changePlantaZoom(1)" title="Agrandar información">A+</button>
+            </div>
             <div class="planta-clock-wrap">
               <span id="planta-clock">--:--</span>
               <span id="planta-date">-</span>
@@ -1095,20 +1100,22 @@
           </div>
         </div>
 
-        <div class="cal-legend planta-legend">
-          <div class="cal-legend-item"><span class="cal-legend-swatch" style="background:#fef2f2; border-color:#dc2626;"></span> Vencida</div>
-          <div class="cal-legend-item"><span class="cal-legend-swatch" style="background:#fffbeb; border-color:#f59e0b;"></span> Por vencer (≤2 días)</div>
-          <div class="cal-legend-item"><span class="cal-legend-swatch" style="background:#fff; border-color:var(--border-strong);"></span> En plazo</div>
-          <div class="cal-legend-item" style="margin-left:auto; color:var(--text-muted); font-style:italic;">Solo se muestran OPs En Curso</div>
+        <div id="planta-zoomable">
+          <div class="cal-legend planta-legend">
+            <div class="cal-legend-item"><span class="cal-legend-swatch" style="background:#fef2f2; border-color:#dc2626;"></span> Vencida</div>
+            <div class="cal-legend-item"><span class="cal-legend-swatch" style="background:#fffbeb; border-color:#f59e0b;"></span> Por vencer (≤2 días)</div>
+            <div class="cal-legend-item"><span class="cal-legend-swatch" style="background:#fff; border-color:var(--border-strong);"></span> En plazo</div>
+            <div class="cal-legend-item" style="margin-left:auto; color:var(--text-muted); font-style:italic;">Solo se muestran OPs En Curso</div>
+          </div>
+
+          <div id="planta-summary" class="planta-summary"></div>
+
+          <div id="planta-empty" style="display:none; text-align:center; color:var(--text-muted); padding:40px 0; font-size:1.1rem;">
+            No hay OPs en curso programadas para este periodo. 🎉
+          </div>
+
+          <div id="planta-grid" class="planta-grid"></div>
         </div>
-
-        <div id="planta-summary" class="planta-summary"></div>
-
-        <div id="planta-empty" style="display:none; text-align:center; color:var(--text-muted); padding:40px 0; font-size:1.1rem;">
-          No hay OPs en curso programadas para este periodo. 🎉
-        </div>
-
-        <div id="planta-grid" class="planta-grid"></div>
       </div>
     </div>
 
@@ -5694,6 +5701,7 @@
     let plantaRefreshTimer = null;
 
     function renderPlantaTab() {
+      applyPlantaZoom();
       renderPlantaClock();
       renderPlantaGrid();
       if (!plantaClockTimer) plantaClockTimer = setInterval(renderPlantaClock, 1000);
@@ -5820,6 +5828,31 @@
       const parts = String(dateStr).split('-');
       if (parts.length !== 3) return dateStr;
       return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+
+    // ---- Zoom de la información (Vista de Planta) ----
+    // Escala solo el contenido informativo (#planta-zoomable: leyenda,
+    // resumen y tarjetas de OP), no la barra de herramientas, para que los
+    // botones sigan siendo fáciles de tocar en pantallas táctiles/TV.
+    // Se guarda en localStorage para que el nivel elegido (p.ej. en el
+    // monitor de la planta) se mantenga aunque se recargue la página.
+    const PLANTA_ZOOM_MIN = 0.7;
+    const PLANTA_ZOOM_MAX = 1.8;
+    const PLANTA_ZOOM_STEP = 0.1;
+    let plantaZoomLevel = parseFloat(localStorage.getItem('dagomet_planta_zoom')) || 1;
+
+    function applyPlantaZoom() {
+      const el = $('planta-zoomable');
+      const label = $('planta-zoom-label');
+      if (el) el.style.zoom = plantaZoomLevel;
+      if (label) label.textContent = Math.round(plantaZoomLevel * 100) + '%';
+    }
+
+    function changePlantaZoom(direction) {
+      const next = Math.round((plantaZoomLevel + direction * PLANTA_ZOOM_STEP) * 100) / 100;
+      plantaZoomLevel = Math.min(PLANTA_ZOOM_MAX, Math.max(PLANTA_ZOOM_MIN, next));
+      localStorage.setItem('dagomet_planta_zoom', plantaZoomLevel);
+      applyPlantaZoom();
     }
 
     // Bandera propia (no depende solo de document.fullscreenElement) porque en
