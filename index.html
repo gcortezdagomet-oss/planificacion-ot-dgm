@@ -396,6 +396,8 @@
       width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; background: #fff;
     }
     #liberar-view .liberar-foto-preview { margin-top: 10px; max-width: 100%; border-radius: 8px; display: none; }
+    #liberar-view .liberar-fotos-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    #liberar-view .liberar-fotos-grid img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; }
     #liberar-view button.liberar-btn {
       margin-top: 20px; width: 100%; padding: 13px; border: none; border-radius: 9px;
       background: #16a34a; color: #fff; font-weight: 800; font-size: 15px; cursor: pointer;
@@ -1956,15 +1958,25 @@
       }
     }
 
-    // Bucket donde la Edge Function dagomet-liberar-op sube la foto que el
+    // Bucket donde la Edge Function dagomet-liberar-op sube la(s) foto(s) que el
     // trabajador toma al liberar su OP (ver supabase/functions/dagomet-liberar-op).
+    // Antes se guardaba solo una foto en `fotoLiberacionPath` (string); ahora se
+    // guardan una o más en `fotosLiberacionPaths` (array). Soportamos ambas para
+    // no perder las fotos de OPs liberadas antes de este cambio.
     const LIBERACION_FOTO_BUCKET = 'fotos-liberacion';
-    async function verFotoLiberacionOP(opId) {
+    function getFotosLiberacionDe(o) {
+      if (Array.isArray(o.fotosLiberacionPaths) && o.fotosLiberacionPaths.length) {
+        return o.fotosLiberacionPaths;
+      }
+      return o.fotoLiberacionPath ? [o.fotoLiberacionPath] : [];
+    }
+    async function verFotoLiberacionOP(opId, idx) {
       const o = db.ots.find(x => x.id === opId);
       const sb = window.dagometSupabase;
-      if (!o || !o.fotoLiberacionPath || !sb) return;
+      const path = o && getFotosLiberacionDe(o)[idx || 0];
+      if (!path || !sb) return;
       try {
-        const { data, error } = await sb.storage.from(LIBERACION_FOTO_BUCKET).createSignedUrl(o.fotoLiberacionPath, 3600);
+        const { data, error } = await sb.storage.from(LIBERACION_FOTO_BUCKET).createSignedUrl(path, 3600);
         if (error) throw error;
         window.open(data.signedUrl, '_blank');
       } catch (err) {
@@ -4177,7 +4189,15 @@
               <button class="btn btn-secondary btn-sm" onclick="duplicateOP('${o.id}')" title="Duplicar OP">📋 Duplicar</button>
               <button class="btn btn-warning btn-sm" onclick="editOP('${o.id}')">✏️ Editar</button>
               <button class="btn btn-info btn-sm" onclick="previewPDF('${o.id}')">👁️ Ver</button>
-              ${o.fotoLiberacionPath ? `<button class="btn btn-secondary btn-sm" onclick="verFotoLiberacionOP('${o.id}')" title="Liberada por ${esc(o.liberadoPor || '-')}${o.liberadoEn ? ' · ' + new Date(o.liberadoEn).toLocaleString('es-CL') : ''}">📷 Foto liberación</button>` : ''}
+              ${(() => {
+                const fotos = getFotosLiberacionDe(o);
+                if (!fotos.length) return '';
+                const tip = `Liberada por ${esc(o.liberadoPor || '-')}${o.liberadoEn ? ' · ' + new Date(o.liberadoEn).toLocaleString('es-CL') : ''}`;
+                if (fotos.length === 1) {
+                  return `<button class="btn btn-secondary btn-sm" onclick="verFotoLiberacionOP('${o.id}', 0)" title="${tip}">📷 Foto liberación</button>`;
+                }
+                return fotos.map((_, i) => `<button class="btn btn-secondary btn-sm" onclick="verFotoLiberacionOP('${o.id}', ${i})" title="${tip}">📷 Foto ${i + 1}</button>`).join('');
+              })()}
               <button class="btn btn-danger btn-sm" onclick="deleteOP('${o.id}')">🗑️ Eliminar</button>
             </td>
           </tr>
@@ -8233,43 +8253,63 @@
           ${nombres.map(n => `<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join('')}
         </select>
 
-        <label for="liberar-foto">Foto del trabajo terminado</label>
-        <input type="file" id="liberar-foto" accept="image/*" capture="environment">
-        <img id="liberar-foto-preview" class="liberar-foto-preview">
+        <label for="liberar-foto">Fotos del trabajo terminado (máx. 4)</label>
+        <input type="file" id="liberar-foto" accept="image/*" capture="environment" multiple>
+        <div id="liberar-fotos-preview" class="liberar-fotos-grid"></div>
 
         <button type="button" class="liberar-btn" id="liberar-btn">✅ Liberar trabajo</button>
         <div id="liberar-msg"></div>
       `;
 
+      const MAX_FOTOS_LIBERACION = 4;
       const fotoInput = document.getElementById('liberar-foto');
-      const preview = document.getElementById('liberar-foto-preview');
+      const preview = document.getElementById('liberar-fotos-preview');
+      const msgEl = document.getElementById('liberar-msg');
+
+      // Devuelve como máximo MAX_FOTOS_LIBERACION archivos, avisando si el
+      // trabajador seleccionó más de la cuenta.
+      function fotosSeleccionadas() {
+        const files = Array.from(fotoInput.files || []);
+        if (files.length > MAX_FOTOS_LIBERACION) {
+          msgEl.className = 'liberar-msg err';
+          msgEl.textContent = `Solo se pueden subir hasta ${MAX_FOTOS_LIBERACION} fotos; se usarán las primeras ${MAX_FOTOS_LIBERACION}.`;
+        } else {
+          msgEl.className = 'liberar-msg';
+          msgEl.textContent = '';
+        }
+        return files.slice(0, MAX_FOTOS_LIBERACION);
+      }
+
       fotoInput.addEventListener('change', () => {
-        const file = fotoInput.files[0];
-        if (!file) { preview.style.display = 'none'; return; }
-        preview.src = URL.createObjectURL(file);
-        preview.style.display = 'block';
+        preview.innerHTML = '';
+        fotosSeleccionadas().forEach(file => {
+          const img = document.createElement('img');
+          img.src = URL.createObjectURL(file);
+          preview.appendChild(img);
+        });
       });
 
-      const msgEl = document.getElementById('liberar-msg');
       const btn = document.getElementById('liberar-btn');
       btn.addEventListener('click', async () => {
         msgEl.className = 'liberar-msg';
         msgEl.textContent = '';
         const trabajador = document.getElementById('liberar-nombre').value;
-        const file = fotoInput.files[0];
+        const files = fotosSeleccionadas();
         if (!trabajador) { msgEl.className = 'liberar-msg err'; msgEl.textContent = 'Selecciona tu nombre.'; return; }
-        if (!file) { msgEl.className = 'liberar-msg err'; msgEl.textContent = 'Adjunta una foto del trabajo.'; return; }
+        if (!files.length) { msgEl.className = 'liberar-msg err'; msgEl.textContent = 'Adjunta al menos una foto del trabajo.'; return; }
 
         btn.disabled = true;
         btn.textContent = 'Enviando…';
         try {
-          const fotoBase64 = await fileToBase64(file);
+          const fotos = await Promise.all(files.map(async (file) => ({
+            fotoBase64: await fileToBase64(file),
+            fotoContentType: file.type || 'image/jpeg',
+          })));
           await llamarFuncion({
             action: 'liberar',
             opId: liberarId,
             trabajador,
-            fotoBase64,
-            fotoContentType: file.type || 'image/jpeg'
+            fotos
           });
           card.innerHTML = `
             <h2>OP N° ${info.numero || ''}</h2>
