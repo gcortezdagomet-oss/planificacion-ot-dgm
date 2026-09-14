@@ -636,7 +636,12 @@
          horizontal aunque las OP sigan en vertical. */
       @page reporte { size: letter landscape; margin: 6mm; }
       @page chartPage { size: letter landscape; margin: 7mm; }
-      html, body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; height: auto !important; }
+      html, body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; height: auto !important; color-scheme: light !important; }
+      /* Modo oscuro: html.dagomet-dark deja "color-scheme: dark" activo aunque
+         se imprima, y Chrome usa eso para pintar de negro el fondo del lienzo
+         donde no hay un color explícito (bordes/esquinas). Forzamos esquema
+         claro acá para que ese borde negro no aparezca al imprimir en modo oscuro. */
+      html.dagomet-dark { color-scheme: light !important; }
       .container { display: none !important; }
       /* La barra de sesión (usuario/rol/cerrar sesión) vive fuera de .container
          en el HTML, así que la regla de arriba no la oculta: sin esto, se
