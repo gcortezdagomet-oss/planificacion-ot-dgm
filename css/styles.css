@@ -1226,6 +1226,19 @@ html.dagomet-dark .dash-progress { background: var(--border) !important; }
 html.dagomet-dark .smart-alert-item { background: var(--bg) !important; }
 html.dagomet-dark .smart-alert-item:hover,
 html.dagomet-dark .performance-click-row:hover { background: var(--border) !important; }
+
+/* Campos resaltados con fondo forzado (!important) para "revisar" o
+   "duplicado": tenían fondo crema fijo pensado para texto oscuro, y en
+   modo oscuro el texto pasa a ser claro -> quedaba invisible. */
+html.dagomet-dark .campo-revisar {
+  background: #3a2f10 !important;
+  border-color: #f59e0b !important;
+  color: #fde68a !important;
+}
+html.dagomet-dark .material-duplicate {
+  background: #3a2f10 !important;
+  color: var(--text) !important;
+}
 /* Textos con color fijo en línea (generados por JS en tarjetas del
    dashboard, planta, etc.) que antes asumían fondo blanco. Se aclaran
    en modo oscuro vía selector de atributo, excluyendo el documento de
