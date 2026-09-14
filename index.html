@@ -8160,14 +8160,18 @@
     function applyReadOnlyPermissions() {
       if (window.dagometCurrentProfile?.rol !== 'read_only') return;
       // Solo lectura: bloquear edición, pero mantener operativos los controles
-      // necesarios para consultar y generar/imprimir reportes.
-      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas):not(#he-report-from):not(#he-report-to), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select):not(#trend-periodo):not(#he-report-worker)').forEach(el => { el.disabled = true; });
+      // necesarios para consultar y generar/imprimir reportes, y también los
+      // filtros de consulta del historial de OP (búsqueda y botones de plazo/soldadura).
+      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas):not(#he-report-from):not(#he-report-to):not(#search-op), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select):not(#trend-periodo):not(#he-report-worker)').forEach(el => { el.disabled = true; });
       document.querySelectorAll('#app-root button').forEach(btn => {
         const t=(btn.textContent||'').toLowerCase();
         const allow =
           btn.classList.contains('tab-btn') ||
           btn.classList.contains('tv-control-btn') ||
+          btn.classList.contains('deadline-filter-btn') ||
+          btn.classList.contains('history-clear-btn') ||
           btn.id === 'global-search-clear' ||
+          btn.closest('#sort-entrega-indicator') ||
           btn.closest('#report-columns-modal') ||
           btn.closest('#preview-modal') ||
           /imprimir|pdf|descargar respaldo|expandir|ver|generar|reporte|limpiar filtros|editar horas/.test(t);
