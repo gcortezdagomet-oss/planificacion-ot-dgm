@@ -450,7 +450,30 @@
   <div id="user-session-bar" style="display:none;">
     <span class="user-badge">👤 <span id="session-user"></span> · <span id="session-role" class="role-badge"></span></span>
     <button class="btn btn-primary btn-sm" type="button" id="users-btn" style="display:none;">⚙️ Usuarios</button>
+    <button class="btn btn-secondary btn-sm allow-read-only" type="button" id="change-password-btn">🔑 Mi clave</button>
     <button class="btn btn-secondary btn-sm allow-read-only" type="button" id="logout-btn">Cerrar sesión</button>
+  </div>
+
+  <!-- MODAL: CAMBIAR MI CONTRASEÑA (cualquier usuario logueado) -->
+  <div id="change-password-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width:420px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:0;border:none;padding:0;">🔑 Cambiar mi contraseña</h2>
+          <p style="margin:4px 0 0;color:var(--text-muted);font-size:.82rem;">Ingresa tu nueva contraseña. Deberás usarla la próxima vez que inicies sesión.</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" type="button" id="change-password-cancel">✕ Cerrar</button>
+      </div>
+
+      <label for="change-password-new">Nueva contraseña</label>
+      <input id="change-password-new" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres" style="width:100%;margin-bottom:10px;">
+      <label for="change-password-confirm">Confirmar nueva contraseña</label>
+      <input id="change-password-confirm" type="password" autocomplete="new-password" placeholder="Repite la contraseña" style="width:100%;margin-bottom:12px;">
+      <div id="change-password-msg" style="font-size:.8rem;margin-bottom:10px;"></div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary btn-sm" type="button" id="change-password-save">Guardar nueva contraseña</button>
+      </div>
+    </div>
   </div>
 
   <div id="app-root" class="container">
@@ -1446,6 +1469,56 @@
     async function loadProfile(user){const {data,error}=await sb.from('profiles').select('id,nombre,rol,activo').eq('id',user.id).maybeSingle();if(error)throw error;if(!data||data.activo===false)throw new Error('Tu usuario no está habilitado. Contacta al administrador.');window.dagometCurrentProfile=data;return data;}
     async function finishSession(session){if(!session?.user){setLoginUI();return false;}try{const profile=await loadProfile(session.user);window.dagometCurrentUser=session.user;setLoggedUI(profile,session.user);return true;}catch(e){await sb.auth.signOut();setLoginUI();showError(e.message||'No se pudo validar el usuario.');return false;}}
     document.getElementById('logout-btn').addEventListener('click',async()=>{await sb.auth.signOut();location.reload();});
+
+    // ===== CAMBIAR MI CONTRASEÑA (cualquier usuario logueado) =====
+    (function initChangePassword(){
+      const btn = document.getElementById('change-password-btn');
+      const modal = document.getElementById('change-password-modal');
+      const cancelBtn = document.getElementById('change-password-cancel');
+      const saveBtn = document.getElementById('change-password-save');
+      const newInput = document.getElementById('change-password-new');
+      const confirmInput = document.getElementById('change-password-confirm');
+      const msgEl = document.getElementById('change-password-msg');
+      if(!btn || !modal) return;
+
+      function openModal(){
+        newInput.value=''; confirmInput.value='';
+        msgEl.textContent=''; msgEl.style.color='';
+        modal.classList.add('open');
+        newInput.focus();
+      }
+      function closeModal(){ modal.classList.remove('open'); }
+
+      btn.addEventListener('click', openModal);
+      cancelBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', (e)=>{ if(e.target===modal) closeModal(); });
+
+      saveBtn.addEventListener('click', async ()=>{
+        const nueva = newInput.value;
+        const confirmacion = confirmInput.value;
+        msgEl.style.color = '#dc2626';
+        if(!nueva || nueva.length < 8){ msgEl.textContent='La contraseña debe tener al menos 8 caracteres.'; return; }
+        if(nueva !== confirmacion){ msgEl.textContent='Las contraseñas no coinciden.'; return; }
+
+        saveBtn.disabled = true;
+        const textoOriginal = saveBtn.textContent;
+        saveBtn.textContent = 'Guardando…';
+        msgEl.textContent = '';
+        try {
+          const { error } = await sb.auth.updateUser({ password: nueva });
+          if (error) throw error;
+          msgEl.style.color = '#16a34a';
+          msgEl.textContent = '✅ Contraseña actualizada con éxito.';
+          setTimeout(closeModal, 1500);
+        } catch (e) {
+          msgEl.style.color = '#dc2626';
+          msgEl.textContent = e.message || 'No se pudo cambiar la contraseña. Intenta de nuevo.';
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.textContent = textoOriginal;
+        }
+      });
+    })();
     loginBtn.addEventListener('click',async()=>{errorBox.style.display='none';loginBtn.disabled=true;loginBtn.textContent='Ingresando…';const usuario=email.value.trim().toLowerCase(); const authEmail=usuario.includes('@')?usuario:(usuario+'@dagomet.local'); const {data,error}=await sb.auth.signInWithPassword({email:authEmail,password:password.value});if(error)showError(error.message.includes('Invalid login credentials')?'Usuario o contraseña incorrectos.':error.message);else await finishSession(data.session);loginBtn.disabled=false;loginBtn.textContent='Ingresar';});
     password.addEventListener('keydown',e=>{if(e.key==='Enter')loginBtn.click();});
     const {data:{session}}=await sb.auth.getSession();
