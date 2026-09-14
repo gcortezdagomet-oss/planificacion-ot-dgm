@@ -4,6 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistema de Planificación de OP - DAGOMET</title>
+  <!-- Aplica el modo oscuro guardado ANTES de pintar la página, para que no
+       haya un parpadeo en blanco al cargar. -->
+  <script>
+    (function(){
+      try {
+        if (localStorage.getItem('dagomet_dark_mode') === '1') {
+          document.documentElement.classList.add('dagomet-dark');
+        }
+      } catch(e) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -141,6 +152,32 @@
         overflow-y: auto;
         box-shadow: 0 10px 40px rgba(0,0,0,.25);
       }
+
+      /* ===== MODO OSCURO =====
+         Truco de inversión de color: invierte toda la página y luego
+         vuelve a invertir imágenes, íconos SVG, fotos y gráficos (canvas)
+         para que se vean con sus colores normales sobre el fondo oscuro.
+         Se eligió este método porque no requiere tocar css/styles.css
+         (que define casi todos los colores del sistema) ni las miles de
+         líneas de estilos de este archivo: funciona parejo para todo. */
+      html.dagomet-dark {
+        filter: invert(1) hue-rotate(180deg);
+        background: #fff;
+      }
+      html.dagomet-dark img,
+      html.dagomet-dark svg,
+      html.dagomet-dark video,
+      html.dagomet-dark canvas,
+      html.dagomet-dark iframe {
+        filter: invert(1) hue-rotate(180deg);
+      }
+      #dark-mode-toggle-btn { white-space: nowrap; }
+
+      /* Se detectó un conflicto entre reglas de :hover de css/styles.css que
+         podía dejar el texto de los botones secundarios oscuro sobre un
+         fondo también oscuro al pasar el mouse (por eso "se perdía" el
+         texto). Esto fuerza que siempre quede legible. */
+      .btn-secondary:hover { color: #fff !important; }
     .priority-mini{display:inline-block;padding:2px 7px;border-radius:999px;font-size:.68rem;font-weight:800;margin-left:5px}.priority-urgente{background:#fee2e2;color:#991b1b}.priority-alta{background:#ffedd5;color:#9a3412}.priority-normal{background:#dcfce7;color:#166534}.priority-summary{margin:10px 0 16px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface,#fff)}.priority-summary-title{font-weight:800;margin-bottom:9px}.priority-summary-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.priority-summary-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);cursor:pointer}.priority-summary-item strong{margin-left:auto;font-size:1.15rem}.priority-summary-dot{width:10px;height:10px;border-radius:50%;display:inline-block}.priority-summary-urgente .priority-summary-dot{background:#dc2626}.priority-summary-alta .priority-summary-dot{background:#f59e0b}.priority-summary-normal .priority-summary-dot{background:#22c55e}@media(max-width:700px){.priority-summary-items{grid-template-columns:1fr}}
 
 /* =====================================================================
@@ -477,7 +514,8 @@
   <div id="user-session-bar" style="display:none;">
     <span class="user-badge">👤 <span id="session-user"></span> · <span id="session-role" class="role-badge"></span></span>
     <button class="btn btn-primary btn-sm" type="button" id="users-btn" style="display:none;">⚙️ Usuarios</button>
-    <button class="btn btn-secondary btn-sm" type="button" id="change-password-btn">🔑 Mi clave</button>    <button class="btn btn-secondary btn-sm allow-read-only" type="button" id="logout-btn">Cerrar sesión</button>
+    <button class="btn btn-secondary btn-sm" type="button" id="change-password-btn">🔑 Mi clave</button>
+    <button class="btn btn-secondary btn-sm allow-read-only" type="button" id="dark-mode-toggle-btn">🌙 Modo oscuro</button>    <button class="btn btn-secondary btn-sm allow-read-only" type="button" id="logout-btn">Cerrar sesión</button>
   </div>
 
   <!-- MODAL: CAMBIAR MI CONTRASEÑA (cualquier usuario logueado) -->
@@ -1584,6 +1622,27 @@
         }
       });
     })();
+
+    // ===== MODO OSCURO =====
+    (function initDarkMode(){
+      const toggleBtn = document.getElementById('dark-mode-toggle-btn');
+      if (!toggleBtn) return;
+      const STORAGE_KEY = 'dagomet_dark_mode';
+
+      function actualizarTextoBoton(){
+        const activo = document.documentElement.classList.contains('dagomet-dark');
+        toggleBtn.textContent = activo ? '☀️ Modo claro' : '🌙 Modo oscuro';
+      }
+
+      toggleBtn.addEventListener('click', () => {
+        const activo = document.documentElement.classList.toggle('dagomet-dark');
+        try { localStorage.setItem(STORAGE_KEY, activo ? '1' : '0'); } catch(e) {}
+        actualizarTextoBoton();
+      });
+
+      actualizarTextoBoton();
+    })();
+
     loginBtn.addEventListener('click',async()=>{errorBox.style.display='none';loginBtn.disabled=true;loginBtn.textContent='Ingresando…';const usuario=email.value.trim().toLowerCase(); const authEmail=usuario.includes('@')?usuario:(usuario+'@dagomet.local'); const {data,error}=await sb.auth.signInWithPassword({email:authEmail,password:password.value});if(error)showError(error.message.includes('Invalid login credentials')?'Usuario o contraseña incorrectos.':error.message);else await finishSession(data.session);loginBtn.disabled=false;loginBtn.textContent='Ingresar';});
     password.addEventListener('keydown',e=>{if(e.key==='Enter')loginBtn.click();});
     const {data:{session}}=await sb.auth.getSession();
