@@ -818,7 +818,7 @@
               <div class="doc-attach-row" data-doc-id="docOpEscaneada">
                 <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docOpEscaneada" value="OP ESCANEADA" style="display:none;"><span class="doc-selector" data-for="docOpEscaneada">OP ESCANEADA</span></label>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="$('file-docOpEscaneada').click()">📷 Escanear OP</button>
-                <input type="file" id="file-docOpEscaneada" accept="image/*" capture="environment" style="display:none;" onchange="uploadDocAdjunto('docOpEscaneada', this)">
+                <input type="file" id="file-docOpEscaneada" accept="image/*" capture="environment" style="display:none;" onchange="uploadEscaneoOP('docOpEscaneada', this)">
                 <div class="doc-attach-chips" id="chips-docOpEscaneada"></div>
               </div>
               <div class="doc-attach-row" data-doc-id="docSinDocumentacion">
@@ -2117,9 +2117,11 @@
       return (name || 'archivo').replace(/[^a-zA-Z0-9._-]/g, '_');
     }
 
-    async function uploadDocAdjunto(docId, inputEl) {
-      const file = inputEl.files[0];
-      inputEl.value = '';
+    // Lógica común de subida a Supabase Storage, reutilizada tanto por los
+    // adjuntos normales (uploadDocAdjunto) como por el flujo de "Escanear OP"
+    // (uploadEscaneoOP), que primero convierte la foto a PDF y luego llama
+    // a esta misma función con el archivo PDF resultante.
+    async function uploadFileToDoc(docId, file, chipsMsg) {
       if (!file) return;
       const sb = window.dagometSupabase;
       if (!sb) { alert('No hay conexión con Supabase.'); return; }
@@ -2129,7 +2131,7 @@
 
       const chipsEl = $('chips-' + docId);
       const tempMsg = document.createElement('span');
-      tempMsg.textContent = '⏳ Subiendo...';
+      tempMsg.textContent = chipsMsg || '⏳ Subiendo...';
       tempMsg.className = 'doc-chip';
       if (chipsEl) chipsEl.appendChild(tempMsg);
 
@@ -2152,6 +2154,86 @@
         alert('No se pudo subir el archivo: ' + (err.message || err));
       } finally {
         renderDocAdjuntos(docId);
+      }
+    }
+
+    async function uploadDocAdjunto(docId, inputEl) {
+      const file = inputEl.files[0];
+      inputEl.value = '';
+      if (!file) return;
+      await uploadFileToDoc(docId, file);
+    }
+
+    // Convierte una foto (File de imagen) en un PDF de una sola página,
+    // usando jsPDF (incluido dentro de html2pdf.bundle.min.js, ya cargado
+    // en esta página). La imagen se ajusta centrada a una hoja carta,
+    // respetando su proporción original.
+    function imageFileToPdfBlob(file) {
+      return new Promise((resolve, reject) => {
+        const JsPdfCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+        if (!JsPdfCtor) { reject(new Error('No se pudo cargar el generador de PDF (jsPDF).')); return; }
+
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('No se pudo leer la imagen capturada.'));
+        reader.onload = (e) => {
+          const dataUrl = e.target.result;
+          const img = new Image();
+          img.onerror = () => reject(new Error('No se pudo procesar la imagen capturada.'));
+          img.onload = () => {
+            try {
+              const orientation = img.width >= img.height ? 'landscape' : 'portrait';
+              const pdf = new JsPdfCtor({ unit: 'mm', format: 'letter', orientation });
+              const pageWidth = pdf.internal.pageSize.getWidth();
+              const pageHeight = pdf.internal.pageSize.getHeight();
+              const margin = 6; // mm
+              const maxW = pageWidth - margin * 2;
+              const maxH = pageHeight - margin * 2;
+              const imgRatio = img.width / img.height;
+              let renderW = maxW;
+              let renderH = renderW / imgRatio;
+              if (renderH > maxH) {
+                renderH = maxH;
+                renderW = renderH * imgRatio;
+              }
+              const x = (pageWidth - renderW) / 2;
+              const y = (pageHeight - renderH) / 2;
+              const format = /png/i.test(file.type) ? 'PNG' : 'JPEG';
+              pdf.addImage(dataUrl, format, x, y, renderW, renderH, undefined, 'FAST');
+              resolve(pdf.output('blob'));
+            } catch (err) {
+              reject(err);
+            }
+          };
+          img.src = dataUrl;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Handler específico del botón "📷 Escanear OP": toma la foto tomada con
+    // la cámara y, antes de subirla, la convierte automáticamente a PDF.
+    async function uploadEscaneoOP(docId, inputEl) {
+      const file = inputEl.files[0];
+      inputEl.value = '';
+      if (!file) return;
+
+      const chipsEl = $('chips-' + docId);
+      const tempMsg = document.createElement('span');
+      tempMsg.textContent = '⏳ Convirtiendo a PDF...';
+      tempMsg.className = 'doc-chip';
+      if (chipsEl) chipsEl.appendChild(tempMsg);
+
+      try {
+        const pdfBlob = await imageFileToPdfBlob(file);
+        const baseName = sanitizeFileName(file.name || 'escaneo').replace(/\.[a-zA-Z0-9]+$/, '');
+        const pdfFile = new File([pdfBlob], `${baseName}.pdf`, { type: 'application/pdf' });
+        tempMsg.remove();
+        await uploadFileToDoc(docId, pdfFile);
+      } catch (err) {
+        console.error('Error al convertir la foto a PDF:', err);
+        tempMsg.remove();
+        alert('No se pudo convertir la foto a PDF: ' + (err.message || err) + '\n\nSe subirá la foto original en su lugar.');
+        await uploadFileToDoc(docId, file);
       }
     }
 
