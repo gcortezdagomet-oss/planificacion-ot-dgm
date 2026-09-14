@@ -1163,7 +1163,7 @@ html.dagomet-dark .dash-panel,
 html.dagomet-dark .smart-alert-card,
 html.dagomet-dark .performance-card,
 html.dagomet-dark .planta-summary-card,
-html.dagomet-dark .priority-summary-item,
+html.dagomet-dark .priority-summary,
 html.dagomet-dark #change-password-modal .modal-content,
 html.dagomet-dark #area.campo-faltante {
   background: var(--surface) !important;
@@ -1226,3 +1226,52 @@ html.dagomet-dark .dash-progress { background: var(--border) !important; }
 html.dagomet-dark .smart-alert-item { background: var(--bg) !important; }
 html.dagomet-dark .smart-alert-item:hover,
 html.dagomet-dark .performance-click-row:hover { background: var(--border) !important; }
+/* Textos con color fijo en línea (generados por JS en tarjetas del
+   dashboard, planta, etc.) que antes asumían fondo blanco. Se aclaran
+   en modo oscuro vía selector de atributo, excluyendo el documento de
+   impresión/PDF (#modal-preview-container), que debe seguir viéndose
+   como una hoja blanca normal. */
+html.dagomet-dark [style*="color:#0f172a"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #0f172a"]:not(#modal-preview-container, #modal-preview-container *) { color: #acbce1 !important; }
+html.dagomet-dark [style*="color:#1e293b"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #1e293b"]:not(#modal-preview-container, #modal-preview-container *) { color: #b5c2d9 !important; }
+html.dagomet-dark [style*="color:#166534"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #166534"]:not(#modal-preview-container, #modal-preview-container *) { color: #a8e6bf !important; }
+html.dagomet-dark [style*="color:#334155"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #334155"]:not(#modal-preview-container, #modal-preview-container *) { color: #b9c4d5 !important; }
+html.dagomet-dark [style*="color:#15803d"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #15803d"]:not(#modal-preview-container, #modal-preview-container *) { color: #a8e6bf !important; }
+html.dagomet-dark [style*="color:#7f1d1d"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #7f1d1d"]:not(#modal-preview-container, #modal-preview-container *) { color: #e6a8a8 !important; }
+html.dagomet-dark [style*="color:#92400e"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #92400e"]:not(#modal-preview-container, #modal-preview-container *) { color: #e6bfa8 !important; }
+html.dagomet-dark [style*="color:#0369a1"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #0369a1"]:not(#modal-preview-container, #modal-preview-container *) { color: #a8d0e6 !important; }
+html.dagomet-dark [style*="color:#263581"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #263581"]:not(#modal-preview-container, #modal-preview-container *) { color: #a8b2e5 !important; }
+html.dagomet-dark [style*="color:#9a3412"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #9a3412"]:not(#modal-preview-container, #modal-preview-container *) { color: #e6b7a8 !important; }
+html.dagomet-dark [style*="color:#475569"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #475569"]:not(#modal-preview-container, #modal-preview-container *) { color: #bcc5d2 !important; }
+html.dagomet-dark [style*="color:#991b1b"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #991b1b"]:not(#modal-preview-container, #modal-preview-container *) { color: #e6a8a8 !important; }
+html.dagomet-dark [style*="color:#16a34a"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #16a34a"]:not(#modal-preview-container, #modal-preview-container *) { color: #a8e6bf !important; }
+html.dagomet-dark [style*="color:#b45309"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #b45309"]:not(#modal-preview-container, #modal-preview-container *) { color: #e6c3a8 !important; }
+html.dagomet-dark [style*="color:#c2410c"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #c2410c"]:not(#modal-preview-container, #modal-preview-container *) { color: #e6baa8 !important; }
+html.dagomet-dark [style*="color:#b91c1c"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #b91c1c"]:not(#modal-preview-container, #modal-preview-container *) { color: #e6a8a8 !important; }
+html.dagomet-dark [style*="color:#5b21b6"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #5b21b6"]:not(#modal-preview-container, #modal-preview-container *) { color: #c0a8e6 !important; }
+html.dagomet-dark [style*="color:#64748b"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #64748b"]:not(#modal-preview-container, #modal-preview-container *) { color: #bec5d0 !important; }
+html.dagomet-dark [style*="color:#f59e0b"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #f59e0b"]:not(#modal-preview-container, #modal-preview-container *) { color: #e6cfa8 !important; }
+html.dagomet-dark [style*="color:#4338ca"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #4338ca"]:not(#modal-preview-container, #modal-preview-container *) { color: #ada8e6 !important; }
+html.dagomet-dark [style*="color:#dc2626"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #dc2626"]:not(#modal-preview-container, #modal-preview-container *) { color: #e6a8a8 !important; }
+html.dagomet-dark [style*="color:#7c3aed"]:not(#modal-preview-container, #modal-preview-container *),
+html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal-preview-container *) { color: #bfa8e6 !important; }
