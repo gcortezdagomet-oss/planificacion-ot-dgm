@@ -114,6 +114,33 @@
          junto al resto de reglas de impresión, para no duplicar la regla
          en dos archivos. Ver ahí: "#preview-modal:not(.is-report)
          :not(.is-chart) #modal-preview-container". */
+
+      /* Modal "Cambiar mi contraseña": estilos propios y autocontenidos,
+         para no depender de reglas específicas por ID en css/styles.css
+         (ese archivo define la visibilidad de cada modal por su propio
+         selector, y no conocía este modal nuevo). */
+      #change-password-modal.modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, .55);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+      #change-password-modal.modal-overlay.open {
+        display: flex;
+      }
+      #change-password-modal .modal-content {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px 22px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 40px rgba(0,0,0,.25);
+      }
     .priority-mini{display:inline-block;padding:2px 7px;border-radius:999px;font-size:.68rem;font-weight:800;margin-left:5px}.priority-urgente{background:#fee2e2;color:#991b1b}.priority-alta{background:#ffedd5;color:#9a3412}.priority-normal{background:#dcfce7;color:#166534}.priority-summary{margin:10px 0 16px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface,#fff)}.priority-summary-title{font-weight:800;margin-bottom:9px}.priority-summary-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.priority-summary-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);cursor:pointer}.priority-summary-item strong{margin-left:auto;font-size:1.15rem}.priority-summary-dot{width:10px;height:10px;border-radius:50%;display:inline-block}.priority-summary-urgente .priority-summary-dot{background:#dc2626}.priority-summary-alta .priority-summary-dot{background:#f59e0b}.priority-summary-normal .priority-summary-dot{background:#22c55e}@media(max-width:700px){.priority-summary-items{grid-template-columns:1fr}}
 
 /* =====================================================================
@@ -1517,9 +1544,10 @@
         newInput.value=''; confirmInput.value='';
         msgEl.textContent=''; msgEl.style.color='';
         modal.classList.add('open');
+        modal.style.display='flex';
         newInput.focus();
       }
-      function closeModal(){ modal.classList.remove('open'); }
+      function closeModal(){ modal.classList.remove('open'); modal.style.display='none'; }
 
       btn.addEventListener('click', openModal);
       cancelBtn.addEventListener('click', closeModal);
