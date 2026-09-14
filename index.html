@@ -477,8 +477,7 @@
   <div id="user-session-bar" style="display:none;">
     <span class="user-badge">👤 <span id="session-user"></span> · <span id="session-role" class="role-badge"></span></span>
     <button class="btn btn-primary btn-sm" type="button" id="users-btn" style="display:none;">⚙️ Usuarios</button>
-    <button class="btn btn-secondary btn-sm allow-read-only" type="button" id="change-password-btn">🔑 Mi clave</button>
-    <button class="btn btn-secondary btn-sm allow-read-only" type="button" id="logout-btn">Cerrar sesión</button>
+    <button class="btn btn-secondary btn-sm" type="button" id="change-password-btn">🔑 Mi clave</button>    <button class="btn btn-secondary btn-sm allow-read-only" type="button" id="logout-btn">Cerrar sesión</button>
   </div>
 
   <!-- MODAL: CAMBIAR MI CONTRASEÑA (cualquier usuario logueado) -->
@@ -1487,6 +1486,11 @@
       const cloudBtn=document.getElementById('cloud-backup-btn');
       if(cloudBtn) cloudBtn.style.display = profile?.rol==='admin' ? '' : 'none';
 
+      // Cambiar la propia clave: solo admin y editor. Los usuarios de solo
+      // lectura no pueden cambiar su contraseña por su cuenta.
+      const changePassBtn=document.getElementById('change-password-btn');
+      if(changePassBtn) changePassBtn.style.display = isReadOnly ? 'none' : '';
+
       // Si el admin le asignó una lista específica de pestañas a este usuario,
       // esa lista manda por sobre las reglas por rol de más abajo (excepto
       // para admin, que siempre ve todo).
@@ -1541,6 +1545,7 @@
       if(!btn || !modal) return;
 
       function openModal(){
+        if (window.dagometCurrentProfile?.rol === 'read_only') return;
         newInput.value=''; confirmInput.value='';
         msgEl.textContent=''; msgEl.style.color='';
         modal.classList.add('open');
