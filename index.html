@@ -154,30 +154,11 @@
       }
 
       /* ===== MODO OSCURO =====
-         Truco de inversión de color: invierte toda la página y luego
-         vuelve a invertir imágenes, íconos SVG, fotos y gráficos (canvas)
-         para que se vean con sus colores normales sobre el fondo oscuro.
-         Se eligió este método porque no requiere tocar css/styles.css
-         (que define casi todos los colores del sistema) ni las miles de
-         líneas de estilos de este archivo: funciona parejo para todo. */
-      html.dagomet-dark {
-        filter: invert(1) hue-rotate(180deg);
-        background: #fff;
-      }
-      html.dagomet-dark img,
-      html.dagomet-dark svg,
-      html.dagomet-dark video,
-      html.dagomet-dark canvas,
-      html.dagomet-dark iframe {
-        filter: invert(1) hue-rotate(180deg);
-      }
+         La paleta real de modo oscuro vive en css/styles.css, como
+         variables CSS bajo "html.dagomet-dark" (ya no se usa el filtro
+         invert() que vivía acá). Este bloque solo deja el detalle de
+         layout del botón de encendido/apagado. */
       #dark-mode-toggle-btn { white-space: nowrap; }
-
-      /* Se detectó un conflicto entre reglas de :hover de css/styles.css que
-         podía dejar el texto de los botones secundarios oscuro sobre un
-         fondo también oscuro al pasar el mouse (por eso "se perdía" el
-         texto). Esto fuerza que siempre quede legible. */
-      .btn-secondary:hover { color: #fff !important; }
     .priority-mini{display:inline-block;padding:2px 7px;border-radius:999px;font-size:.68rem;font-weight:800;margin-left:5px}.priority-urgente{background:#fee2e2;color:#991b1b}.priority-alta{background:#ffedd5;color:#9a3412}.priority-normal{background:#dcfce7;color:#166534}.priority-summary{margin:10px 0 16px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface,#fff)}.priority-summary-title{font-weight:800;margin-bottom:9px}.priority-summary-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.priority-summary-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);cursor:pointer}.priority-summary-item strong{margin-left:auto;font-size:1.15rem}.priority-summary-dot{width:10px;height:10px;border-radius:50%;display:inline-block}.priority-summary-urgente .priority-summary-dot{background:#dc2626}.priority-summary-alta .priority-summary-dot{background:#f59e0b}.priority-summary-normal .priority-summary-dot{background:#22c55e}@media(max-width:700px){.priority-summary-items{grid-template-columns:1fr}}
 
 /* =====================================================================
