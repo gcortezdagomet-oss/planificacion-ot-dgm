@@ -447,6 +447,13 @@
     #liberar-view .liberar-foto-item { position: relative; width: 84px; height: 84px; }
     #liberar-view .liberar-foto-item img { width: 100%; height: 100%; }
     #liberar-view .liberar-foto-quitar { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; background: #dc2626; color: #fff; border: 2px solid #fff; font-size: 13px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+    .escaneo-op-pendiente { margin-top: 10px; padding: 10px; border: 1px dashed var(--border, #cbd5e1); border-radius: 8px; background: rgba(37,99,235,0.04); }
+    .escaneo-op-paginas { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+    .escaneo-op-pagina { position: relative; width: 70px; height: 70px; }
+    .escaneo-op-pagina img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; border: 1px solid var(--border, #e2e8f0); display: block; }
+    .escaneo-op-pagina-num { position: absolute; bottom: 2px; left: 2px; background: rgba(0,0,0,0.65); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 4px; }
+    .escaneo-op-pagina button { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; background: #dc2626; color: #fff; border: 2px solid #fff; font-size: 12px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+    .escaneo-op-acciones { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     #liberar-view button.liberar-btn {
       margin-top: 20px; width: 100%; padding: 13px; border: none; border-radius: 9px;
       background: #16a34a; color: #fff; font-weight: 800; font-size: 15px; cursor: pointer;
@@ -822,8 +829,16 @@
               <div class="doc-attach-row" data-doc-id="docOpEscaneada">
                 <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docOpEscaneada" value="OP ESCANEADA" style="display:none;"><span class="doc-selector" data-for="docOpEscaneada">OP ESCANEADA</span></label>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="$('file-docOpEscaneada').click()">📷 Escanear OP</button>
-                <input type="file" id="file-docOpEscaneada" accept="image/*" capture="environment" style="display:none;" onchange="uploadEscaneoOP('docOpEscaneada', this)">
+                <input type="file" id="file-docOpEscaneada" accept="image/*" capture="environment" style="display:none;" onchange="agregarPaginaEscaneoOP(this)">
                 <div class="doc-attach-chips" id="chips-docOpEscaneada"></div>
+                <div id="escaneo-op-pendiente" class="escaneo-op-pendiente" style="display:none;">
+                  <div class="escaneo-op-paginas" id="escaneo-op-paginas"></div>
+                  <div class="escaneo-op-acciones">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="$('file-docOpEscaneada').click()">➕ Agregar otra hoja</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="finalizarEscaneoOP()">✅ Generar PDF (<span id="escaneo-op-count">0</span> hoja(s))</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="cancelarEscaneoOP()">Cancelar</button>
+                  </div>
+                </div>
               </div>
               <div class="doc-attach-row" data-doc-id="docSinDocumentacion">
                 <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docSinDocumentacion" value="SIN DOCUMENTACIÓN" style="display:none;"><span class="doc-selector" data-for="docSinDocumentacion">SIN DOCUMENTACIÓN</span></label>
@@ -2168,31 +2183,47 @@
       await uploadFileToDoc(docId, file);
     }
 
-    // Convierte una foto (File de imagen) en un PDF de una sola página,
-    // usando jsPDF (cargado como script independiente en el <head>, junto a
-    // html2pdf.bundle.min.js). La imagen se ajusta centrada a una hoja carta,
-    // respetando su proporción original.
-    function imageFileToPdfBlob(file) {
+    // Convierte una o más fotos (Files de imagen) en UN solo PDF de varias
+    // páginas —una foto por página—, usando jsPDF (cargado como script
+    // independiente en el <head>, junto a html2pdf.bundle.min.js). Cada
+    // imagen se ajusta centrada a su hoja, respetando su proporción original.
+    function imagesToPdfBlob(files) {
       return new Promise((resolve, reject) => {
         const JsPdfCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
         if (!JsPdfCtor) { reject(new Error('No se pudo cargar el generador de PDF (jsPDF).')); return; }
+        if (!files || !files.length) { reject(new Error('No hay páginas para generar el PDF.')); return; }
 
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error('No se pudo leer la imagen capturada.'));
-        reader.onload = (e) => {
-          const dataUrl = e.target.result;
-          const img = new Image();
-          img.onerror = () => reject(new Error('No se pudo procesar la imagen capturada.'));
-          img.onload = () => {
-            try {
-              const orientation = img.width >= img.height ? 'landscape' : 'portrait';
-              const pdf = new JsPdfCtor({ unit: 'mm', format: 'letter', orientation });
+        function leerImagen(file) {
+          return new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onerror = () => rej(new Error('No se pudo leer una de las fotos.'));
+            reader.onload = (e) => {
+              const dataUrl = e.target.result;
+              const img = new Image();
+              img.onerror = () => rej(new Error('No se pudo procesar una de las fotos.'));
+              img.onload = () => res({ dataUrl, width: img.width, height: img.height, isPng: /png/i.test(file.type) });
+              img.src = dataUrl;
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+
+        Promise.all(files.map(leerImagen)).then((paginas) => {
+          try {
+            const margin = 6; // mm
+            let pdf = null;
+            paginas.forEach((info, idx) => {
+              const orientation = info.width >= info.height ? 'landscape' : 'portrait';
+              if (idx === 0) {
+                pdf = new JsPdfCtor({ unit: 'mm', format: 'letter', orientation });
+              } else {
+                pdf.addPage('letter', orientation);
+              }
               const pageWidth = pdf.internal.pageSize.getWidth();
               const pageHeight = pdf.internal.pageSize.getHeight();
-              const margin = 6; // mm
               const maxW = pageWidth - margin * 2;
               const maxH = pageHeight - margin * 2;
-              const imgRatio = img.width / img.height;
+              const imgRatio = info.width / info.height;
               let renderW = maxW;
               let renderH = renderW / imgRatio;
               if (renderH > maxH) {
@@ -2201,43 +2232,88 @@
               }
               const x = (pageWidth - renderW) / 2;
               const y = (pageHeight - renderH) / 2;
-              const format = /png/i.test(file.type) ? 'PNG' : 'JPEG';
-              pdf.addImage(dataUrl, format, x, y, renderW, renderH, undefined, 'FAST');
-              resolve(pdf.output('blob'));
-            } catch (err) {
-              reject(err);
-            }
-          };
-          img.src = dataUrl;
-        };
-        reader.readAsDataURL(file);
+              pdf.addImage(info.dataUrl, info.isPng ? 'PNG' : 'JPEG', x, y, renderW, renderH, undefined, 'FAST');
+            });
+            resolve(pdf.output('blob'));
+          } catch (err) {
+            reject(err);
+          }
+        }).catch(reject);
       });
     }
 
-    // Handler específico del botón "📷 Escanear OP": toma la foto tomada con
-    // la cámara y, antes de subirla, la convierte automáticamente a PDF.
-    async function uploadEscaneoOP(docId, inputEl) {
+    // ===== Flujo de "Escanear OP" (varias hojas -> un solo PDF) =====
+    // Cada toque de "📷 Escanear OP" agrega UNA foto (la cámara reemplaza la
+    // selección del input en cada disparo, así que la acumulamos nosotros).
+    // El botón "Generar PDF" recién arma y sube el archivo final, con todas
+    // las hojas juntas.
+    let paginasEscaneoOP = [];
+
+    function renderEscaneoOPPendiente() {
+      const cont = $('escaneo-op-pendiente');
+      const paginasEl = $('escaneo-op-paginas');
+      const countEl = $('escaneo-op-count');
+      if (!cont || !paginasEl) return;
+      paginasEl.innerHTML = '';
+      paginasEscaneoOP.forEach((file, idx) => {
+        const item = document.createElement('div');
+        item.className = 'escaneo-op-pagina';
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        const numero = document.createElement('span');
+        numero.className = 'escaneo-op-pagina-num';
+        numero.textContent = String(idx + 1);
+        const quitar = document.createElement('button');
+        quitar.type = 'button';
+        quitar.textContent = '✕';
+        quitar.title = 'Quitar esta hoja';
+        quitar.onclick = () => { paginasEscaneoOP.splice(idx, 1); renderEscaneoOPPendiente(); };
+        item.appendChild(img);
+        item.appendChild(numero);
+        item.appendChild(quitar);
+        paginasEl.appendChild(item);
+      });
+      if (countEl) countEl.textContent = String(paginasEscaneoOP.length);
+      cont.style.display = paginasEscaneoOP.length ? '' : 'none';
+    }
+
+    function agregarPaginaEscaneoOP(inputEl) {
       const file = inputEl.files[0];
-      inputEl.value = '';
+      inputEl.value = ''; // libera el input para poder volver a disparar la cámara
       if (!file) return;
+      paginasEscaneoOP.push(file);
+      renderEscaneoOPPendiente();
+    }
+
+    function cancelarEscaneoOP() {
+      if (paginasEscaneoOP.length && !confirm('¿Descartar las hojas escaneadas todavía no subidas?')) return;
+      paginasEscaneoOP = [];
+      renderEscaneoOPPendiente();
+    }
+
+    async function finalizarEscaneoOP() {
+      const docId = 'docOpEscaneada';
+      if (!paginasEscaneoOP.length) return;
 
       const chipsEl = $('chips-' + docId);
       const tempMsg = document.createElement('span');
-      tempMsg.textContent = '⏳ Convirtiendo a PDF...';
+      tempMsg.textContent = `⏳ Generando PDF (${paginasEscaneoOP.length} hoja(s))...`;
       tempMsg.className = 'doc-chip';
       if (chipsEl) chipsEl.appendChild(tempMsg);
 
+      const paginas = paginasEscaneoOP.slice();
       try {
-        const pdfBlob = await imageFileToPdfBlob(file);
-        const baseName = sanitizeFileName(file.name || 'escaneo').replace(/\.[a-zA-Z0-9]+$/, '');
-        const pdfFile = new File([pdfBlob], `${baseName}.pdf`, { type: 'application/pdf' });
+        const pdfBlob = await imagesToPdfBlob(paginas);
+        const numero = (($('numero') || {}).value || 'OP').trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g, '_') || 'OP';
+        const pdfFile = new File([pdfBlob], `${numero}_escaneo_${Date.now()}.pdf`, { type: 'application/pdf' });
         tempMsg.remove();
         await uploadFileToDoc(docId, pdfFile);
+        paginasEscaneoOP = [];
+        renderEscaneoOPPendiente();
       } catch (err) {
-        console.error('Error al convertir la foto a PDF:', err);
+        console.error('Error al generar el PDF de la OP escaneada:', err);
         tempMsg.remove();
-        alert('No se pudo convertir la foto a PDF: ' + (err.message || err) + '\n\nSe subirá la foto original en su lugar.');
-        await uploadFileToDoc(docId, file);
+        alert('No se pudo generar el PDF: ' + (err.message || err));
       }
     }
 
@@ -2375,6 +2451,10 @@
     function setDocumentosAdjuntos(valores) {
       formDocumentosAdjuntos = (valores && typeof valores === 'object') ? JSON.parse(JSON.stringify(valores)) : {};
       renderAllDocAdjuntos();
+      // Si había hojas de un escaneo sin terminar de una OP anterior, se
+      // descartan al cargar/limpiar el formulario para no mezclarlas.
+      paginasEscaneoOP = [];
+      renderEscaneoOPPendiente();
     }
 
     // ==========================================================================
