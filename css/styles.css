@@ -689,7 +689,18 @@
            centrado se calcula sobre el tamaño final ya renderizado. */
         display: flex !important;
         justify-content: center !important;
-        align-items: flex-start !important;
+        /* Centrado vertical según el contenido: min-height fija la altura
+           imprimible de UNA hoja carta (279.4mm - 2x6mm de margen). Si la OP
+           es corta, sobra espacio dentro de esa altura y align-items:center
+           la centra verticalmente en la hoja. Si la OP es larga y no cabe en
+           una hoja, el contenido supera el min-height y el contenedor crece
+           a su alto real: ahí el centrado no tiene espacio de sobra y el
+           documento se comporta igual que antes (fluye desde arriba,
+           paginando con normalidad). No usamos 100vh (eso generaba una hoja
+           en blanco extra al imprimir), sino una altura fija en mm atada al
+           tamaño real de la hoja. */
+        align-items: center !important;
+        min-height: 267.4mm !important;
         width: 100% !important;
       }
       #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container > .ot-print-document {
