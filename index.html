@@ -815,6 +815,12 @@
                 <input type="file" id="file-docMuestraCliente" style="display:none;" onchange="uploadDocAdjunto('docMuestraCliente', this)">
                 <div class="doc-attach-chips" id="chips-docMuestraCliente"></div>
               </div>
+              <div class="doc-attach-row" data-doc-id="docOpEscaneada">
+                <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docOpEscaneada" value="OP ESCANEADA" style="display:none;"><span class="doc-selector" data-for="docOpEscaneada">OP ESCANEADA</span></label>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="$('file-docOpEscaneada').click()">📷 Escanear OP</button>
+                <input type="file" id="file-docOpEscaneada" accept="image/*" capture="environment" style="display:none;" onchange="uploadDocAdjunto('docOpEscaneada', this)">
+                <div class="doc-attach-chips" id="chips-docOpEscaneada"></div>
+              </div>
               <div class="doc-attach-row" data-doc-id="docSinDocumentacion">
                 <label style="margin:0; cursor:pointer;"><input type="checkbox" id="docSinDocumentacion" value="SIN DOCUMENTACIÓN" style="display:none;"><span class="doc-selector" data-for="docSinDocumentacion">SIN DOCUMENTACIÓN</span></label>
               </div>
@@ -2077,25 +2083,25 @@
     }
 
     function getDocumentacionFabricacion() {
-      return ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docSinDocumentacion'].filter(id => $(id) && $(id).checked).map(id => $(id).value);
+      return ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docOpEscaneada','docSinDocumentacion'].filter(id => $(id) && $(id).checked).map(id => $(id).value);
     }
     function setDocumentacionFabricacion(valores) {
       const values = (Array.isArray(valores) ? valores : []).map(v => normalizeStr(String(v || '').trim()));
-      ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docSinDocumentacion'].forEach(id => { if ($(id)) $(id).checked = values.includes(normalizeStr($(id).value)); });
+      ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docOpEscaneada','docSinDocumentacion'].forEach(id => { if ($(id)) $(id).checked = values.includes(normalizeStr($(id).value)); });
       // Si la OP quedó guardada (por datos antiguos) con "SIN DOCUMENTACIÓN"
       // marcado a la vez que algún documento real, prima el documento real:
       // se corrige ANTES de sincronizar los botones para que
       // syncDocumentacionButtons() no termine desmarcando los documentos
       // reales por la exclusión mutua con "SIN DOCUMENTACIÓN".
-      const hayDocReal = ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente'].some(id => $(id) && $(id).checked);
+      const hayDocReal = ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docOpEscaneada'].some(id => $(id) && $(id).checked);
       if (hayDocReal && $('docSinDocumentacion')) $('docSinDocumentacion').checked = false;
       syncDocumentacionButtons();
     }
     function syncDocumentacionButtons() {
-      const ids=['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docSinDocumentacion'];
+      const ids=['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docOpEscaneada','docSinDocumentacion'];
       const sin=$('docSinDocumentacion');
-      if (sin && sin.checked) ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente'].forEach(id => { if ($(id)) $(id).checked=false; });
-      else if (sin && ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente'].some(id => $(id) && $(id).checked)) sin.checked=false;
+      if (sin && sin.checked) ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docOpEscaneada'].forEach(id => { if ($(id)) $(id).checked=false; });
+      else if (sin && ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docOpEscaneada'].some(id => $(id) && $(id).checked)) sin.checked=false;
       ids.forEach(id => { const input=$(id), span=document.querySelector('.doc-selector[data-for="'+id+'"]'); if(input&&span) span.classList.toggle('active',input.checked); });
     }
 
@@ -2104,7 +2110,7 @@
     // Debe existir en Supabase Storage (crear como bucket PRIVADO) con políticas
     // que permitan INSERT/SELECT/DELETE a usuarios autenticados.
     const DOC_ATTACH_BUCKET = 'documentos-op';
-    const DOC_ATTACH_IDS = ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente'];
+    const DOC_ATTACH_IDS = ['docPlanoAdjunto','docPlantillaCliente','docCroquisAdjunto','docMuestraCliente','docOpEscaneada'];
     let formDocumentosAdjuntos = {};
 
     function sanitizeFileName(name) {
@@ -2206,7 +2212,8 @@
       docPlanoAdjunto: '📐 Plano adjunto',
       docPlantillaCliente: '📄 Plantilla cliente',
       docCroquisAdjunto: '✏️ Croquis adjunto',
-      docMuestraCliente: '🧾 Muestra cliente'
+      docMuestraCliente: '🧾 Muestra cliente',
+      docOpEscaneada: '📷 OP escaneada'
     };
 
     async function verDocAdjuntoDeOP(opId, docId, idx) {
