@@ -960,6 +960,12 @@
   .planta-period-btn { background:transparent; color:var(--text-muted); box-shadow:none; }
   .planta-period-btn.active { background:var(--primary); color:#fff; }
   .planta-toolbar-right { display:flex; align-items:center; gap:16px; }
+  .planta-zoom-toggle { display:flex; align-items:center; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:4px 6px; }
+  .planta-zoom-btn { min-width:34px; padding:6px 10px !important; font-weight:800; }
+  .planta-zoom-label { font-size:.72rem; font-weight:700; color:var(--text-muted); min-width:34px; text-align:center; }
+  /* #planta-zoomable recibe el zoom por JS (style.zoom); sin transición para
+     que no "salte" mientras se hace click repetido en A+/A-. */
+  #planta-zoomable { transform-origin: top left; }
   .planta-clock-wrap { display:flex; flex-direction:column; align-items:flex-end; line-height:1.15; }
   #planta-clock { font-size:1.5rem; font-weight:800; color:var(--primary-dark); font-variant-numeric:tabular-nums; }
   #planta-date { font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:capitalize; }
@@ -999,6 +1005,9 @@
   body.tv-mode #tab-planta .planta-period-btn { color:#cbd5e1; font-size:.95rem; padding:10px 20px; }
   body.tv-mode #tab-planta .planta-period-toggle { background:#111c33; border-color:#1e293b; }
   body.tv-mode #tab-planta #planta-fullscreen-btn { font-size:.9rem; padding:10px 18px; }
+  body.tv-mode #tab-planta .planta-zoom-toggle { background:#111c33; border-color:#1e293b; }
+  body.tv-mode #tab-planta .planta-zoom-btn { font-size:.95rem; padding:10px 16px !important; }
+  body.tv-mode #tab-planta .planta-zoom-label { color:#cbd5e1; }
   body.tv-mode #tab-planta #planta-clock { color:#fff; font-size:2.4rem; }
   body.tv-mode #tab-planta #planta-date { color:#94a3b8; font-size:1rem; }
   body.tv-mode #tab-planta .planta-legend { color:#cbd5e1; font-size:.85rem; }
@@ -1021,7 +1030,7 @@
 
   @media (max-width: 700px) {
     .planta-toolbar { flex-direction:column; align-items:stretch; }
-    .planta-toolbar-right { justify-content:space-between; }
+    .planta-toolbar-right { justify-content:space-between; flex-wrap:wrap; row-gap:10px; }
     .planta-grid { grid-template-columns:1fr; }
     .planta-op-list { grid-template-columns:1fr; }
   }
