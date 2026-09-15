@@ -8006,6 +8006,22 @@
       const container = buildDocumentDOM(o);
       const pdfHost = document.createElement('div');
 
+      // Evita que un bloque (encabezado, instrucciones, responsables,
+      // comentarios, etc.) quede cortado a la mitad entre dos hojas: si no
+      // alcanza a caber en la hoja actual, pasa completo a la siguiente. La
+      // única excepción es la tabla de materiales (#materiales-doc-section),
+      // que si es muy larga debe poder continuar fila por fila en la hoja
+      // siguiente en vez de forzar toda la tabla a una sola página.
+      Array.from(container.children).forEach(child => {
+        if (child.id !== 'materiales-doc-section') {
+          child.classList.add('pdf-keep-together');
+        }
+      });
+      // Dentro de la sección de materiales, evita que el título "Detalle de
+      // Materiales" quede solo al final de una hoja, separado de sus filas.
+      const materialesTitulo = container.querySelector('#materiales-doc-section > div:first-child');
+      if (materialesTitulo) materialesTitulo.classList.add('pdf-avoid-orphan-title');
+
       // Reglas de paginación para listas grandes. La tabla puede continuar
       // automáticamente en la página siguiente, pero nunca se corta una fila
       // a la mitad. Los bloques importantes permanecen juntos cuando caben.
@@ -8047,6 +8063,10 @@
         #pdf-download-host .pdf-avoid-break {
           page-break-inside: avoid !important;
           break-inside: avoid !important;
+        }
+        #pdf-download-host .pdf-avoid-orphan-title {
+          page-break-after: avoid !important;
+          break-after: avoid !important;
         }
 
         /* Compactación vertical de los bloques de la OP. */
@@ -8148,7 +8168,11 @@
         // lo necesario; si es más largo, se conserva una escala legible y
         // html2pdf continúa en la página siguiente.
         const PRINTABLE_HEIGHT_PX = 267.4 * (96 / 25.4);
-        const MIN_READABLE_SCALE = 0.78;
+        // Piso de escala un poco más bajo que antes (0.78 → 0.72): deja
+        // encoger algo más el documento para que más OPs con bastante
+        // contenido (varios materiales, notas, etc.) terminen entrando en
+        // una sola hoja, sin llegar a un tamaño de letra ilegible.
+        const MIN_READABLE_SCALE = 0.72;
         container.style.setProperty('zoom', '1', 'important');
         void container.offsetHeight;
         const naturalHeight = container.getBoundingClientRect().height;
@@ -8188,7 +8212,10 @@
             mode: ['css'],
             before: [],
             after: [],
-            avoid: ['tr']
+            // 'tr': nunca corta una fila de materiales a la mitad.
+            // '.pdf-keep-together': nunca corta un bloque (encabezado,
+            // instrucciones, responsables, comentarios, etc.) a la mitad.
+            avoid: ['tr', '.pdf-keep-together']
           }
         };
 
