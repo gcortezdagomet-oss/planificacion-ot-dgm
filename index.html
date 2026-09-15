@@ -1432,7 +1432,7 @@
         <div style="display: flex; gap: 8px;">
           <button class="btn btn-success btn-sm" id="modal-download-btn">📄 Descargar PDF</button>
           <button class="btn btn-info btn-sm" id="modal-download-excel-btn" style="display:none;">📊 Descargar Excel</button>
-          <button class="btn btn-warning btn-sm" id="modal-print-btn" onclick="window.print()">🖨️ Imprimir</button>
+          <button class="btn btn-warning btn-sm" id="modal-print-btn" onclick="imprimirVistaPrevia()">🖨️ Imprimir</button>
           <button class="btn btn-danger btn-sm" onclick="closePreviewModal()">✕ Cerrar</button>
         </div>
       </div>
@@ -1968,6 +1968,47 @@
         // Conservamos las últimas 500 acciones para evitar que el archivo crezca indefinidamente.
         if (db.auditoria.length > 500) db.auditoria.length = 500;
       } catch (e) { console.warn('No se pudo registrar auditoría:', e); }
+    }
+
+    // ==== REGISTRO DE IMPRESIÓN/DESCARGA DE OP ====
+    // Guarda en la propia OP si ya fue impresa o descargada como PDF, cuándo
+    // y por quién, además de dejar constancia en la auditoría general.
+    // 'medio' es 'IMPRESION' (botón Imprimir) o 'PDF' (descarga de PDF).
+    function marcarOPComoImpresa(opId, medio) {
+      if (!opId || opId === 'preview' || opId === '__preview_current__') return;
+      const o = db.ots.find(x => x.id === opId);
+      if (!o) return;
+      o.impresa = true;
+      o.fechaImpresion = new Date().toISOString();
+      o.impresoPor = window.dagometCurrentProfile?.nombre || window.dagometCurrentUser?.email || '-';
+      o.vecesImpresa = (o.vecesImpresa || 0) + 1;
+      const accion = medio === 'PDF' ? 'DESCARGAR PDF OP' : 'IMPRIMIR OP';
+      registrarAuditoria(accion, `OP N° ${o.numero || '-'} · ${o.cliente || 'Sin cliente'} (impresión/descarga N° ${o.vecesImpresa})`, o.numero || '');
+      saveDB();
+      renderOPsTable();
+    }
+
+    // Id de la OP real que está actualmente en la vista previa (#preview-modal),
+    // para saber a cuál marcar como impresa cuando se pulsa "Imprimir". Queda
+    // en null cuando la vista previa es un reporte, un gráfico o una OP aún
+    // sin guardar (formulario de creación/edición).
+    let opIdEnPreview = null;
+
+    // Envuelve window.print(): si la vista previa corresponde a una OP real
+    // guardada, la marca como impresa antes de abrir el diálogo de impresión.
+    function imprimirVistaPrevia() {
+      if (opIdEnPreview) marcarOPComoImpresa(opIdEnPreview, 'IMPRESION');
+      window.print();
+    }
+
+    // Devuelve el badge visual de "Impresa" para el listado de OPs, o vacío
+    // si la OP nunca se ha impreso/descargado como PDF.
+    function getImpresionBadge(o) {
+      if (!o || !o.impresa) return '';
+      const fecha = o.fechaImpresion ? new Date(o.fechaImpresion).toLocaleString('es-CL', {day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit'}) : '-';
+      const veces = o.vecesImpresa || 1;
+      const tip = `Impresa/descargada ${veces} ${veces === 1 ? 'vez' : 'veces'} · Última: ${fecha} · Por: ${esc(o.impresoPor || '-')}`;
+      return `<span title="${tip}" style="display:inline-block; margin-left:5px; background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; padding:1px 6px; border-radius:999px; font-size:.65rem; font-weight:800; white-space:nowrap;">🖨️ Impresa</span>`;
     }
 
     function saveDB() {
@@ -4463,7 +4504,7 @@
         const rowClass = getDeadlineClass(o.entrega, o.estadoOp);
         return `
           <tr class="${rowClass}">
-            <td>${o.numero ? `<button type="button" class="op-number-filter" onclick="filterHistoryByOP('${String(o.numero).replace(/'/g, "\\'")}')" title="Filtrar por esta OP">OP ${esc(o.numero)}</button>` : '<i style="color:#94a3b8;">Sin N°</i>'}</td>
+            <td>${o.numero ? `<button type="button" class="op-number-filter" onclick="filterHistoryByOP('${String(o.numero).replace(/'/g, "\\'")}')" title="Filtrar por esta OP">OP ${esc(o.numero)}</button>` : '<i style="color:#94a3b8;">Sin N°</i>'}${getImpresionBadge(o)}</td>
             <td><span style="font-weight:700; color:#dc2626;">${esc(o.parteOp || '-')}</span></td>
             <td>${getStatusBadge(o.estadoOp)}</td>
             <td><span style="background:var(--primary-light); color:var(--primary); padding: 2px 6px; border-radius: 4px; font-weight:700;">${esc(o.planificador||'GCC')}</span></td>
@@ -4918,6 +4959,8 @@
     }
 
     function abrirModalGrafico(canvasId, titulo, imprimirAlAbrir) {
+      // No es la vista previa de una OP: no marcar ninguna como impresa.
+      opIdEnPreview = null;
       const cfg = construirConfigGrafico(canvasId);
       const container = $('modal-preview-container');
       if (!cfg || !container) { alert('Todavía no hay datos para mostrar en este gráfico.'); return; }
@@ -6244,6 +6287,9 @@
 
       const previewContainer = $('modal-preview-container');
       if (!previewContainer) return;
+      // Reporte de horas extra, no la vista de una OP individual: no marcar
+      // ninguna OP como impresa.
+      opIdEnPreview = null;
 
       // Columnas del reporte, incluyendo horas y resumen por trabajador.
       const heCols = [
@@ -6764,6 +6810,9 @@
     }
 
     function previewReport(list, titulo, subtitulo, columnKeys) {
+      // Es un reporte de varias OPs, no la vista de una OP individual: no
+      // corresponde marcar ninguna como impresa.
+      opIdEnPreview = null;
       const cols = columnKeys && columnKeys.length ? columnKeys : loadReportColumnsSelection();
       const previewContainer = $('modal-preview-container');
       previewContainer.innerHTML = '';
@@ -8166,6 +8215,9 @@
           await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
           await html2pdf().set(opt).from(safeClone).save();
         }
+        // El PDF se generó con éxito (en el primer intento o en el de respaldo):
+        // deja constancia de que esta OP fue descargada/impresa.
+        marcarOPComoImpresa(id, 'PDF');
       } catch(error) {
         console.error('Error al generar el PDF:', error);
         alert('No fue posible generar el PDF. Detalle: ' + (error?.message || error));
@@ -8219,6 +8271,9 @@
         alert('Para previsualizar complete al menos N° OP y Fecha de Entrega.');
         return;
       }
+      // Es una OP en edición (aún no guardada como tal): no corresponde
+      // marcarla como impresa aunque se use el botón Imprimir.
+      opIdEnPreview = null;
       const previewContainer = $('modal-preview-container');
       previewContainer.innerHTML = '';
       const docElement = buildDocumentDOM(o);
@@ -8253,6 +8308,9 @@
 
     function previewPDF(id) {
       const o = db.ots.find(x => x.id === id); if(!o) return;
+      // Esta sí es una OP real guardada: si se pulsa "Imprimir" en esta
+      // vista, queda registrada como impresa.
+      opIdEnPreview = id;
       const previewContainer = $('modal-preview-container');
       previewContainer.style.flexDirection = 'column';
       previewContainer.innerHTML = '';
@@ -8278,6 +8336,7 @@
     function closePreviewModal() {
       $('preview-modal').style.display = 'none';
       $('preview-modal').classList.remove('is-report', 'is-chart');
+      opIdEnPreview = null;
     }
 
     function downloadBackup() {
