@@ -2896,7 +2896,14 @@
     function actualizarDatosCatalogo(row) {
       const descInput = row.querySelector('.m-descripcion');
       if (descInput && descInput.dataset.manual !== 'true') {
-        descInput.value = buildMaterialDescription(row).toUpperCase();
+        const nuevaDescripcion = buildMaterialDescription(row).toUpperCase();
+        // Si no se pudo reconstruir la descripción (no hay calce exacto en el
+        // catálogo todavía) NO borramos una descripción que ya existía —por
+        // ejemplo, la que vino guardada al editar una OP— solo la
+        // actualizamos cuando efectivamente logramos calcular una nueva.
+        if (nuevaDescripcion || !descInput.value) {
+          descInput.value = nuevaDescripcion;
+        }
       }
       actualizarEtiquetaLargo(row);
     }
@@ -3354,6 +3361,18 @@
           <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); marcarDuplicadosMateriales();">✕</button>
         </td>`;
 
+      // IMPORTANTE: el flag "manual" de la descripción se marca ANTES de
+      // poblar/reconstruir los selects de material (más abajo), porque esa
+      // reconstrucción dispara actualizarDatosCatalogo(), la cual respeta
+      // este flag para no pisar una descripción ya guardada (p.ej. al
+      // editar o duplicar una OP). Si se marca después, siempre llega tarde
+      // y la descripción guardada se termina sobrescribiendo o borrando.
+      const descripcionInputTemprano = row.querySelector('.m-descripcion');
+      if (descripcionInputTemprano) {
+        descripcionInputTemprano.dataset.manual = descripcionManualInicial ? 'true' : 'false';
+        descripcionInputTemprano.dataset.autoValue = '';
+      }
+
       const fields = ['material','tipo','calidad','medida','espesor'];
       const selectedValues = {
         material: data.material || '', tipo: data.tipo || '', calidad: data.calidad || '',
@@ -3388,8 +3407,6 @@
       });
       const descripcionInput = row.querySelector('.m-descripcion');
       if (descripcionInput) {
-        descripcionInput.dataset.manual = descripcionManualInicial ? 'true' : 'false';
-        descripcionInput.dataset.autoValue = '';
         descripcionInput.addEventListener('input', () => {
           descripcionInput.dataset.manual = 'true';
           descripcionInput.value = descripcionInput.value.toUpperCase();
