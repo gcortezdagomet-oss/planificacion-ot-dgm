@@ -397,7 +397,20 @@
 .btn-secondary:hover { opacity: 1; }
 </style>
 
-  </head>
+    <style>
+    /* ===== MODAL DE CONTACTOS DE CLIENTE ===== */
+    .contactos-client-modal { display:none; position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.55); padding:20px; align-items:center; justify-content:center; }
+    .contactos-client-modal.open { display:flex; }
+    .contactos-client-dialog { width:min(720px,100%); max-height:90vh; overflow:auto; background:var(--surface,#fff); border:1px solid var(--border); border-radius:14px; box-shadow:0 20px 50px rgba(15,23,42,.25); padding:20px; }
+    .contactos-client-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px; }
+    .contactos-client-head h3 { margin:0; color:var(--primary); }
+    .contactos-client-head #contactos-client-subtitle { margin-top:3px; color:var(--text-muted); font-size:.78rem; }
+    .contactos-close { border:0; background:transparent; font-size:28px; line-height:1; cursor:pointer; color:var(--text-muted); padding:0 4px; }
+    .contacto-edit-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:8px; align-items:center; margin-bottom:8px; }
+    .contactos-client-actions { display:flex; align-items:center; gap:8px; margin-top:14px; flex-wrap:wrap; }
+    @media(max-width:600px){ .contactos-client-modal{padding:10px;} .contactos-client-dialog{padding:15px;} .contacto-edit-row{grid-template-columns:1fr;} .contactos-client-actions > div{margin-left:0 !important; width:100%; justify-content:flex-end;} }
+  </style>
+</head>
 <body>
   <script>
     // ===== VISTA DE LIBERACIÓN DE OP (QR, sin login) =====
@@ -2046,8 +2059,7 @@
         alert('Esta OP no tiene un número de teléfono asociado al contacto.');
         return;
       }
-      const msg = nombre ? `Hola ${nombre}` : 'Hola';
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+      window.open(`https://wa.me/${phone}`, '_blank', 'noopener,noreferrer');
     }
 
     function llamarHistorial(o, event) {
@@ -7339,7 +7351,8 @@
               <td><b>${esc(c.rut)}</b></td>
               <td>${esc(c.name)}</td>
               <td style="text-align: center;">
-                <button class="btn btn-danger btn-sm" onclick="removeClientItem(${realIdx})">Eliminar</button>
+                <button type="button" class="btn btn-info btn-sm" onclick="abrirGestorContactos(${realIdx})" title="Editar contactos de este cliente">👥 Contactos</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeClientItem(${realIdx})">Eliminar</button>
               </td>
             </tr>
           `;
@@ -8928,8 +8941,7 @@
     $c('contactoOP-whatsapp').addEventListener('click', function(){
       const c=getSelectedContact(); const phone=normPhone(c?.telefono);
       if(!phone){ alert('El contacto seleccionado no tiene un número de teléfono.'); return; }
-      const msg=c?.nombre ? `Hola ${c.nombre}` : 'Hola';
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank','noopener,noreferrer');
+      window.open(`https://wa.me/${phone}`,'_blank','noopener,noreferrer');
     });
     $c('contactoOP-call').addEventListener('click', function(){
       const c=getSelectedContact(); const phone=String(c?.telefono||'').replace(/[^0-9+]/g,'');
