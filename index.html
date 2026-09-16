@@ -2019,10 +2019,58 @@
     // El contacto es información interna de coordinación: se muestra a la vista
     // (ícono 📞 + texto) bajo el cliente en la tabla de OP, para poder leerlo
     // de un vistazo sin abrir la OP. No forma parte del documento imprimible.
+    function normalizarTelefonoHistorial(raw) {
+      let digits = String(raw || '').replace(/\D/g, '');
+      if (digits.length === 9 && digits.startsWith('9')) digits = '56' + digits;
+      return digits;
+    }
+
+    function abrirWhatsAppHistorial(o) {
+      const txt = String(o?.contacto || '').trim();
+      if (!txt) return;
+      // El contacto guardado normalmente queda como "Nombre · Teléfono".
+      // También soporta OP antiguas donde el campo era solo teléfono.
+      let phone = '';
+      let nombre = '';
+      const partes = txt.split(' · ');
+      if (partes.length >= 2) {
+        nombre = partes.slice(0, -1).join(' · ').trim();
+        phone = partes[partes.length - 1].trim();
+      } else if (/^[+\d\s().-]+$/.test(txt)) {
+        phone = txt;
+      } else {
+        nombre = txt;
+      }
+      phone = normalizarTelefonoHistorial(phone);
+      if (!phone) {
+        alert('Esta OP no tiene un número de teléfono asociado al contacto.');
+        return;
+      }
+      const msg = nombre ? `Hola ${nombre}` : 'Hola';
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+    }
+
+    function llamarHistorial(o, event) {
+      if (event) event.stopPropagation();
+      const txt = String(o?.contacto || '').trim();
+      if (!txt) return;
+      const partes = txt.split(' · ');
+      const phoneRaw = partes.length >= 2 ? partes[partes.length - 1] : txt;
+      const phone = String(phoneRaw).replace(/[^0-9+]/g, '');
+      if (!phone || !/[0-9]/.test(phone)) {
+        alert('Esta OP no tiene un número de teléfono asociado al contacto.');
+        return;
+      }
+      window.location.href = `tel:${phone}`;
+    }
+
     function getContactoBadge(o) {
       const txt = (o && o.contacto ? String(o.contacto) : '').trim();
       if (!txt) return '';
-      return `<div class="contacto-line"><span class="contacto-ico">📞</span><span class="contacto-txt">${esc(txt)}</span></div>`;
+      const safeId = String(o?.id || '').replace(/[^a-zA-Z0-9_-]/g, '');
+      return `<div class="contacto-line contacto-line-clickable" onclick="abrirWhatsAppHistorial(db.ots.find(x => x.id === '${safeId}'))" title="Pinchar para abrir WhatsApp con este contacto">` +
+        `<span class="contacto-ico">💬</span><span class="contacto-txt">${esc(txt)}</span>` +
+        `<button type="button" class="contacto-history-call" onclick="llamarHistorial(db.ots.find(x => x.id === '${safeId}'), event)" title="Llamar">📞</button></div>`;
     }
 
     function saveDB() {
