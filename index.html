@@ -107,7 +107,6 @@
         }
       }
 
-
       .dashboard-drill-link { border:0; background:transparent; padding:0; margin:0; color:var(--primary); font:inherit; font-weight:800; cursor:pointer; text-decoration:underline; text-decoration-color:transparent; text-underline-offset:2px; }
       .dashboard-drill-link:hover { text-decoration-color:currentColor; }
       .performance-click-row { cursor:pointer; }
@@ -489,7 +488,6 @@
     <symbol id="ico-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></symbol>
     <symbol id="ico-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.3 2.3 4.7-5.1"/></symbol>
   </svg>
-
 
   <div id="auth-overlay">
     <div id="auth-card">
@@ -3757,7 +3755,6 @@
       }
       markFormDirty();
     });
-
 
     function toggleCurvasField() {
       const area = String($('area')?.value || '').toUpperCase();
@@ -7136,7 +7133,6 @@
       openReportColumnPicker(list, `Historial de OPs — ${cliente}`, `${list.length} OP(s) en el historial de este cliente`);
     }
 
-
     function importPesosFromExcel() {
       const raw = ($('import-pesos-textarea')?.value || '').trim();
       if (!raw) {
@@ -7940,7 +7936,6 @@
       else if (areaUpper.includes('PESTAÑADO DE PLANCHA')) areaLogo = IMG_ICONO_PESTANADO;
       else if (areaUpper.includes('BOMBEADO Y PESTAÑADO DE PLANCHAS')) areaLogo = IMG_ICONO_BOMBY;
       else if (areaUpper.includes('RECILINDRADO DE PLANCHAS')) areaLogo = IMG_ICONO_RECILINDRADO;
-
 
       let dagometLogo = LOGO_DAGOMET_EMBED;
 
@@ -9038,39 +9033,12 @@
     cerrarGestorContactos();
   };
 
-  function enhanceClientTable(){
-    const tbody=$c('list-clients-table'); if(!tbody) return;
-    [...tbody.querySelectorAll('tr')].forEach(tr=>{
-      const first=tr.querySelector('td');
-      if(!first) return;
-      const rut=first.textContent.trim();
-      const nameCell=tr.querySelectorAll('td')[1];
-      if(!nameCell) return;
-      const name=nameCell.textContent.trim();
-      const idx=db.clients.findIndex(c=>String(c.rut).trim()===rut && String(c.name).trim()===name);
-      if(idx<0) return;
-      const cs=normalizeContacts(db.clients[idx]);
-      const action=tr.querySelectorAll('td')[2];
-      if(action && !action.querySelector('.btn-contactos-cliente')){
-        const b=document.createElement('button');
-        b.type='button'; b.className='btn btn-info btn-sm btn-contactos-cliente';
-        b.textContent=`👥 Contactos (${cs.length})`;
-        b.title='Administrar contactos del cliente';
-        b.addEventListener('click',()=>abrirGestorContactos(idx));
-        action.insertBefore(b,action.firstChild);
-      }
-      if(!nameCell.querySelector('.client-contact-count')){
-        const s=document.createElement('div'); s.className='client-contact-count';
-        s.textContent=cs.length ? `${cs.length} contacto${cs.length===1?'':'s'}` : 'Sin contactos';
-        nameCell.appendChild(s);
-      }
-    });
-  }
+  
 
   function wrapMasterLists(){
     if(typeof window.renderMasterLists!=='function' || window.renderMasterLists.__multiContactWrapped) return;
     const original=window.renderMasterLists;
-    function wrapped(){ original.apply(this,arguments); enhanceClientTable(); }
+    function wrapped(){ original.apply(this,arguments); }
     wrapped.__multiContactWrapped=true;
     window.renderMasterLists=wrapped;
   }
@@ -9119,7 +9087,7 @@
     wrapMasterLists();
     patchFormFunctions();
     hookClientSelection();
-    setTimeout(()=>{ enhanceClientTable(); populateContactSelect(); },80);
+    setTimeout(()=>{ populateContactSelect(); },80);
   }
 
   window.addEventListener('load',init);
