@@ -1322,27 +1322,25 @@ html.dagomet-dark [style*="color: #dc2626"]:not(#modal-preview-container, #modal
 html.dagomet-dark [style*="color:#7c3aed"]:not(#modal-preview-container, #modal-preview-container *),
 html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal-preview-container *) { color: #bfa8e6 !important; }
 
-/* ---- Ícono de contacto en la tabla de OP ----
-   El contacto es un dato interno de coordinación: se muestra solo como un
-   ícono junto al cliente, con el dato completo en el tooltip del navegador.
-   Nunca forma parte de la ficha imprimible ni del PDF. */
-.contacto-badge {
-  display: inline-flex;
+/* ---- Contacto en la tabla de OP ----
+   El contacto es un dato interno de coordinación. Se muestra a la vista, bajo
+   el nombre del cliente, para poder leerlo sin abrir la OP. Nunca forma parte
+   de la ficha imprimible ni del PDF. */
+.contacto-line {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  margin-left: 6px;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 2px 7px 2px 5px;
+  border-radius: 6px;
   background: #ecfeff;
   border: 1px solid #a5f3fc;
+  color: #0e7490;
   font-size: .72rem;
-  line-height: 1;
-  cursor: help;
-  vertical-align: middle;
-  user-select: none;
+  font-weight: 700;
+  line-height: 1.25;
+  width: fit-content;
+  max-width: 100%;
 }
-.contacto-badge:hover {
-  background: #cffafe;
-  border-color: #67e8f9;
-}
+.contacto-ico { font-size: .72rem; line-height: 1; flex: 0 0 auto; }
+.contacto-txt { word-break: break-word; }
