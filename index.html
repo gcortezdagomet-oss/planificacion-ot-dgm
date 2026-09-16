@@ -608,6 +608,10 @@
             <input type="text" id="ocCliente" placeholder="N° Orden de Compra del cliente">
           </div>
           <div class="field">
+            <label>Contacto</label>
+            <input type="text" id="contactoOP" placeholder="Nombre y/o teléfono de contacto (solo se ve en pantalla, no se imprime)">
+          </div>
+          <div class="field">
             <label>Fecha Guía de Material</label>
             <input type="date" id="fechaGuiaMat">
           </div>
@@ -3784,6 +3788,7 @@
       $('plazoProduccion').value = 8;
       $('entregaAuto').checked = true;
       $('ocCliente').value = '';
+      $('contactoOP').value = '';
       $('fechaGuiaMat').value = '';
       $('folio').value = '';
       $('instrucciones').value = '';
@@ -3864,6 +3869,7 @@
         plazoProduccion: Number($('plazoProduccion').value) || 8,
         entregaAuto: $('entregaAuto').checked,
         ocCliente: $('ocCliente').value || '',
+        contacto: $('contactoOP').value || '',
         fechaGuiaMat: $('fechaGuiaMat').value || '',
         folio: $('folio').value,
         area: $('area').value,
@@ -3936,6 +3942,7 @@
       $('plazoProduccion').value = Number(o.plazoProduccion) || 8;
       $('entregaAuto').checked = false;
       $('ocCliente').value = o.ocCliente || '';
+      $('contactoOP').value = o.contacto || '';
       $('fechaGuiaMat').value = o.fechaGuiaMat || '';
       $('folio').value = o.folio || '';
       $('area').value = o.area || db.areas[0];
@@ -4005,6 +4012,7 @@
       $('plazoProduccion').value = Number(o.plazoProduccion) || 8;
       $('entregaAuto').checked = true;
       $('ocCliente').value = o.ocCliente || '';
+      $('contactoOP').value = o.contacto || '';
       $('fechaGuiaMat').value = o.fechaGuiaMat || '';
       recalcularEntregaAutomatica();
       $('folio').value = o.folio || '';
@@ -7579,6 +7587,14 @@
 
       // Mismo logo por área que usa la ficha estándar, para mantener la
       // misma identidad visual entre ambos formatos de impresión.
+      // Misma casilla de contacto que la ficha estándar: solo pantalla, nunca
+      // impresión ni PDF (clase "no-print").
+      const contactoHtmlBombeado = (o.contacto && o.contacto.trim() !== '') ? `
+        <div class="no-print" style="border-radius: 6px; background: #ecfeff; border: 1px solid #a5f3fc; color: #0e7490; font-size: 12px; font-weight: bold; padding: 8px 13px; text-align: center;">
+          <b>CONTACTO (solo pantalla):</b> ${esc(o.contacto)}
+        </div>
+      ` : '';
+
       const areaUpperBombeado = (o.area || '').toUpperCase();
       let areaLogoBombeado = '';
       if (areaUpperBombeado.includes('BOMBEADO DE PLANCHA')) areaLogoBombeado = IMG_ICONO_BOMBEADO;
@@ -7611,6 +7627,8 @@
             ${areaLogoBombeado ? `<img src="${areaLogoBombeado}" onerror="this.style.display='none'" style="height: 55px; max-height: 55px; width: auto; max-width: 150px; object-fit: contain; display: block; margin-left: auto;">` : ''}
           </div>
         </div>
+
+        ${contactoHtmlBombeado}
 
         <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 8px 13px; font-size: 12px; color: #263581; text-align: center;">
           <span style="font-weight: bold;">ÁREA: ${esc(o.area)} &nbsp;|&nbsp; TIPO: ${esc(tipoLabel)}</span>
@@ -7893,6 +7911,15 @@
         </div>
       ` : '';
 
+      // Casilla de contacto: solo para visualizar en pantalla (tarjeta de la
+      // OP en el modal de vista previa). Lleva la clase "no-print" para que
+      // nunca aparezca al imprimir ni al descargar el PDF.
+      const contactoHtml = (o.contacto && o.contacto.trim() !== '') ? `
+        <div class="no-print" style="border-radius: 6px; background: #ecfeff; border: 1px solid #a5f3fc; color: #0e7490; font-size: 12px; font-weight: bold; padding: 8px 13px; text-align: center;">
+          <b>CONTACTO (solo pantalla):</b> ${esc(o.contacto)}
+        </div>
+      ` : '';
+
       const maquinaBlockHtml = (o.maquina && o.maquina.trim() !== '') ? `
         <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 8px 13px; font-size: 12px; color: #263581; display: flex; justify-content: space-between; align-items: center;">
           <span style="text-align: center; width: 100%; font-weight: bold;">ÁREA: ${esc(o.area)} &nbsp;|&nbsp; MÁQUINA ASIGNADA: <span style="text-transform: uppercase;">${esc(o.maquina)}</span></span>
@@ -7934,6 +7961,8 @@
             ${areaLogo ? `<img src="${areaLogo}" onerror="this.style.display='none'" style="height: 55px; max-height: 55px; width: auto; max-width: 150px; object-fit: contain; display: block; margin-left: auto;">` : ''}
           </div>
         </div>
+
+        ${contactoHtml}
 
         <div style="display: grid; grid-template-columns: 2.3fr 1fr; gap: 12px;">
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between;">
@@ -8281,6 +8310,7 @@
         cliente: $('cliente-input').value,
         entrega: $('entrega').value,
         ocCliente: $('ocCliente').value || '',
+        contacto: $('contactoOP').value || '',
         fechaGuiaMat: $('fechaGuiaMat').value || '',
         folio: $('folio').value,
         area: $('area').value,
