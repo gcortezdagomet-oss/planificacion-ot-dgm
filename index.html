@@ -6970,6 +6970,21 @@
         }));
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
+        // BUG QUE CORTABA EL REPORTE COMPLETO: windowWidth quedaba fijo en
+        // 1200px sin importar el ancho real del contenedor del reporte. Con
+        // muchas columnas seleccionadas, el contenedor pasa a usar hoja
+        // "legal" (~1284px de ancho útil) u "oficio A3" (~1527px): al ser más
+        // ancho que la "ventana" de 1200px con la que html2canvas rasteriza,
+        // html2canvas recortaba todo lo que quedaba a la derecha de esos
+        // 1200px (columnas finales de la tabla, o parte de ellas). Ahora la
+        // ventana de captura se calcula a partir del ancho real del reporte
+        // (contentWidthMM ya convertido a píxeles), con el ancho realmente
+        // renderizado del host como respaldo, para que nunca sea más angosta
+        // que el contenido que debe capturar.
+        const MM_TO_PX = 96 / 25.4;
+        const contentWidthPx = Math.ceil(contentWidthMM * MM_TO_PX) + 40; // pequeño margen de seguridad
+        const captureWindowWidth = Math.max(contentWidthPx, pdfHost.scrollWidth, 1200);
+
         const opt = {
           margin: [8, 8, 8, 8],
           filename,
@@ -6977,11 +6992,11 @@
           html2canvas: {
             scale: 2, useCORS: false, allowTaint: false, backgroundColor: '#ffffff', logging: false,
             imageTimeout: 15000, scrollX: 0, scrollY: 0,
-            windowWidth: 1200,
+            windowWidth: captureWindowWidth,
             windowHeight: Math.max(pdfHost.scrollHeight, 1200)
           },
           jsPDF: { unit: 'mm', format: pageFormat, orientation: 'landscape', compress: true },
-          pagebreak: { mode: ['css'], avoid: ['tr', '.report-footer-summary'] }
+          pagebreak: { mode: ['css'], avoid: ['tr', '.report-footer-summary', 'thead'] }
         };
 
         await html2pdf().set(opt).from(container).save();
