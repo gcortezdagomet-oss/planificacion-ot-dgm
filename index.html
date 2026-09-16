@@ -6970,20 +6970,24 @@
         }));
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-        // BUG QUE CORTABA EL REPORTE COMPLETO: windowWidth quedaba fijo en
-        // 1200px sin importar el ancho real del contenedor del reporte. Con
-        // muchas columnas seleccionadas, el contenedor pasa a usar hoja
-        // "legal" (~1284px de ancho útil) u "oficio A3" (~1527px): al ser más
-        // ancho que la "ventana" de 1200px con la que html2canvas rasteriza,
-        // html2canvas recortaba todo lo que quedaba a la derecha de esos
-        // 1200px (columnas finales de la tabla, o parte de ellas). Ahora la
-        // ventana de captura se calcula a partir del ancho real del reporte
-        // (contentWidthMM ya convertido a píxeles), con el ancho realmente
-        // renderizado del host como respaldo, para que nunca sea más angosta
-        // que el contenido que debe capturar.
-        const MM_TO_PX = 96 / 25.4;
-        const contentWidthPx = Math.ceil(contentWidthMM * MM_TO_PX) + 40; // pequeño margen de seguridad
-        const captureWindowWidth = Math.max(contentWidthPx, pdfHost.scrollWidth, 1200);
+        // BUG QUE CORTABA/DESPLAZABA EL REPORTE COMPLETO: antes se le pasaba
+        // a html2canvas un "windowWidth" ADIVINADO (fijo en 1200px, o luego
+        // calculado a partir de contentWidthMM). Cuando ese número no
+        // coincidía EXACTO con el ancho real ya renderizado del contenedor,
+        // html2canvas rasterizaba usando una ventana de tamaño distinto al
+        // del contenido real: a veces recortaba la derecha, a veces el
+        // contenido terminaba corrido hacia la izquierda con una franja en
+        // blanco a la derecha (que es justo lo que se veía en el PDF
+        // descargado). La solución correcta es no adivinar ningún ancho:
+        // medimos el tamaño YA RENDERIZADO del contenedor (getBoundingClientRect,
+        // tras fijar su ancho final en mm) y le pedimos a html2canvas que
+        // capture EXACTAMENTE ese rectángulo (x:0, y:0, width/height iguales
+        // a lo medido), con la ventana del mismo tamaño exacto. Así no puede
+        // haber desajuste entre lo medido y lo capturado.
+        window.scrollTo(0, 0);
+        const reportRect = container.getBoundingClientRect();
+        const capturePxWidth = Math.max(1, Math.ceil(reportRect.width));
+        const capturePxHeight = Math.max(1, Math.ceil(reportRect.height));
 
         const opt = {
           margin: [8, 8, 8, 8],
@@ -6991,9 +6995,10 @@
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: {
             scale: 2, useCORS: false, allowTaint: false, backgroundColor: '#ffffff', logging: false,
-            imageTimeout: 15000, scrollX: 0, scrollY: 0,
-            windowWidth: captureWindowWidth,
-            windowHeight: Math.max(pdfHost.scrollHeight, 1200)
+            imageTimeout: 15000,
+            x: 0, y: 0, scrollX: 0, scrollY: 0,
+            width: capturePxWidth, height: capturePxHeight,
+            windowWidth: capturePxWidth, windowHeight: capturePxHeight
           },
           jsPDF: { unit: 'mm', format: pageFormat, orientation: 'landscape', compress: true },
           pagebreak: { mode: ['css'], avoid: ['tr', '.report-footer-summary', 'thead'] }
