@@ -8815,5 +8815,255 @@
     init();
   })();
   </script>
+<script>
+/* ============================================================
+   CONTACTOS MÚLTIPLES POR CLIENTE
+   Este bloque solo agrega la gestión de contactos y no reemplaza
+   la lógica de materiales, pesos, PDF, guías, horas extra, etc.
+   ============================================================ */
+(function(){
+  'use strict';
+
+  function $c(id){ return document.getElementById(id); }
+  function escC(v){
+    const d=document.createElement('div'); d.textContent=String(v ?? ''); return d.innerHTML;
+  }
+  function normPhone(v){
+    let d=String(v||'').replace(/\D/g,'');
+    if(d.length===9 && d[0]==='9') d='56'+d;
+    return d;
+  }
+  function getClient(){
+    const val=($c('cliente-input')?.value||'').trim();
+    if(!val) return null;
+    return db.clients.find(c => `${c.rut} - ${c.name}` === val) || null;
+  }
+  function normalizeContacts(client){
+    if(!client) return [];
+    if(Array.isArray(client.contactos)){
+      client.contactos=client.contactos.map(x=>({nombre:String(x?.nombre||'').trim(),telefono:String(x?.telefono||'').trim()}))
+        .filter(x=>x.nombre||x.telefono);
+      return client.contactos;
+    }
+    const out=[];
+    if(client.contacto || client.telefono){
+      out.push({nombre:String(client.contacto||'').trim(),telefono:String(client.telefono||'').trim()});
+    }
+    client.contactos=out;
+    return out;
+  }
+
+  function buildContactUI(){
+    const old=$c('contactoOP');
+    if(!old || $c('contactoOP-multiple')) return;
+    old.type='hidden';
+    old.setAttribute('aria-hidden','true');
+    const field=old.closest('.field') || old.parentElement;
+    if(!field) return;
+    field.id='contactoOP-field';
+    const wrap=document.createElement('div');
+    wrap.id='contactoOP-multiple';
+    wrap.innerHTML=`
+      <label style="display:block; margin-bottom:6px; font-weight:700;">Contacto</label>
+      <div style="display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:7px; align-items:center;">
+        <select id="contactoOP-select" style="min-width:0; width:100%;">
+          <option value="">Sin contacto seleccionado</option>
+        </select>
+        <button type="button" class="contacto-action contacto-whatsapp" id="contactoOP-whatsapp" title="Abrir WhatsApp">WhatsApp</button>
+        <button type="button" class="contacto-action contacto-movil" id="contactoOP-call" title="Llamar">📞</button>
+      </div>
+      <div id="contactoOP-info" style="margin-top:5px; font-size:.75rem; color:var(--text-muted);"></div>
+      <div style="margin-top:5px; font-size:.72rem; color:var(--text-muted);">Puedes guardar varios contactos por cliente y seleccionar el que necesites para cada OP.</div>`;
+    field.appendChild(wrap);
+
+    $c('contactoOP-select').addEventListener('change', syncSelectedContactToLegacy);
+    $c('contactoOP-whatsapp').addEventListener('click', function(){
+      const c=getSelectedContact(); const phone=normPhone(c?.telefono);
+      if(!phone){ alert('El contacto seleccionado no tiene un número de teléfono.'); return; }
+      const msg=c?.nombre ? `Hola ${c.nombre}` : 'Hola';
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank','noopener,noreferrer');
+    });
+    $c('contactoOP-call').addEventListener('click', function(){
+      const c=getSelectedContact(); const phone=String(c?.telefono||'').replace(/[^0-9+]/g,'');
+      if(!phone){ alert('El contacto seleccionado no tiene un número de teléfono.'); return; }
+      window.location.href=`tel:${phone}`;
+    });
+  }
+
+  function getSelectedContact(){
+    const client=getClient(); const cs=normalizeContacts(client);
+    const sel=$c('contactoOP-select');
+    const i=sel ? Number(sel.value) : -1;
+    return i>=0 && cs[i] ? cs[i] : null;
+  }
+  function syncSelectedContactToLegacy(){
+    const c=getSelectedContact();
+    const hidden=$c('contactoOP');
+    if(hidden) hidden.value=c ? [c.nombre,c.telefono].filter(Boolean).join(' · ') : '';
+    const info=$c('contactoOP-info');
+    if(info) info.textContent=c ? [c.nombre,c.telefono].filter(Boolean).join(' · ') : '';
+  }
+  function populateContactSelect(preferredText){
+    const sel=$c('contactoOP-select'); if(!sel) return;
+    const client=getClient(); const cs=normalizeContacts(client);
+    const oldText=preferredText!==undefined ? String(preferredText||'').trim() : String($c('contactoOP')?.value||'').trim();
+    sel.innerHTML='<option value="">Sin contacto seleccionado</option>' + cs.map((c,i)=>{
+      const label=[c.nombre,c.telefono].filter(Boolean).join(' · ') || `Contacto ${i+1}`;
+      return `<option value="${i}">${escC(label)}</option>`;
+    }).join('');
+    let idx=-1;
+    if(oldText) idx=cs.findIndex(c=>[c.nombre,c.telefono].filter(Boolean).join(' · ')===oldText);
+    if(idx<0 && cs.length===1) idx=0;
+    if(idx>=0) sel.value=String(idx);
+    syncSelectedContactToLegacy();
+  }
+
+  function selectedClientIndex(){
+    const client=getClient();
+    return client ? db.clients.indexOf(client) : -1;
+  }
+
+  function ensureContactModal(){
+    if($c('contactos-client-modal')) return;
+    const m=document.createElement('div');
+    m.id='contactos-client-modal';
+    m.className='contactos-client-modal';
+    m.innerHTML=`
+      <div class="contactos-client-dialog">
+        <div class="contactos-client-head">
+          <div><h3 id="contactos-client-title">Contactos del cliente</h3><div id="contactos-client-subtitle"></div></div>
+          <button type="button" class="contactos-close" onclick="cerrarGestorContactos()">×</button>
+        </div>
+        <div id="contactos-client-list"></div>
+        <div class="contactos-client-actions">
+          <button type="button" class="btn btn-secondary" onclick="agregarFilaContacto()">＋ Agregar contacto</button>
+          <div style="margin-left:auto;display:flex;gap:8px;">
+            <button type="button" class="btn btn-secondary" onclick="cerrarGestorContactos()">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="guardarGestorContactos()">Guardar contactos</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(m);
+    m.addEventListener('click',e=>{if(e.target===m) cerrarGestorContactos();});
+  }
+  let contactosEditandoIndex=-1;
+  window.abrirGestorContactos=function(index){
+    const c=db.clients[index]; if(!c) return;
+    contactosEditandoIndex=index; normalizeContacts(c); ensureContactModal();
+    $c('contactos-client-title').textContent='Contactos del cliente';
+    $c('contactos-client-subtitle').textContent=`${c.rut} · ${c.name}`;
+    const list=$c('contactos-client-list'); list.innerHTML='';
+    const cs=normalizeContacts(c);
+    if(cs.length) cs.forEach(x=>agregarFilaContacto(x)); else agregarFilaContacto();
+    $c('contactos-client-modal').classList.add('open');
+  };
+  window.cerrarGestorContactos=function(){ const m=$c('contactos-client-modal'); if(m) m.classList.remove('open'); contactosEditandoIndex=-1; };
+  window.agregarFilaContacto=function(data){
+    const list=$c('contactos-client-list'); if(!list) return;
+    const row=document.createElement('div'); row.className='contacto-edit-row';
+    row.innerHTML=`<input type="text" class="contacto-edit-nombre" placeholder="Nombre del contacto" value="${escC(data?.nombre||'')}">
+      <input type="tel" class="contacto-edit-telefono" placeholder="Número de teléfono" inputmode="tel" value="${escC(data?.telefono||'')}">
+      <button type="button" class="btn btn-danger btn-sm" title="Eliminar contacto">✕</button>`;
+    row.querySelector('button').addEventListener('click',()=>row.remove());
+    list.appendChild(row);
+  };
+  window.guardarGestorContactos=function(){
+    if(contactosEditandoIndex<0 || !db.clients[contactosEditandoIndex]) return;
+    const rows=[...document.querySelectorAll('#contactos-client-list .contacto-edit-row')];
+    const contacts=rows.map(r=>({nombre:r.querySelector('.contacto-edit-nombre')?.value.trim()||'',telefono:r.querySelector('.contacto-edit-telefono')?.value.trim()||''})).filter(x=>x.nombre||x.telefono);
+    const c=db.clients[contactosEditandoIndex]; c.contactos=contacts;
+    saveDB(); renderMasterLists();
+    const current=selectedClientIndex();
+    if(current===contactosEditandoIndex) populateContactSelect($c('contactoOP')?.value||'');
+    cerrarGestorContactos();
+  };
+
+  function enhanceClientTable(){
+    const tbody=$c('list-clients-table'); if(!tbody) return;
+    [...tbody.querySelectorAll('tr')].forEach(tr=>{
+      const first=tr.querySelector('td');
+      if(!first) return;
+      const rut=first.textContent.trim();
+      const nameCell=tr.querySelectorAll('td')[1];
+      if(!nameCell) return;
+      const name=nameCell.textContent.trim();
+      const idx=db.clients.findIndex(c=>String(c.rut).trim()===rut && String(c.name).trim()===name);
+      if(idx<0) return;
+      const cs=normalizeContacts(db.clients[idx]);
+      const action=tr.querySelectorAll('td')[2];
+      if(action && !action.querySelector('.btn-contactos-cliente')){
+        const b=document.createElement('button');
+        b.type='button'; b.className='btn btn-info btn-sm btn-contactos-cliente';
+        b.textContent=`👥 Contactos (${cs.length})`;
+        b.title='Administrar contactos del cliente';
+        b.addEventListener('click',()=>abrirGestorContactos(idx));
+        action.insertBefore(b,action.firstChild);
+      }
+      if(!nameCell.querySelector('.client-contact-count')){
+        const s=document.createElement('div'); s.className='client-contact-count';
+        s.textContent=cs.length ? `${cs.length} contacto${cs.length===1?'':'s'}` : 'Sin contactos';
+        nameCell.appendChild(s);
+      }
+    });
+  }
+
+  function wrapMasterLists(){
+    if(typeof window.renderMasterLists!=='function' || window.renderMasterLists.__multiContactWrapped) return;
+    const original=window.renderMasterLists;
+    function wrapped(){ original.apply(this,arguments); enhanceClientTable(); }
+    wrapped.__multiContactWrapped=true;
+    window.renderMasterLists=wrapped;
+  }
+
+  function patchAddClientForm(){
+    const name=$c('new-client-name'); if(!name || $c('new-client-contact-note')) return;
+    const form=name.parentElement;
+    if(!form) return;
+    const note=document.createElement('div'); note.id='new-client-contact-note';
+    note.style.cssText='grid-column:1 / -1; font-size:.75rem; color:var(--text-muted); margin-top:-4px;';
+    note.textContent='Después de agregar el cliente puedes incorporar todos los contactos que necesites con “👥 Contactos”.';
+    form.parentElement?.appendChild(note);
+  }
+
+  function hookClientSelection(){
+    const input=$c('cliente-input'), dd=$c('cliente-dropdown');
+    if(!input) return;
+    const sync=()=>setTimeout(()=>populateContactSelect(),30);
+    input.addEventListener('change',sync);
+    input.addEventListener('blur',sync);
+    if(dd) dd.addEventListener('click',sync,true);
+  }
+
+  function migrateClients(){
+    if(!Array.isArray(db.clients)) db.clients=[];
+    db.clients.forEach(c=>{normalizeContacts(c);});
+    try{ localStorage.setItem('dagomet_db',JSON.stringify(db)); }catch(e){}
+  }
+
+  function patchFormFunctions(){
+    // resetForm/editOP/duplicateOP escriben en contactoOP; esperamos al final
+    // de cada operación y reflejamos ese valor en el selector múltiple.
+    ['newOP','editOP','duplicateOP'].forEach(fn=>{
+      if(typeof window[fn]!=='function' || window[fn].__multiContactWrapped) return;
+      const original=window[fn];
+      const wrapped=function(){ const r=original.apply(this,arguments); setTimeout(()=>populateContactSelect(),40); return r; };
+      wrapped.__multiContactWrapped=true; window[fn]=wrapped;
+    });
+  }
+
+  function init(){
+    if(typeof db==='undefined') return;
+    migrateClients();
+    buildContactUI();
+    patchAddClientForm();
+    wrapMasterLists();
+    patchFormFunctions();
+    hookClientSelection();
+    setTimeout(()=>{ enhanceClientTable(); populateContactSelect(); },80);
+  }
+
+  window.addEventListener('load',init);
+})();
+</script>
 </body>
 </html>
