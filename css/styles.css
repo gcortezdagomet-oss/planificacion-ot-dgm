@@ -1345,46 +1345,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 .contacto-ico { font-size: .72rem; line-height: 1; flex: 0 0 auto; }
 .contacto-txt { word-break: break-word; }
 
-/* ============================================================
-   CONTACTOS MÚLTIPLES POR CLIENTE
-   ============================================================ */
-.contactoOP-field{}
-.contacto-action{
-  border:1px solid var(--border,#cbd5e1);
-  border-radius:7px;
-  padding:7px 10px;
-  cursor:pointer;
-  font-size:.75rem;
-  font-weight:800;
-  white-space:nowrap;
-  text-decoration:none;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  min-height:34px;
-}
-.contacto-whatsapp{background:#dcfce7;color:#166534;border-color:#86efac;}
-.contacto-movil{background:#e0f2fe;color:#075985;border-color:#7dd3fc;}
-.client-contact-count{font-size:.68rem;color:var(--text-muted);margin-top:3px;font-weight:600;}
-.contactos-client-modal{
-  display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;
-  align-items:center;justify-content:center;padding:20px;
-}
-.contactos-client-modal.open{display:flex;}
-.contactos-client-dialog{
-  width:min(720px,96vw);max-height:88vh;overflow:auto;background:var(--card,#fff);color:var(--text,#1e293b);
-  border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.25);padding:18px;
-}
-.contactos-client-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:15px;border-bottom:1px solid var(--border,#e2e8f0);padding-bottom:12px;}
-.contactos-client-head h3{margin:0 0 3px;}
-#contactos-client-subtitle{font-size:.78rem;color:var(--text-muted);}
-.contactos-close{margin-left:auto;border:0;background:transparent;font-size:28px;line-height:1;cursor:pointer;color:var(--text-muted);}
-.contacto-edit-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:center;margin-bottom:8px;}
-.contacto-edit-row input{width:100%;box-sizing:border-box;}
-.contactos-client-actions{display:flex;align-items:center;gap:8px;margin-top:15px;padding-top:12px;border-top:1px solid var(--border,#e2e8f0);}
-@media(max-width:650px){
-  .contacto-edit-row{grid-template-columns:1fr 1fr auto;}
-  .contactos-client-actions{flex-wrap:wrap;}
-}
-html.dagomet-dark .contactos-client-dialog{background:#111827;color:#e5e7eb;}
-html.dagomet-dark .contactos-client-head,.html.dagomet-dark .contactos-client-actions{border-color:#334155;}
+/* Contacto del historial: el bloque completo abre WhatsApp al pinchar. */
+.contacto-line-clickable { cursor: pointer; transition: transform .12s, box-shadow .12s; }
+.contacto-line-clickable:hover { transform: translateY(-1px); box-shadow: 0 2px 7px rgba(15,23,42,.10); }
+.contacto-history-call { border: 0; background: transparent; padding: 1px 3px; margin-left: 2px; cursor: pointer; font-size: .75rem; border-radius: 4px; }
+.contacto-history-call:hover { background: rgba(15,23,42,.08); }
