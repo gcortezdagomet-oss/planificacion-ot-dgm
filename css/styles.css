@@ -722,7 +722,7 @@
         padding: 7px 14px !important;
       }
       #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:first-child strong {
-        font-size: 13px !important;
+        font-size: 19px !important;
       }
       #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(2) > div,
       #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(3) {
