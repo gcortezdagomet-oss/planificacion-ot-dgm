@@ -1350,3 +1350,11 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 .contacto-line-clickable:hover { transform: translateY(-1px); box-shadow: 0 2px 7px rgba(15,23,42,.10); }
 .contacto-history-call { border: 0; background: transparent; padding: 1px 3px; margin-left: 2px; cursor: pointer; font-size: .75rem; border-radius: 4px; }
 .contacto-history-call:hover { background: rgba(15,23,42,.08); }
+
+/* OP: agrandar solo el número al imprimir, sin modificar las dimensiones de las tarjetas. */
+@media print {
+  #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:first-child > div:nth-child(2) > div:first-child > strong {
+    font-size: 36px !important;
+    line-height: 1.05 !important;
+  }
+}
