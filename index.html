@@ -2016,15 +2016,13 @@
     }
 
     // ---------- Contacto de la OP (solo tabla, nunca en la ficha/PDF) ----------
-    // El contacto es información interna de coordinación: se muestra como un
-    // ícono 📞 junto al cliente en la tabla de OP, con el dato completo en el
-    // tooltip. No forma parte del documento imprimible.
+    // El contacto es información interna de coordinación: se muestra a la vista
+    // (ícono 📞 + texto) bajo el cliente en la tabla de OP, para poder leerlo
+    // de un vistazo sin abrir la OP. No forma parte del documento imprimible.
     function getContactoBadge(o) {
       const txt = (o && o.contacto ? String(o.contacto) : '').trim();
       if (!txt) return '';
-      // El título es un atributo HTML: hay que escapar también las comillas.
-      const tip = esc(txt).replace(/"/g, '&quot;');
-      return `<span class="contacto-badge" title="Contacto: ${tip}" aria-label="Contacto: ${tip}">📞</span>`;
+      return `<div class="contacto-line"><span class="contacto-ico">📞</span><span class="contacto-txt">${esc(txt)}</span></div>`;
     }
 
     function saveDB() {
