@@ -609,7 +609,7 @@
           </div>
           <div class="field">
             <label>Contacto</label>
-            <input type="text" id="contactoOP" placeholder="Nombre y/o teléfono de contacto (solo se ve en pantalla, no se imprime)">
+            <input type="text" id="contactoOP" placeholder="Nombre y/o teléfono de contacto (solo visible en la tabla de OP, no se imprime)">
           </div>
           <div class="field">
             <label>Fecha Guía de Material</label>
@@ -2013,6 +2013,18 @@
       const veces = o.vecesImpresa || 1;
       const tip = `Impresa/descargada ${veces} ${veces === 1 ? 'vez' : 'veces'} · Última: ${fecha} · Por: ${esc(o.impresoPor || '-')}`;
       return `<span title="${tip}" style="display:inline-block; margin-left:5px; background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; padding:1px 6px; border-radius:999px; font-size:.65rem; font-weight:800; white-space:nowrap;">🖨️ Impresa</span>`;
+    }
+
+    // ---------- Contacto de la OP (solo tabla, nunca en la ficha/PDF) ----------
+    // El contacto es información interna de coordinación: se muestra como un
+    // ícono 📞 junto al cliente en la tabla de OP, con el dato completo en el
+    // tooltip. No forma parte del documento imprimible.
+    function getContactoBadge(o) {
+      const txt = (o && o.contacto ? String(o.contacto) : '').trim();
+      if (!txt) return '';
+      // El título es un atributo HTML: hay que escapar también las comillas.
+      const tip = esc(txt).replace(/"/g, '&quot;');
+      return `<span class="contacto-badge" title="Contacto: ${tip}" aria-label="Contacto: ${tip}">📞</span>`;
     }
 
     function saveDB() {
@@ -4533,7 +4545,7 @@
             <td><span style="font-weight:700; color:#dc2626;">${esc(o.parteOp || '-')}</span></td>
             <td>${getStatusBadge(o.estadoOp)}</td>
             <td><span style="background:var(--primary-light); color:var(--primary); padding: 2px 6px; border-radius: 4px; font-weight:700;">${esc(o.planificador||'GCC')}</span></td>
-            <td>${esc(o.cliente)}</td>
+            <td>${esc(o.cliente)}${getContactoBadge(o)}</td>
             <td>${o.area ? `<button type="button" class="dashboard-drill-link" onclick="filterHistoryByField('area','${String(o.area).replace(/'/g, "\\'")}')" title="Ver todas las OP de esta área">${esc(o.area)}</button>` : '<span class="area-sin-definir" title="Esta OP fue guardada sin Área. Edítala para asignarla.">⚠️ SIN ÁREA</span>'}</td>
             <td>${formatDateWithDayUpper(o.entrega)}</td>
             <td>${getPriorityBadge(o.prioridad)}</td>
@@ -7587,13 +7599,7 @@
 
       // Mismo logo por área que usa la ficha estándar, para mantener la
       // misma identidad visual entre ambos formatos de impresión.
-      // Misma casilla de contacto que la ficha estándar: solo pantalla, nunca
-      // impresión ni PDF (clase "no-print").
-      const contactoHtmlBombeado = (o.contacto && o.contacto.trim() !== '') ? `
-        <div class="no-print" style="border-radius: 6px; background: #ecfeff; border: 1px solid #a5f3fc; color: #0e7490; font-size: 12px; font-weight: bold; padding: 8px 13px; text-align: center;">
-          <b>CONTACTO (solo pantalla):</b> ${esc(o.contacto)}
-        </div>
-      ` : '';
+      // El contacto no va en la ficha: se consulta desde la tabla de OP.
 
       const areaUpperBombeado = (o.area || '').toUpperCase();
       let areaLogoBombeado = '';
@@ -7627,8 +7633,6 @@
             ${areaLogoBombeado ? `<img src="${areaLogoBombeado}" onerror="this.style.display='none'" style="height: 55px; max-height: 55px; width: auto; max-width: 150px; object-fit: contain; display: block; margin-left: auto;">` : ''}
           </div>
         </div>
-
-        ${contactoHtmlBombeado}
 
         <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 8px 13px; font-size: 12px; color: #263581; text-align: center;">
           <span style="font-weight: bold;">ÁREA: ${esc(o.area)} &nbsp;|&nbsp; TIPO: ${esc(tipoLabel)}</span>
@@ -7911,14 +7915,8 @@
         </div>
       ` : '';
 
-      // Casilla de contacto: solo para visualizar en pantalla (tarjeta de la
-      // OP en el modal de vista previa). Lleva la clase "no-print" para que
-      // nunca aparezca al imprimir ni al descargar el PDF.
-      const contactoHtml = (o.contacto && o.contacto.trim() !== '') ? `
-        <div class="no-print" style="border-radius: 6px; background: #ecfeff; border: 1px solid #a5f3fc; color: #0e7490; font-size: 12px; font-weight: bold; padding: 8px 13px; text-align: center;">
-          <b>CONTACTO (solo pantalla):</b> ${esc(o.contacto)}
-        </div>
-      ` : '';
+      // El contacto ya no se muestra aquí: es información interna que vive en
+      // la tabla de OP (ícono 📞 junto al cliente), no en el documento.
 
       const maquinaBlockHtml = (o.maquina && o.maquina.trim() !== '') ? `
         <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 8px 13px; font-size: 12px; color: #263581; display: flex; justify-content: space-between; align-items: center;">
@@ -7961,8 +7959,6 @@
             ${areaLogo ? `<img src="${areaLogo}" onerror="this.style.display='none'" style="height: 55px; max-height: 55px; width: auto; max-width: 150px; object-fit: contain; display: block; margin-left: auto;">` : ''}
           </div>
         </div>
-
-        ${contactoHtml}
 
         <div style="display: grid; grid-template-columns: 2.3fr 1fr; gap: 12px;">
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between;">
