@@ -710,7 +710,7 @@
         padding: 10px 14px !important;
         gap: 8px !important;
         font-size: 11px !important;
-        zoom: 1 !important; /* Vista previa a escala 1:1; el ajuste de impresión se aplica al imprimir. */
+        zoom: var(--ot-print-zoom, 0.87) !important;
         flex-shrink: 0 !important;
       }
       #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:first-child {
@@ -722,7 +722,7 @@
         padding: 7px 14px !important;
       }
       #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:first-child strong {
-        font-size: 36px !important; /* Mismo tamaño que en la impresión. */
+        font-size: 19px !important;
       }
       #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(2) > div,
       #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:nth-child(3) {
@@ -1351,10 +1351,12 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 .contacto-history-call { border: 0; background: transparent; padding: 1px 3px; margin-left: 2px; cursor: pointer; font-size: .75rem; border-radius: 4px; }
 .contacto-history-call:hover { background: rgba(15,23,42,.08); }
 
-/* OP: agrandar solo el número al imprimir, sin modificar las dimensiones de las tarjetas. */
+
+/* Ajuste acotado: agrandar únicamente el número de OP al imprimir.
+   La previsualización conserva el diseño y las dimensiones originales. */
 @media print {
   #preview-modal:not(.is-report):not(.is-chart) #modal-preview-container .ot-print-document > div:first-child > div:nth-child(2) > div:first-child > strong {
-    font-size: 36px !important;
+    font-size: 28px !important;
     line-height: 1.05 !important;
   }
 }
