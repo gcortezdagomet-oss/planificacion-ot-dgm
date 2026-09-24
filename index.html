@@ -4824,14 +4824,33 @@
         const msg = (document.getElementById('correo-termino-teams-msg').value || '').trim();
         if (!msg) { alert('Escribe el mensaje para Teams.'); return; }
         const emails = getTo().split(/[\s,;]+/).filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
-        const qs = (emails.length ? 'users=' + emails.map(encodeURIComponent).join(',') + '&' : '') + 'message=' + encodeURIComponent(msg);
-        const url = 'https://teams.microsoft.com/l/chat/0/0?' + qs;
-        // Se abre de forma síncrona dentro del clic (evita el bloqueo de pop-ups).
-        const w = window.open(url, '_blank');
-        if (!w) { alert('El navegador bloqueó la ventana de Teams. Permite pop-ups para este sitio e inténtalo de nuevo.'); return; }
-        try { w.opener = null; } catch (e) {}
+        if (!emails.length) { alert('Escribe un correo válido en "Para" para poder abrir el chat de Teams.'); return; }
+        const qs = 'users=' + emails.map(encodeURIComponent).join(',') + '&message=' + encodeURIComponent(msg);
+        const webUrl = 'https://teams.microsoft.com/l/chat/0/0?' + qs;
+        const appUrl = 'msteams://teams.microsoft.com/l/chat/0/0?' + qs;
+
         // Respaldo: si Teams no precarga el texto, queda en el portapapeles para pegarlo (Ctrl+V).
         try { navigator.clipboard.writeText(msg); } catch (e) {}
+
+        // Intenta abrir la app de escritorio de Teams (msteams://). Si el sistema
+        // no tiene asociado ese protocolo (Teams no instalado), no pasa nada visible
+        // y después de un momento se abre la versión web como respaldo. Si la app sí
+        // se abre, la pestaña pierde el foco y se cancela el respaldo para no abrir
+        // además una pestaña web de más.
+        let fallbackDisparado = false;
+        const abrirRespaldoWeb = () => {
+          if (fallbackDisparado) return;
+          fallbackDisparado = true;
+          window.open(webUrl, '_blank', 'noopener');
+        };
+        const timer = setTimeout(abrirRespaldoWeb, 1200);
+        const onBlur = () => {
+          clearTimeout(timer);
+          fallbackDisparado = true;
+          window.removeEventListener('blur', onBlur);
+        };
+        window.addEventListener('blur', onBlur);
+        window.location.href = appUrl;
       };
       document.getElementById('correo-termino-ver-fotos').onclick = () => {
         // Abre el gestor de fotos de liberación de esta misma OP, para poder
