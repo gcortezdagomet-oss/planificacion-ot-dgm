@@ -9080,6 +9080,30 @@
       }
     });
 
+    // Revisa cada cierto tiempo si hay datos nuevos en Supabase (por ejemplo,
+    // una OP que un trabajador acaba de liberar desde su celular) y refresca
+    // la pantalla sin que haya que recargar la página manualmente. Se salta
+    // la revisión si hay una edición sin guardar en curso (formDirty) o un
+    // guardado propio en camino, para no perder ni pisar cambios locales.
+    let dbPollTimer = null;
+    function startDBPolling() {
+      if (dbPollTimer) return;
+      dbPollTimer = setInterval(async () => {
+        if (formDirty || remoteSaveInFlight || remoteSaveTimer) return;
+        if (document.visibilityState === 'hidden') return;
+        try {
+          const huboCambios = await loadDBRemote();
+          if (huboCambios) {
+            ensureOPOrder();
+            loadSelects();
+            renderGuiasTable();
+            if (typeof renderOPsTable === 'function' && document.getElementById('tab-list')?.classList.contains('active')) renderOPsTable();
+            mostrarAvisosLiberacionOP();
+          }
+        } catch (err) { console.error('Error al revisar actualizaciones remotas:', err); }
+      }, 20000);
+    }
+
     window.onload = async () => {
       const auth = await window.dagometAuthReady;
       if (!auth?.authenticated) return;
@@ -9091,6 +9115,7 @@
       setTimeout(checkCloudBackup, 1200);
       applyReadOnlyPermissions();
       mostrarAvisosLiberacionOP();
+      startDBPolling();
     };
 
     // Avisos de "OP liberada por el trabajador" (generados por la Edge
