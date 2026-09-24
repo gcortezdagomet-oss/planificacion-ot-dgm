@@ -394,6 +394,19 @@
   opacity: .82;
 }
 .btn-secondary:hover { opacity: 1; }
+
+    /* ---------- Historial: acciones compactas + menú "⋯" ---------- */
+    .row-actions { display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-top:4px; }
+    .row-actions .btn { margin:0; white-space:nowrap; }
+    .row-menu { position:relative; }
+    .row-menu > summary {
+      list-style:none; cursor:pointer; user-select:none; padding:2px 9px; border-radius:6px;
+      background:#e2e8f0; color:#334155; font-weight:800; font-size:16px; line-height:1.3;
+    }
+    .row-menu > summary::-webkit-details-marker { display:none; }
+    .row-menu > summary:hover, .row-menu[open] > summary { background:#cbd5e1; }
+    .row-menu-panel { display:flex; flex-direction:column; gap:4px; margin-top:4px; }
+    .row-menu-panel .row-menu-item { width:100%; text-align:left; margin:0; }
 </style>
 
     <style>
@@ -559,10 +572,10 @@
     <div class="nav-tabs" id="main-nav-tabs">
       <button class="tab-btn" data-tab-id="tab-form" onclick="switchTab('tab-form')">Formulario OP</button>
       <button class="tab-btn active" data-tab-id="tab-list" onclick="switchTab('tab-list')">Historial de OPs</button>
-      <button class="tab-btn" data-tab-id="tab-guias" onclick="switchTab('tab-guias')">📦 Guías de Material</button>
+      <button class="tab-btn" data-tab-id="tab-guias" onclick="switchTab('tab-guias')" title="Guías de Material">📦 Guías</button>
       <button class="tab-btn" data-tab-id="tab-calendar" onclick="switchTab('tab-calendar')">📅 Calendario</button>
-      <button class="tab-btn" data-tab-id="tab-planta" onclick="switchTab('tab-planta')">🖥️ Vista de Planta</button>
-      <button class="tab-btn" data-tab-id="tab-stats" onclick="switchTab('tab-stats')">Dashboard / Estadísticas</button>
+      <button class="tab-btn" data-tab-id="tab-planta" onclick="switchTab('tab-planta')" title="Vista de Planta">🖥️ Planta</button>
+      <button class="tab-btn" data-tab-id="tab-stats" onclick="switchTab('tab-stats')" title="Dashboard / Estadísticas">📊 Dashboard</button>
       <button class="tab-btn" data-tab-id="tab-horas-extra" onclick="switchTab('tab-horas-extra')" id="btn-tab-horas-extra" style="display:none;">⏱️ Horas Extras</button>
       <button class="tab-btn" data-tab-id="tab-db" onclick="switchTab('tab-db')">Base de Datos</button>
     </div>
@@ -4629,17 +4642,24 @@
                 <button onclick="moveOP('${o.id}', -1)" title="Subir" ${moveDisabled}>▲</button>
                 <button onclick="moveOP('${o.id}', 1)" title="Bajar" ${moveDisabled}>▼</button>
               </span>
-              <button class="btn btn-secondary btn-sm" onclick="duplicateOP('${o.id}')" title="Duplicar OP">📋 Duplicar</button>
-              <button class="btn btn-warning btn-sm" onclick="editOP('${o.id}')">✏️ Editar</button>
-              <button class="btn btn-info btn-sm" onclick="previewPDF('${o.id}')">👁️ Ver</button>
-              ${window.dagometCurrentProfile?.rol === 'admin' ? `<button class="btn btn-success btn-sm" onclick="abrirCorreoTerminoOP('${o.id}')" title="Avisar al cliente por correo que el trabajo está finalizado">✉️ Avisar término</button>` : ''}
-              ${(() => {
-                const nFotos = getTotalFotosLiberacion(o);
-                if (nFotos) return `<button class="btn btn-secondary btn-sm" onclick="abrirFotosLiberacionOP('${o.id}')" title="Fotos de liberación del trabajo">📷 Ver fotos (${nFotos})</button>`;
-                if (window.dagometCurrentProfile?.rol === 'read_only') return '';
-                return `<button class="btn btn-secondary btn-sm" onclick="abrirFotosLiberacionOP('${o.id}')" title="Agregar fotos de liberación del trabajo">📷 Fotos</button>`;
-              })()}
-              <button class="btn btn-danger btn-sm" onclick="deleteOP('${o.id}')">🗑️ Eliminar</button>
+              <div class="row-actions">
+                <button class="btn btn-warning btn-sm" onclick="editOP('${o.id}')">✏️ Editar</button>
+                <button class="btn btn-info btn-sm" onclick="previewPDF('${o.id}')">👁️ Ver</button>
+                ${window.dagometCurrentProfile?.rol === 'admin' ? `<button class="btn btn-success btn-sm" onclick="abrirCorreoTerminoOP('${o.id}')" title="Avisar al cliente por correo que el trabajo está finalizado">✉️ Avisar término</button>` : ''}
+                <details class="row-menu">
+                  <summary title="Más acciones">⋯</summary>
+                  <div class="row-menu-panel">
+                    <button class="btn btn-secondary btn-sm row-menu-item" onclick="duplicateOP('${o.id}')" title="Duplicar OP">📋 Duplicar</button>
+                    ${(() => {
+                      const nFotos = getTotalFotosLiberacion(o);
+                      if (nFotos) return `<button class="btn btn-secondary btn-sm row-menu-item" onclick="abrirFotosLiberacionOP('${o.id}')" title="Fotos de liberación del trabajo">📷 Ver fotos (${nFotos})</button>`;
+                      if (window.dagometCurrentProfile?.rol === 'read_only') return '';
+                      return `<button class="btn btn-secondary btn-sm row-menu-item" onclick="abrirFotosLiberacionOP('${o.id}')" title="Agregar fotos de liberación del trabajo">📷 Fotos</button>`;
+                    })()}
+                    <button class="btn btn-danger btn-sm row-menu-item" onclick="deleteOP('${o.id}')">🗑️ Eliminar</button>
+                  </div>
+                </details>
+              </div>
             </td>
           </tr>
         `;
@@ -4775,20 +4795,27 @@
               <input type="text" id="correo-termino-teams-msg" value="${esc(`OT N° ${o.numero} LIBERADA | ${o.cliente || ''}`)}" style="width:100%; box-sizing:border-box;">
             </label>
           </div>
-          <div style="background:#fff; color:#0f172a; border:1px solid var(--border); border-radius:8px; padding:12px 14px; max-height:38vh; overflow-y:auto; font-size:.8rem;">${mail.html}</div>
-          <div style="background:#fef3c7; color:#92400e; border-radius:8px; padding:8px 12px; font-size:.75rem; font-weight:700; margin-top:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span>📎 Teams no adjunta las fotos automáticamente: ábrelas con el botón "Ver fotos" y arrástralas al chat.</span>
+          <details style="border:1px solid var(--border); border-radius:8px; background:#f8fafc;">
+            <summary style="cursor:pointer; padding:9px 12px; font-size:.8rem; font-weight:700; color:var(--primary);">👁️ Ver texto del correo</summary>
+            <div style="background:#fff; color:#0f172a; border-top:1px solid var(--border); padding:12px 14px; max-height:38vh; overflow-y:auto; font-size:.8rem;">${mail.html}</div>
+          </details>
+          <div style="color:var(--text-muted); font-size:.75rem; margin-top:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span>📎 Teams no adjunta fotos: ábrelas y arrástralas al chat.</span>
             <button type="button" class="btn btn-secondary btn-sm" id="correo-termino-ver-fotos" style="margin-left:auto;">📷 Ver fotos</button>
           </div>
-          <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; justify-content:flex-end;">
+          <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; justify-content:flex-end; align-items:center;">
             <button class="btn btn-secondary btn-sm" id="correo-termino-copy">📋 Copiar con formato</button>
-            <button class="btn btn-info btn-sm" id="correo-termino-web">🌐 Outlook Web</button>
-            <button class="btn btn-info btn-sm" id="correo-termino-teams">💬 Teams</button>
-            <button class="btn btn-success btn-sm" id="correo-termino-desktop">📧 Abrir en Outlook</button>
+            <button class="btn btn-secondary btn-sm" id="correo-termino-web">🌐 Outlook Web</button>
+            <button class="btn btn-secondary btn-sm" id="correo-termino-teams" title="Abre el grupo de Teams y copia el mensaje">💬 Teams</button>
+            <button class="btn btn-success" id="correo-termino-desktop" style="padding:9px 18px; font-weight:800;">📧 Abrir en Outlook</button>
           </div>
-          <div style="font-size:.7rem; color:var(--text-muted); margin-top:8px;">
-            "Abrir en Outlook" y "Outlook Web" cargan el texto sin negritas ni viñetas; si quieres el formato tal cual, usa "Copiar con formato" y pégalo en un correo nuevo.<br>La OP queda marcada como "Avisado" al usar Outlook o "Copiar con formato" (el botón de Teams envía solo el mensaje corto y no la marca); si finalmente no envías el correo, usa "Quitar marca".
-          </div>
+          <details style="font-size:.72rem; color:var(--text-muted); margin-top:10px;">
+            <summary style="cursor:pointer;">ⓘ Cómo funcionan los botones</summary>
+            <div style="margin-top:6px;">
+              "Abrir en Outlook" y "Outlook Web" cargan el texto sin negritas ni viñetas; si quieres el formato tal cual, usa "Copiar con formato" y pégalo en un correo nuevo.<br>
+              La OP queda marcada como "Avisado" al usar Outlook o "Copiar con formato". El botón de Teams abre el grupo y copia el mensaje corto, pero no marca la OP. Si finalmente no envías el correo, usa "Quitar marca".
+            </div>
+          </details>
         </div>`;
 
       const pintarEstadoAviso = () => {
@@ -9593,6 +9620,12 @@
 
   window.addEventListener('load',init);
 })();
+</script>
+<script>
+  // Cierra los menús "⋯" del Historial al hacer clic fuera de ellos.
+  document.addEventListener('click', e => {
+    document.querySelectorAll('details.row-menu[open]').forEach(d => { if (!d.contains(e.target)) d.removeAttribute('open'); });
+  });
 </script>
 </body>
 </html>
