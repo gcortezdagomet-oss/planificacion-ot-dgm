@@ -4613,6 +4613,7 @@
               <button class="btn btn-secondary btn-sm" onclick="duplicateOP('${o.id}')" title="Duplicar OP">📋 Duplicar</button>
               <button class="btn btn-warning btn-sm" onclick="editOP('${o.id}')">✏️ Editar</button>
               <button class="btn btn-info btn-sm" onclick="previewPDF('${o.id}')">👁️ Ver</button>
+              ${window.dagometCurrentProfile?.rol === 'admin' ? `<button class="btn btn-success btn-sm" onclick="abrirCorreoTerminoOP('${o.id}')" title="Avisar al cliente por correo que el trabajo está finalizado">✉️ Avisar término</button>` : ''}
               ${(() => {
                 const fotos = getFotosLiberacionDe(o);
                 if (!fotos.length) return '';
@@ -4627,6 +4628,153 @@
           </tr>
         `;
       }).join('');
+    }
+
+    // ==========================================================================
+    // AVISO DE TÉRMINO POR CORREO (solo admin): arma el correo estándar de
+    // "trabajo finalizado" con el N° de OP y lo abre en Outlook. La única
+    // variable del texto es el número de OP. Se ofrecen tres salidas:
+    //  - Outlook de escritorio (mailto:), texto plano.
+    //  - Outlook Web (deeplink), texto plano.
+    //  - Copiar con formato (HTML) para pegar en un correo nuevo.
+    // ==========================================================================
+
+    function buildCorreoTerminoOP(numero) {
+      const n = String(numero || '').trim() || '____';
+      const mapsUrl = 'https://maps.app.goo.gl/kpW33iEtW9LT7tZM9';
+      const subject = `Trabajo finalizado – OT N° ${n} – Maestranza Dagomet`;
+
+      const text = [
+        'Estimados:',
+        '',
+        `Junto con saludar, informamos que su trabajo correspondiente a OT N° ${n} ha sido finalizado satisfactoriamente.`,
+        '',
+        'Le solicitamos, por favor, coordinar inspección y/o retiro del material en nuestra sucursal de Lampa, así como el pago correspondiente a través de nuestro departamento de Finanzas, mediante el correo electrónico finanzas@dagomet.cl.',
+        '',
+        'Datos para pago:',
+        '',
+        'Maestranza Dagomet Ltda.',
+        'RUT: 76.899.111-1',
+        'Cuenta Corriente: 1580546404',
+        'Banco: Banco de Chile',
+        'Correo: finanzas@dagomet.cl',
+        '',
+        'En caso de cualquier consulta o solicitud adicional relacionada con su proyecto, no dude en comunicarse con nosotros.',
+        '',
+        'Horario de atención:',
+        '- Lunes a jueves: 08:00 a 16:45 hrs',
+        '- Viernes: 08:00 a 16:15 hrs',
+        '- Almuerzo: 12:45 a 13:30 hrs',
+        '',
+        'Dirección:',
+        'Camino Noviciado Km. 16, Parque Industrial Miraflores, Parcela 18, Sitio 3 – Lampa',
+        `Ver ubicación en Google Maps: ${mapsUrl}`,
+        '',
+        'Agradecemos su preferencia y esperamos continuar colaborando en futuros proyectos.',
+        '',
+        'Saludos cordiales,'
+      ].join('\n');
+
+      const html =
+        `<div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;">` +
+        `<p>Estimados:</p>` +
+        `<p>Junto con saludar, informamos que su trabajo correspondiente a OT N° ${esc(n)} ha sido finalizado satisfactoriamente.</p>` +
+        `<p>Le solicitamos, por favor, coordinar inspección y/o retiro del material en nuestra sucursal de Lampa, así como el pago correspondiente a través de nuestro departamento de Finanzas, mediante el correo electrónico <a href="mailto:finanzas@dagomet.cl">finanzas@dagomet.cl</a>.</p>` +
+        `<p><b>Datos para pago:</b></p>` +
+        `<p>Maestranza Dagomet Ltda.<br>RUT: 76.899.111-1<br>Cuenta Corriente: 1580546404<br>Banco: Banco de Chile<br>Correo: <a href="mailto:finanzas@dagomet.cl">finanzas@dagomet.cl</a></p>` +
+        `<p>En caso de cualquier consulta o solicitud adicional relacionada con su proyecto, no dude en comunicarse con nosotros.</p>` +
+        `<p><b>Horario de atención:</b></p>` +
+        `<ul><li>Lunes a jueves: 08:00 a 16:45 hrs</li><li>Viernes: 08:00 a 16:15 hrs</li><li>Almuerzo: 12:45 a 13:30 hrs</li></ul>` +
+        `<p><b>Dirección:</b><br>Camino Noviciado Km. 16, Parque Industrial Miraflores, Parcela 18, Sitio 3 – Lampa<br><a href="${mapsUrl}">Ver ubicación en Google Maps</a></p>` +
+        `<p>Agradecemos su preferencia y esperamos continuar colaborando en futuros proyectos.</p>` +
+        `<p>Saludos cordiales,</p>` +
+        `</div>`;
+
+      return { subject, text, html };
+    }
+
+    function abrirCorreoTerminoOP(id) {
+      // Solo el administrador puede enviar este aviso.
+      if (window.dagometCurrentProfile?.rol !== 'admin') return;
+      const o = db.ots.find(x => x.id === id);
+      if (!o) return;
+      if (!String(o.numero || '').trim()) {
+        alert('Esta OP no tiene número. Edítala y asígnale un N° antes de avisar el término.');
+        return;
+      }
+
+      const mail = buildCorreoTerminoOP(o.numero);
+      // Si el campo Contacto de la OP trae un correo, se usa como destinatario sugerido.
+      const emailContacto = (String(o.contacto || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [''])[0];
+      const estado = String(o.estadoOp || 'EN CURSO').trim().toUpperCase();
+
+      let overlay = document.getElementById('correo-termino-modal');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'correo-termino-modal';
+        overlay.className = 'modal-overlay';
+        overlay.addEventListener('click', e => { if (e.target === overlay) cerrarCorreoTerminoOP(); });
+        document.body.appendChild(overlay);
+      }
+
+      overlay.innerHTML = `
+        <div class="modal-content" style="max-width:720px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="margin:0; color:var(--primary);">✉️ Avisar término · OP ${esc(o.numero)}</h3>
+            <button class="btn btn-danger btn-sm" onclick="cerrarCorreoTerminoOP()">✕ Cerrar</button>
+          </div>
+          ${estado !== 'TERMINADA' && estado !== 'DESPACHADA' ? `<div style="background:#fef3c7; color:#92400e; border-radius:8px; padding:8px 12px; font-size:.78rem; font-weight:700; margin-bottom:12px;">⚠️ Esta OP figura como ${esc(estado)}, no como TERMINADA.</div>` : ''}
+          <div style="display:grid; gap:8px; margin-bottom:12px;">
+            <label style="font-size:.75rem; font-weight:700;">Para (opcional)
+              <input type="text" id="correo-termino-to" value="${esc(emailContacto)}" placeholder="cliente@empresa.cl" style="width:100%; box-sizing:border-box;">
+            </label>
+            <label style="font-size:.75rem; font-weight:700;">Asunto
+              <input type="text" id="correo-termino-subject" value="${esc(mail.subject)}" style="width:100%; box-sizing:border-box;">
+            </label>
+          </div>
+          <div style="background:#fff; color:#0f172a; border:1px solid var(--border); border-radius:8px; padding:12px 14px; max-height:38vh; overflow-y:auto; font-size:.8rem;">${mail.html}</div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; justify-content:flex-end;">
+            <button class="btn btn-secondary btn-sm" id="correo-termino-copy">📋 Copiar con formato</button>
+            <button class="btn btn-info btn-sm" id="correo-termino-web">🌐 Outlook Web</button>
+            <button class="btn btn-success btn-sm" id="correo-termino-desktop">📧 Abrir en Outlook</button>
+          </div>
+          <div style="font-size:.7rem; color:var(--text-muted); margin-top:8px;">
+            "Abrir en Outlook" y "Outlook Web" cargan el texto sin negritas ni viñetas; si quieres el formato tal cual, usa "Copiar con formato" y pégalo en un correo nuevo.
+          </div>
+        </div>`;
+
+      const getTo = () => (document.getElementById('correo-termino-to').value || '').trim();
+      const getSubject = () => (document.getElementById('correo-termino-subject').value || '').trim() || mail.subject;
+
+      document.getElementById('correo-termino-desktop').onclick = () => {
+        const url = `mailto:${encodeURIComponent(getTo())}?subject=${encodeURIComponent(getSubject())}&body=${encodeURIComponent(mail.text.replace(/\n/g, '\r\n'))}`;
+        window.location.href = url;
+      };
+      document.getElementById('correo-termino-web').onclick = () => {
+        const url = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(getTo())}&subject=${encodeURIComponent(getSubject())}&body=${encodeURIComponent(mail.text)}`;
+        window.open(url, '_blank', 'noopener');
+      };
+      document.getElementById('correo-termino-copy').onclick = async () => {
+        const btn = document.getElementById('correo-termino-copy');
+        try {
+          await navigator.clipboard.write([new ClipboardItem({
+            'text/html': new Blob([mail.html], { type: 'text/html' }),
+            'text/plain': new Blob([mail.text], { type: 'text/plain' })
+          })]);
+        } catch (err) {
+          try { await navigator.clipboard.writeText(mail.text); }
+          catch (err2) { alert('No se pudo copiar automáticamente.'); return; }
+        }
+        btn.textContent = '✅ Copiado';
+        setTimeout(() => { btn.textContent = '📋 Copiar con formato'; }, 1800);
+      };
+
+      overlay.style.display = 'flex';
+    }
+
+    function cerrarCorreoTerminoOP() {
+      const overlay = document.getElementById('correo-termino-modal');
+      if (overlay) overlay.style.display = 'none';
     }
 
     function moveOP(id, direction) {
