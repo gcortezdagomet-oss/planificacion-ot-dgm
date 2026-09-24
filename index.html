@@ -4818,18 +4818,17 @@
         marcarAvisoTermino(id); pintarEstadoAviso();
       };
       document.getElementById('correo-termino-teams').onclick = () => {
-        // Abre un chat de Teams con el mensaje escrito (sin enviarlo).
-        // Solo se pasan como participantes los correos válidos, y las comas
-        // van SIN codificar (formato que Teams espera en "users=").
+        // Abre directo el grupo de Teams "LIBERACIÓN DE OT | CONTROL DE CALIDAD"
+        // (ya no depende del correo de "Para"). Los enlaces a un chat de grupo
+        // no permiten precargar texto, así que el mensaje se copia al
+        // portapapeles para pegarlo (Ctrl+V) y enviarlo.
         const msg = (document.getElementById('correo-termino-teams-msg').value || '').trim();
         if (!msg) { alert('Escribe el mensaje para Teams.'); return; }
-        const emails = getTo().split(/[\s,;]+/).filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
-        if (!emails.length) { alert('Escribe un correo válido en "Para" para poder abrir el chat de Teams.'); return; }
-        const qs = 'users=' + emails.map(encodeURIComponent).join(',') + '&message=' + encodeURIComponent(msg);
-        const webUrl = 'https://teams.microsoft.com/l/chat/0/0?' + qs;
-        const appUrl = 'msteams://teams.microsoft.com/l/chat/0/0?' + qs;
+        const GRUPO_TEAMS_PATH = 'teams.microsoft.com/l/chat/19:b03bc6792ec64c39a142a3f32d8c9bb3@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D';
+        const webUrl = 'https://' + GRUPO_TEAMS_PATH;
+        const appUrl = 'msteams://' + GRUPO_TEAMS_PATH;
 
-        // Respaldo: si Teams no precarga el texto, queda en el portapapeles para pegarlo (Ctrl+V).
+        // El mensaje queda en el portapapeles para pegarlo en el grupo (Ctrl+V).
         try { navigator.clipboard.writeText(msg); } catch (e) {}
 
         // Intenta abrir la app de escritorio de Teams (msteams://). Si el sistema
