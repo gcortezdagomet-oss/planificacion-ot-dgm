@@ -4776,6 +4776,10 @@
             </label>
           </div>
           <div style="background:#fff; color:#0f172a; border:1px solid var(--border); border-radius:8px; padding:12px 14px; max-height:38vh; overflow-y:auto; font-size:.8rem;">${mail.html}</div>
+          <div style="background:#fef3c7; color:#92400e; border-radius:8px; padding:8px 12px; font-size:.75rem; font-weight:700; margin-top:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span>📎 Teams no adjunta las fotos automáticamente: ábrelas con el botón "Ver fotos" y arrástralas al chat.</span>
+            <button type="button" class="btn btn-secondary btn-sm" id="correo-termino-ver-fotos" style="margin-left:auto;">📷 Ver fotos</button>
+          </div>
           <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; justify-content:flex-end;">
             <button class="btn btn-secondary btn-sm" id="correo-termino-copy">📋 Copiar con formato</button>
             <button class="btn btn-info btn-sm" id="correo-termino-web">🌐 Outlook Web</button>
@@ -4821,6 +4825,11 @@
         if (!msg) { alert('Escribe el mensaje para Teams.'); return; }
         const url = `https://teams.microsoft.com/l/chat/0/0?${users ? 'users=' + encodeURIComponent(users) + '&' : ''}message=${encodeURIComponent(msg)}`;
         window.open(url, '_blank', 'noopener');
+      };
+      document.getElementById('correo-termino-ver-fotos').onclick = () => {
+        // Abre el gestor de fotos de liberación de esta misma OP, para poder
+        // descargarlas/arrastrarlas al chat de Teams que se abrió aparte.
+        abrirFotosLiberacionOP(id);
       };
       document.getElementById('correo-termino-copy').onclick = async () => {
         const btn = document.getElementById('correo-termino-copy');
@@ -4894,8 +4903,10 @@
         overlay.id = 'fotos-liberacion-modal';
         overlay.className = 'modal-overlay';
         overlay.addEventListener('click', e => { if (e.target === overlay) cerrarFotosLiberacionOP(); });
-        document.body.appendChild(overlay);
       }
+      // Se reinserta al final del body cada vez para que quede por encima de
+      // cualquier otro modal ya abierto (ej. el de "Avisar término").
+      document.body.appendChild(overlay);
       overlay.dataset.opId = id;
       overlay.style.display = 'flex';
       renderFotosLiberacionOP(id);
