@@ -4818,13 +4818,20 @@
         marcarAvisoTermino(id); pintarEstadoAviso();
       };
       document.getElementById('correo-termino-teams').onclick = () => {
-        // Abre un chat de Teams con el mensaje escrito (sin enviarlo). Los correos
-        // separados por coma, punto y coma o espacio se convierten en participantes.
-        const users = getTo().split(/[\s,;]+/).filter(Boolean).join(',');
+        // Abre un chat de Teams con el mensaje escrito (sin enviarlo).
+        // Solo se pasan como participantes los correos válidos, y las comas
+        // van SIN codificar (formato que Teams espera en "users=").
         const msg = (document.getElementById('correo-termino-teams-msg').value || '').trim();
         if (!msg) { alert('Escribe el mensaje para Teams.'); return; }
-        const url = `https://teams.microsoft.com/l/chat/0/0?${users ? 'users=' + encodeURIComponent(users) + '&' : ''}message=${encodeURIComponent(msg)}`;
-        window.open(url, '_blank', 'noopener');
+        const emails = getTo().split(/[\s,;]+/).filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+        const qs = (emails.length ? 'users=' + emails.map(encodeURIComponent).join(',') + '&' : '') + 'message=' + encodeURIComponent(msg);
+        const url = 'https://teams.microsoft.com/l/chat/0/0?' + qs;
+        // Se abre de forma síncrona dentro del clic (evita el bloqueo de pop-ups).
+        const w = window.open(url, '_blank');
+        if (!w) { alert('El navegador bloqueó la ventana de Teams. Permite pop-ups para este sitio e inténtalo de nuevo.'); return; }
+        try { w.opener = null; } catch (e) {}
+        // Respaldo: si Teams no precarga el texto, queda en el portapapeles para pegarlo (Ctrl+V).
+        try { navigator.clipboard.writeText(msg); } catch (e) {}
       };
       document.getElementById('correo-termino-ver-fotos').onclick = () => {
         // Abre el gestor de fotos de liberación de esta misma OP, para poder
