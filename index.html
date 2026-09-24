@@ -3982,7 +3982,10 @@
         const idx = db.ots.findIndex(o => o.id === editId);
         if (idx >= 0) {
           // saveOP reconstruye la OP desde el formulario: se conserva la marca de aviso de término.
-          if (db.ots[idx] && db.ots[idx].avisoTermino) opData.avisoTermino = db.ots[idx].avisoTermino;
+          // También los datos y fotos de liberación (QR del trabajador y manuales).
+          const prevOP = db.ots[idx] || {};
+          ['avisoTermino', 'liberadoPor', 'liberadoEn', 'fotosLiberacionPaths', 'fotoLiberacionPath', 'fotosLiberacionManual']
+            .forEach(k => { if (prevOP[k] !== undefined) opData[k] = prevOP[k]; });
           db.ots[idx] = opData;
         }
       } else {
@@ -4631,13 +4634,10 @@
               <button class="btn btn-info btn-sm" onclick="previewPDF('${o.id}')">👁️ Ver</button>
               ${window.dagometCurrentProfile?.rol === 'admin' ? `<button class="btn btn-success btn-sm" onclick="abrirCorreoTerminoOP('${o.id}')" title="Avisar al cliente por correo que el trabajo está finalizado">✉️ Avisar término</button>` : ''}
               ${(() => {
-                const fotos = getFotosLiberacionDe(o);
-                if (!fotos.length) return '';
-                const tip = `Liberada por ${esc(o.liberadoPor || '-')}${o.liberadoEn ? ' · ' + new Date(o.liberadoEn).toLocaleString('es-CL') : ''}`;
-                if (fotos.length === 1) {
-                  return `<button class="btn btn-secondary btn-sm" onclick="verFotoLiberacionOP('${o.id}', 0)" title="${tip}">📷 Foto liberación</button>`;
-                }
-                return fotos.map((_, i) => `<button class="btn btn-secondary btn-sm" onclick="verFotoLiberacionOP('${o.id}', ${i})" title="${tip}">📷 Foto ${i + 1}</button>`).join('');
+                const nFotos = getTotalFotosLiberacion(o);
+                if (nFotos) return `<button class="btn btn-secondary btn-sm" onclick="abrirFotosLiberacionOP('${o.id}')" title="Fotos de liberación del trabajo">📷 Ver fotos (${nFotos})</button>`;
+                if (window.dagometCurrentProfile?.rol === 'read_only') return '';
+                return `<button class="btn btn-secondary btn-sm" onclick="abrirFotosLiberacionOP('${o.id}')" title="Agregar fotos de liberación del trabajo">📷 Fotos</button>`;
               })()}
               <button class="btn btn-danger btn-sm" onclick="deleteOP('${o.id}')">🗑️ Eliminar</button>
             </td>
@@ -4768,18 +4768,22 @@
             <label style="font-size:.75rem; font-weight:700;">Para (opcional)
               <input type="text" id="correo-termino-to" value="${esc(emailContacto)}" placeholder="cliente@empresa.cl" style="width:100%; box-sizing:border-box;">
             </label>
-            <label style="font-size:.75rem; font-weight:700;">Asunto
+            <label style="font-size:.75rem; font-weight:700;">Asunto (correo)
               <input type="text" id="correo-termino-subject" value="${esc(mail.subject)}" style="width:100%; box-sizing:border-box;">
+            </label>
+            <label style="font-size:.75rem; font-weight:700;">Mensaje para Teams
+              <input type="text" id="correo-termino-teams-msg" value="${esc(`OT N° ${o.numero} LIBERADA | ${o.cliente || ''}`)}" style="width:100%; box-sizing:border-box;">
             </label>
           </div>
           <div style="background:#fff; color:#0f172a; border:1px solid var(--border); border-radius:8px; padding:12px 14px; max-height:38vh; overflow-y:auto; font-size:.8rem;">${mail.html}</div>
           <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; justify-content:flex-end;">
             <button class="btn btn-secondary btn-sm" id="correo-termino-copy">📋 Copiar con formato</button>
             <button class="btn btn-info btn-sm" id="correo-termino-web">🌐 Outlook Web</button>
+            <button class="btn btn-info btn-sm" id="correo-termino-teams">💬 Teams</button>
             <button class="btn btn-success btn-sm" id="correo-termino-desktop">📧 Abrir en Outlook</button>
           </div>
           <div style="font-size:.7rem; color:var(--text-muted); margin-top:8px;">
-            "Abrir en Outlook" y "Outlook Web" cargan el texto sin negritas ni viñetas; si quieres el formato tal cual, usa "Copiar con formato" y pégalo en un correo nuevo.<br>La OP queda marcada como "Avisado" al usar cualquiera de los tres botones; si finalmente no envías el correo, usa "Quitar marca".
+            "Abrir en Outlook" y "Outlook Web" cargan el texto sin negritas ni viñetas; si quieres el formato tal cual, usa "Copiar con formato" y pégalo en un correo nuevo.<br>La OP queda marcada como "Avisado" al usar Outlook o "Copiar con formato" (el botón de Teams envía solo el mensaje corto y no la marca); si finalmente no envías el correo, usa "Quitar marca".
           </div>
         </div>`;
 
@@ -4809,6 +4813,15 @@
         window.open(url, '_blank', 'noopener');
         marcarAvisoTermino(id); pintarEstadoAviso();
       };
+      document.getElementById('correo-termino-teams').onclick = () => {
+        // Abre un chat de Teams con el mensaje escrito (sin enviarlo). Los correos
+        // separados por coma, punto y coma o espacio se convierten en participantes.
+        const users = getTo().split(/[\s,;]+/).filter(Boolean).join(',');
+        const msg = (document.getElementById('correo-termino-teams-msg').value || '').trim();
+        if (!msg) { alert('Escribe el mensaje para Teams.'); return; }
+        const url = `https://teams.microsoft.com/l/chat/0/0?${users ? 'users=' + encodeURIComponent(users) + '&' : ''}message=${encodeURIComponent(msg)}`;
+        window.open(url, '_blank', 'noopener');
+      };
       document.getElementById('correo-termino-copy').onclick = async () => {
         const btn = document.getElementById('correo-termino-copy');
         try {
@@ -4831,6 +4844,197 @@
     function cerrarCorreoTerminoOP() {
       const overlay = document.getElementById('correo-termino-modal');
       if (overlay) overlay.style.display = 'none';
+    }
+
+    // ==========================================================================
+    // FOTOS DE LIBERACIÓN (galería): reúne en un solo lugar las fotos que subió
+    // el trabajador al liberar la OP por QR (bucket fotos-liberacion) y las que
+    // el admin/editor agrega a mano como registro (fotosLiberacionManual, en el
+    // bucket documentos-op, que ya permite subir/leer a usuarios autenticados).
+    // Todos los roles, incluido SOLO LECTURA, pueden verlas; solo admin y
+    // editor pueden agregar o quitar las manuales.
+    // ==========================================================================
+
+    function getFotosLiberacionManual(o) {
+      return Array.isArray(o && o.fotosLiberacionManual) ? o.fotosLiberacionManual : [];
+    }
+
+    function getTotalFotosLiberacion(o) {
+      return getFotosLiberacionDe(o).length + getFotosLiberacionManual(o).length;
+    }
+
+    // Reduce las fotos del celular (varios MB) a un máximo de 1600 px en JPEG
+    // para no llenar el almacenamiento. Si algo falla, se sube el original.
+    async function reducirImagenParaSubir(file) {
+      try {
+        if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) return file;
+        const url = URL.createObjectURL(file);
+        const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
+        URL.revokeObjectURL(url);
+        const max = 1600;
+        const escala = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.naturalWidth * escala);
+        canvas.height = Math.round(img.naturalHeight * escala);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+        if (!blob || blob.size >= file.size) return file;
+        return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+      } catch (err) {
+        return file;
+      }
+    }
+
+    function abrirFotosLiberacionOP(id) {
+      const o = db.ots.find(x => x.id === id);
+      if (!o) return;
+      let overlay = document.getElementById('fotos-liberacion-modal');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'fotos-liberacion-modal';
+        overlay.className = 'modal-overlay';
+        overlay.addEventListener('click', e => { if (e.target === overlay) cerrarFotosLiberacionOP(); });
+        document.body.appendChild(overlay);
+      }
+      overlay.dataset.opId = id;
+      overlay.style.display = 'flex';
+      renderFotosLiberacionOP(id);
+    }
+
+    function cerrarFotosLiberacionOP() {
+      const overlay = document.getElementById('fotos-liberacion-modal');
+      if (overlay) { overlay.style.display = 'none'; overlay.innerHTML = ''; }
+    }
+
+    function renderFotosLiberacionOP(id) {
+      const overlay = document.getElementById('fotos-liberacion-modal');
+      const o = db.ots.find(x => x.id === id);
+      if (!overlay || !o) return;
+      const puedeEditar = window.dagometCurrentProfile?.rol !== 'read_only';
+
+      const items = [
+        ...getFotosLiberacionDe(o).map(p => ({ manual: false, bucket: LIBERACION_FOTO_BUCKET, path: p })),
+        ...getFotosLiberacionManual(o).map((f, i) => ({ manual: true, idx: i, bucket: DOC_ATTACH_BUCKET, path: f.path, name: f.name, por: f.por, at: f.uploadedAt }))
+      ];
+
+      const infoLib = o.liberadoPor
+        ? `Liberada por ${esc(o.liberadoPor)}${o.liberadoEn ? ' · ' + new Date(o.liberadoEn).toLocaleString('es-CL') : ''}`
+        : '';
+
+      overlay.innerHTML = `
+        <div class="modal-content" style="max-width:860px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:6px;">
+            <h3 style="margin:0; color:var(--primary);">📷 Fotos de liberación · OP ${esc(o.numero || '')}</h3>
+            <button class="btn btn-danger btn-sm" onclick="cerrarFotosLiberacionOP()">✕ Cerrar</button>
+          </div>
+          ${infoLib ? `<div style="font-size:.75rem; color:var(--text-muted); margin-bottom:10px;">${infoLib}</div>` : ''}
+          ${puedeEditar ? `
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:10px 0 14px;">
+              <button class="btn btn-success btn-sm" id="fotos-lib-add">＋ Agregar fotos</button>
+              <input type="file" id="fotos-lib-input" accept="image/*" multiple style="display:none;">
+              <span id="fotos-lib-status" style="font-size:.75rem; color:var(--text-muted);"></span>
+            </div>` : ''}
+          ${items.length ? `<div id="fotos-lib-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px;">
+            ${items.map((it, n) => `
+              <div style="background:#fff; border:1px solid var(--border); border-radius:8px; overflow:hidden; display:flex; flex-direction:column;">
+                <a id="fotos-lib-link-${n}" target="_blank" rel="noopener" style="display:flex; align-items:center; justify-content:center; height:140px; background:#f1f5f9; color:#64748b; font-size:.72rem; text-decoration:none;">
+                  <img id="fotos-lib-img-${n}" alt="" style="display:none; width:100%; height:100%; object-fit:cover;"><span id="fotos-lib-ph-${n}">⏳ Cargando...</span>
+                </a>
+                <div style="padding:6px 8px; font-size:.68rem; color:#334155; display:flex; justify-content:space-between; align-items:center; gap:6px;">
+                  <span>${it.manual ? `Manual${it.por ? ' · ' + esc(it.por) : ''}${it.at ? '<br>' + new Date(it.at).toLocaleDateString('es-CL') : ''}` : 'Trabajador (QR)'}</span>
+                  ${it.manual && puedeEditar ? `<button type="button" class="btn btn-danger btn-sm" data-del="${it.idx}" title="Quitar esta foto" style="padding:2px 7px;">🗑️</button>` : ''}
+                </div>
+              </div>`).join('')}
+          </div>` : `<div style="padding:20px; text-align:center; color:var(--text-muted); font-size:.85rem;">Esta OP aún no tiene fotos de liberación.</div>`}
+        </div>`;
+
+      // Miniaturas: URLs firmadas de corta duración (los buckets son privados).
+      const sb = window.dagometSupabase;
+      items.forEach(async (it, n) => {
+        const ph = document.getElementById('fotos-lib-ph-' + n);
+        try {
+          if (!sb) throw new Error('sin conexión');
+          const { data, error } = await sb.storage.from(it.bucket).createSignedUrl(it.path, 3600);
+          if (error) throw error;
+          const img = document.getElementById('fotos-lib-img-' + n);
+          const link = document.getElementById('fotos-lib-link-' + n);
+          if (!img || !link) return;
+          link.href = data.signedUrl;
+          img.onload = () => { img.style.display = 'block'; if (ph) ph.style.display = 'none'; };
+          img.onerror = () => { if (ph) ph.textContent = '🖼️ Abrir foto'; };
+          img.src = data.signedUrl;
+        } catch (err) {
+          if (ph) ph.textContent = '⚠️ No se pudo cargar';
+        }
+      });
+
+      if (puedeEditar) {
+        const input = document.getElementById('fotos-lib-input');
+        document.getElementById('fotos-lib-add').onclick = () => input.click();
+        input.onchange = () => { const files = Array.from(input.files || []); input.value = ''; subirFotosLiberacionOP(id, files); };
+        overlay.querySelectorAll('button[data-del]').forEach(b => {
+          b.onclick = () => quitarFotoLiberacionManual(id, Number(b.dataset.del));
+        });
+      }
+    }
+
+    async function subirFotosLiberacionOP(id, files) {
+      if (window.dagometCurrentProfile?.rol === 'read_only') return;
+      const o = db.ots.find(x => x.id === id);
+      const sb = window.dagometSupabase;
+      const imagenes = (files || []).filter(f => f && /^image\//i.test(f.type || ''));
+      if (!o || !imagenes.length) { if (files && files.length) alert('Solo se pueden subir imágenes.'); return; }
+      if (!sb) { alert('No hay conexión con Supabase.'); return; }
+
+      const status = document.getElementById('fotos-lib-status');
+      const addBtn = document.getElementById('fotos-lib-add');
+      if (addBtn) addBtn.disabled = true;
+      const numero = String(o.numero || 'SIN_NUMERO').toUpperCase().replace(/[^a-zA-Z0-9_-]/g, '_') || 'SIN_NUMERO';
+      if (!Array.isArray(o.fotosLiberacionManual)) o.fotosLiberacionManual = [];
+      let subidas = 0;
+
+      for (let i = 0; i < imagenes.length; i++) {
+        if (status) status.textContent = `⏳ Subiendo ${i + 1} de ${imagenes.length}...`;
+        try {
+          const archivo = await reducirImagenParaSubir(imagenes[i]);
+          const path = `${numero}/fotos_liberacion/${Date.now()}_${i}_${sanitizeFileName(archivo.name)}`;
+          const { error } = await sb.storage.from(DOC_ATTACH_BUCKET).upload(path, archivo, { upsert: false, contentType: archivo.type || 'image/jpeg' });
+          if (error) throw error;
+          o.fotosLiberacionManual.push({
+            path, name: archivo.name, size: archivo.size, uploadedAt: Date.now(),
+            por: window.dagometCurrentProfile?.nombre || window.dagometCurrentUser?.email || '-'
+          });
+          subidas++;
+        } catch (err) {
+          console.error('Error al subir foto de liberación:', err);
+          alert(`No se pudo subir "${imagenes[i].name}": ` + (err.message || err));
+        }
+      }
+
+      if (subidas) {
+        registrarAuditoria('AGREGAR FOTO LIBERACIÓN', `OP N° ${o.numero || '-'} · ${o.cliente || 'Sin cliente'} (${subidas} foto${subidas === 1 ? '' : 's'} manual${subidas === 1 ? '' : 'es'})`, o.numero || '');
+        saveDB();
+        renderOPsTable();
+      }
+      renderFotosLiberacionOP(id);
+    }
+
+    async function quitarFotoLiberacionManual(id, idx) {
+      if (window.dagometCurrentProfile?.rol === 'read_only') return;
+      const o = db.ots.find(x => x.id === id);
+      const f = o && getFotosLiberacionManual(o)[idx];
+      if (!f) return;
+      if (!confirm('¿Quitar esta foto del registro de liberación?')) return;
+      try {
+        if (window.dagometSupabase) await window.dagometSupabase.storage.from(DOC_ATTACH_BUCKET).remove([f.path]);
+      } catch (err) {
+        console.error('Error al eliminar la foto en la nube:', err);
+      }
+      o.fotosLiberacionManual.splice(idx, 1);
+      registrarAuditoria('QUITAR FOTO LIBERACIÓN', `OP N° ${o.numero || '-'} · ${o.cliente || 'Sin cliente'}`, o.numero || '');
+      saveDB();
+      renderOPsTable();
+      renderFotosLiberacionOP(id);
     }
 
     function moveOP(id, direction) {
