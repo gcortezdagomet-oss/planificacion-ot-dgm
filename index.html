@@ -2323,7 +2323,9 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 #tab-stats .stats-filter-row-top { order: 1; }
 #tab-stats #dashboard-centro-control { order: 2; }
 #tab-stats #dashboard-operativo { order: 3; }
-#tab-stats .stats-analysis { order: 4; }
+#tab-stats #dashboard-performance { order: 4; }
+#tab-stats .stats-period-summary { order: 5; }
+#tab-stats .stats-analysis { order: 6; }
 
 #tab-stats .kpi-card,
 #tab-stats .dash-op-card,
@@ -3198,8 +3200,21 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         <div id="dashboard-centro-control" class="dashboard-operativo" style="margin-bottom:18px;"></div>
         <div id="dashboard-operativo" class="dashboard-operativo" style="margin-bottom:18px;"></div>
 
+        <div id="dashboard-performance" class="dashboard-performance"></div>
+
+        <!-- El antiguo grid de 4 tarjetas (Total/Normal/Alta/Urgente) mostraba
+             lo mismo que el Semáforo de prioridad de más arriba, solo que
+             filtrado por periodo. Se deja como una sola línea compacta. -->
+        <div class="stats-period-summary" title="Prioridad de las OP dentro del periodo elegido arriba">
+          <span class="stats-period-summary-title"><svg class="section-ico" aria-hidden="true"><use href="#ico-bar-chart"/></svg>Resumen del periodo:</span>
+          <span class="stats-period-chip"><b id="kpi-total">0</b> total</span>
+          <span class="stats-period-chip stats-period-chip-click" style="color:var(--accent);" onclick="filterHistoryByField('prioridad','NORMAL')" title="Ver OP de prioridad Normal"><b id="kpi-normal">0</b> normal</span>
+          <span class="stats-period-chip stats-period-chip-click" style="color:#dc2626;" onclick="filterHistoryByField('prioridad','ALTA')" title="Ver OP de prioridad Alta"><b id="kpi-alta">0</b> alta</span>
+          <span class="stats-period-chip stats-period-chip-click" style="color:#7f1d1d;" onclick="filterHistoryByField('prioridad','URGENTE')" title="Ver OP de prioridad Urgente"><b id="kpi-urgente">0</b> urgente</span>
+        </div>
+
         <details class="stats-collapsible stats-analysis" ontoggle="if (this.open) requestAnimationFrame(() => renderStats())">
-          <summary><svg class="section-ico" aria-hidden="true"><use href="#ico-bar-chart"/></svg>Análisis y desempeño <span class="stats-collapsible-hint">· gráficos e histórico</span></summary>
+          <summary><svg class="section-ico" aria-hidden="true"><use href="#ico-bar-chart"/></svg>Gráficos e histórico</summary>
         <div class="trend-card">
           <div class="chart-card-header" style="margin-bottom:6px;">
             <div>
@@ -3267,19 +3282,6 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           </div>
         </div>
         <!-- ===== FIN de los gráficos ===== -->
-
-        <div id="dashboard-performance" class="dashboard-performance"></div>
-
-        <!-- El antiguo grid de 4 tarjetas (Total/Normal/Alta/Urgente) mostraba
-             lo mismo que el Semáforo de prioridad de más arriba, solo que
-             filtrado por periodo. Se deja como una sola línea compacta. -->
-        <div class="stats-period-summary" title="Prioridad de las OP dentro del periodo elegido arriba">
-          <span class="stats-period-summary-title"><svg class="section-ico" aria-hidden="true"><use href="#ico-bar-chart"/></svg>Resumen del periodo:</span>
-          <span class="stats-period-chip"><b id="kpi-total">0</b> total</span>
-          <span class="stats-period-chip stats-period-chip-click" style="color:var(--accent);" onclick="filterHistoryByField('prioridad','NORMAL')" title="Ver OP de prioridad Normal"><b id="kpi-normal">0</b> normal</span>
-          <span class="stats-period-chip stats-period-chip-click" style="color:#dc2626;" onclick="filterHistoryByField('prioridad','ALTA')" title="Ver OP de prioridad Alta"><b id="kpi-alta">0</b> alta</span>
-          <span class="stats-period-chip stats-period-chip-click" style="color:#7f1d1d;" onclick="filterHistoryByField('prioridad','URGENTE')" title="Ver OP de prioridad Urgente"><b id="kpi-urgente">0</b> urgente</span>
-        </div>
         </details>
       </div>
     </div>
