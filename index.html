@@ -1738,8 +1738,19 @@
       actualizarTextoBoton();
     })();
 
+    // Forzar la pantalla de acceso al iniciar la app para que no se salte la
+    // intro por una sesión persistente o por una versión vieja cargada desde
+    // caché. Si luego quieres inicio automático, cambia esta constante a false.
+    const FORCE_LOGIN_ON_LOAD = true;
+    setLoginUI();
+
     loginBtn.addEventListener('click',async()=>{errorBox.style.display='none';loginBtn.disabled=true;loginBtn.textContent='Ingresando…';const usuario=email.value.trim().toLowerCase(); const authEmail=usuario.includes('@')?usuario:(usuario+'@dagomet.local'); const {data,error}=await sb.auth.signInWithPassword({email:authEmail,password:password.value});if(error)showError(error.message.includes('Invalid login credentials')?'Usuario o contraseña incorrectos.':error.message);else await finishSession(data.session);loginBtn.disabled=false;loginBtn.textContent='Ingresar';});
     password.addEventListener('keydown',e=>{if(e.key==='Enter')loginBtn.click();});
+
+    if (FORCE_LOGIN_ON_LOAD) {
+      return {configured:true,authenticated:false};
+    }
+
     const {data:{session}}=await sb.auth.getSession();
     return {configured:true,authenticated:await finishSession(session)};
   })();

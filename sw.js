@@ -21,12 +21,24 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
-  // Para el HTML (la app en sí) y para el resto de los archivos propios
-  // (CSS, JS, etc.): siempre intenta traer la versión más nueva desde
-  // internet primero, y solo usa la copia guardada si no hay conexión.
-  // Así, cada vez que actualices cualquier archivo en GitHub, se verá al
-  // instante (con GitHub Pages) sin que nadie tenga que borrar caché a
-  // mano ni subir la versión de CACHE.
+  const isHtmlRequest = event.request.mode === 'navigate' || event.request.destination === 'document';
+
+  // Siempre prioriza la versión fresca del HTML para no quedarnos con una
+  // pantalla de login o una app vieja guardada en caché. Los assets estáticos
+  // pueden seguir cacheándose, pero la página principal se recarga desde red.
+  if (isHtmlRequest) {
+    event.respondWith(
+      fetch(event.request)
+        .then(r => {
+          const copy = r.clone();
+          caches.open(CACHE).then(c => c.put('./index.html', copy));
+          return r;
+        })
+        .catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then(r => {
@@ -34,6 +46,6 @@ self.addEventListener('fetch', event => {
         caches.open(CACHE).then(c => c.put(event.request, copy));
         return r;
       })
-      .catch(() => caches.match(event.request).then(cached => cached || (event.request.mode === 'navigate' ? caches.match('./index.html') : undefined)))
+      .catch(() => caches.match(event.request))
   );
 });
