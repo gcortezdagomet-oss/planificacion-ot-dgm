@@ -52,7 +52,7 @@
       --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.08);
     }
     * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
-    html { -webkit-font-smoothing: antialiased; }
+    html { -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body { margin: 0; background-color: var(--bg); color: var(--text); padding: 24px; font-size: 14px; line-height: 1.5; }
     .container { max-width: 1200px; margin: 0 auto; }
 
@@ -2415,6 +2415,25 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 #tab-stats .dash-alert-row, #tab-stats .dash-area-row,
 #tab-stats .smart-alert-item, #tab-stats .performance-table,
 #tab-stats .dash-table { font-size: .78rem; }
+
+@media (max-width: 700px) {
+  #tab-stats .smart-alert-item,
+  #tab-stats .dash-alert-row,
+  #tab-stats .priority-summary-item {
+    font-size: .8rem;
+    line-height: 1.4;
+  }
+  #tab-stats .smart-alert-item-meta,
+  #tab-stats .smart-alert-desc,
+  #tab-stats .smart-alert-empty,
+  #tab-stats .dash-paused-main small,
+  #tab-stats .dash-paused-date,
+  #tab-stats .dash-paused-more {
+    font-size: .74rem;
+    line-height: 1.4;
+  }
+  #tab-stats .priority-mini { font-size: .7rem; }
+}
 
 /* ---- Set de íconos del Dashboard (reemplaza los emojis) ---- */
 .section-ico {
