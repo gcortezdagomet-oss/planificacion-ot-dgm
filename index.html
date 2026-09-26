@@ -17,7 +17,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- Generador de QR 100% local (sin red, sin CORS): usado para el QR de
        liberación de OP que va en el PDF/impresión, y para la vista de
@@ -2239,6 +2239,7 @@
         db.ots.sort((a,b) => (Number(b.createdAt)||0) - (Number(a.createdAt)||0));
         saveDB();
       }
+
     }
 
     const $ = id => document.getElementById(id);
@@ -4856,6 +4857,28 @@
       renderOPsTable();
     }
 
+    async function crearEnlacesAdjuntosTeams(o) {
+      const sb = window.dagometSupabase;
+      if (!sb) throw new Error('No hay conexión con Supabase.');
+
+      const archivos = [];
+      getFotosLiberacionDe(o).forEach((path, index) => {
+        if (path) archivos.push({ bucket: LIBERACION_FOTO_BUCKET, path, nombre: `Foto de liberación ${index + 1}` });
+      });
+      getFotosLiberacionManual(o).forEach((foto, index) => {
+        if (foto?.path) archivos.push({ bucket: DOC_ATTACH_BUCKET, path: foto.path, nombre: foto.name || `Foto manual ${index + 1}` });
+      });
+      ((o.documentosAdjuntos && o.documentosAdjuntos.docOpEscaneada) || []).forEach((archivo, index) => {
+        if (archivo?.path) archivos.push({ bucket: DOC_ATTACH_BUCKET, path: archivo.path, nombre: archivo.name || `OP escaneada ${index + 1}` });
+      });
+
+      return Promise.all(archivos.map(async archivo => {
+        const { data, error } = await sb.storage.from(archivo.bucket).createSignedUrl(archivo.path, 3600);
+        if (error) throw error;
+        return { nombre: String(archivo.nombre).replace(/[\r\n]+/g, ' '), url: data.signedUrl };
+      }));
+    }
+
     function abrirCorreoTerminoOP(id) {
       // Solo el administrador puede enviar este aviso.
       if (window.dagometCurrentProfile?.rol !== 'admin') return;
@@ -4898,13 +4921,14 @@
             <label style="font-size:.75rem; font-weight:700;">Mensaje para Teams
               <input type="text" id="correo-termino-teams-msg" value="${esc(`OT N° ${o.numero} LIBERADA | ${o.cliente || ''}`)}" style="width:100%; box-sizing:border-box;">
             </label>
+            <textarea id="correo-termino-teams-preview" readonly aria-label="Mensaje completo para Teams" style="display:none; width:100%; min-height:110px; box-sizing:border-box;"></textarea>
           </div>
           <details style="border:1px solid var(--border); border-radius:8px; background:#f8fafc;">
             <summary style="cursor:pointer; padding:9px 12px; font-size:.8rem; font-weight:700; color:var(--primary);">👁️ Ver texto del correo</summary>
             <div style="background:#fff; color:#0f172a; border-top:1px solid var(--border); padding:12px 14px; max-height:38vh; overflow-y:auto; font-size:.8rem;">${mail.html}</div>
           </details>
           <div style="color:var(--text-muted); font-size:.75rem; margin-top:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span>📎 Teams no adjunta fotos: ábrelas y arrástralas al chat.</span>
+            <span>📎 El mensaje de Teams incluirá enlaces seguros a fotos de liberación y OP escaneada (caducan en 1 hora).</span>
             <button type="button" class="btn btn-secondary btn-sm" id="correo-termino-ver-fotos" style="margin-left:auto;">📷 Ver fotos</button>
           </div>
           <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; justify-content:flex-end; align-items:center;">
@@ -4917,7 +4941,7 @@
             <summary style="cursor:pointer;">ⓘ Cómo funcionan los botones</summary>
             <div style="margin-top:6px;">
               "Abrir en Outlook" y "Outlook Web" cargan el texto sin negritas ni viñetas; si quieres el formato tal cual, usa "Copiar con formato" y pégalo en un correo nuevo.<br>
-              La OP queda marcada como "Avisado" al usar Outlook o "Copiar con formato". El botón de Teams abre el grupo y copia el mensaje corto, pero no marca la OP. Si finalmente no envías el correo, usa "Quitar marca".
+              La OP queda marcada como "Avisado" al usar Outlook o "Copiar con formato". Teams abre el chat y copia el mensaje junto a enlaces temporales; pégalo y envíalo manualmente. Teams no marca la OP como avisada.
             </div>
           </details>
         </div>`;
@@ -4948,19 +4972,51 @@
         window.open(url, '_blank', 'noopener');
         marcarAvisoTermino(id); pintarEstadoAviso();
       };
-      document.getElementById('correo-termino-teams').onclick = () => {
+      document.getElementById('correo-termino-teams').onclick = async () => {
         // Abre directo el grupo de Teams "LIBERACIÓN DE OT | CONTROL DE CALIDAD"
         // (ya no depende del correo de "Para"). Los enlaces a un chat de grupo
         // no permiten precargar texto, así que el mensaje se copia al
         // portapapeles para pegarlo (Ctrl+V) y enviarlo.
         const msg = (document.getElementById('correo-termino-teams-msg').value || '').trim();
         if (!msg) { alert('Escribe el mensaje para Teams.'); return; }
+        const teamsBtn = document.getElementById('correo-termino-teams');
+        const preview = document.getElementById('correo-termino-teams-preview');
+        const originalText = teamsBtn.textContent;
+        teamsBtn.disabled = true;
+        teamsBtn.textContent = '⏳ Preparando enlaces...';
+
+        let mensajeCompleto = msg;
+        try {
+          const enlaces = await crearEnlacesAdjuntosTeams(o);
+          if (enlaces.length) {
+            mensajeCompleto += '\n\nArchivos de la OP (enlaces seguros, válidos por 1 hora):\n' +
+              enlaces.map((archivo, index) => `${index + 1}. ${archivo.nombre}\n${archivo.url}`).join('\n');
+          } else {
+            mensajeCompleto += '\n\nEsta OP no tiene fotos de liberación ni OP escaneada adjuntas.';
+          }
+
+          if (preview) {
+            preview.value = mensajeCompleto;
+            preview.style.display = 'block';
+          }
+          try {
+            await navigator.clipboard.writeText(mensajeCompleto);
+          } catch (clipboardError) {
+            if (preview) { preview.focus(); preview.select(); }
+            alert('No se pudo copiar automáticamente. El mensaje quedó seleccionado para copiarlo manualmente.');
+            return;
+          }
+        } catch (err) {
+          alert('No se pudieron preparar los enlaces de los archivos: ' + (err.message || err));
+          return;
+        } finally {
+          teamsBtn.disabled = false;
+          teamsBtn.textContent = originalText;
+        }
+
         const GRUPO_TEAMS_PATH = 'teams.microsoft.com/l/chat/19:b03bc6792ec64c39a142a3f32d8c9bb3@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D';
         const webUrl = 'https://' + GRUPO_TEAMS_PATH;
         const appUrl = 'msteams://' + GRUPO_TEAMS_PATH;
-
-        // El mensaje queda en el portapapeles para pegarlo en el grupo (Ctrl+V).
-        try { navigator.clipboard.writeText(msg); } catch (e) {}
 
         // Intenta abrir la app de escritorio de Teams (msteams://). Si el sistema
         // no tiene asociado ese protocolo (Teams no instalado), no pasa nada visible
