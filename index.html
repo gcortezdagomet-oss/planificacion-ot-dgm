@@ -3146,6 +3146,15 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             <button class="btn btn-success btn-sm" onclick="imprimirReporteMes()">📊 Imprimir reporte del mes</button>
             <button class="btn btn-warning btn-sm" onclick="imprimirReporteCompleto()">🗂️ Reporte completo</button>
           </div>
+          <div id="cal-term-worker-bar" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; width:100%;">
+            <label style="display:flex; align-items:center; gap:5px; font-size:.82rem; font-weight:700; color:var(--text-muted);">
+              Trabajador
+              <select id="cal-term-worker" style="height:32px; min-width:180px; padding:4px 7px; border:1px solid var(--border); border-radius:7px; font:inherit; background:#fff;">
+                <option value="">Todos los trabajadores</option>
+              </select>
+            </label>
+            <button class="btn btn-primary btn-sm" onclick="imprimirReporteTerminadasTrabajador()">✅ OP terminadas por trabajador (mes)</button>
+          </div>
         </div>
 
         <div class="cal-legend">
@@ -8661,7 +8670,55 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       return getFeriadosChile(year)[dateStr] || null;
     }
 
+    function renderCalTermWorkerOptions() {
+      const select = $('cal-term-worker');
+      if (!select) return;
+      const valorActual = select.value || '';
+      const trabajadores = [...new Set((db.people || []).map(p => String(p || '').trim()).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'es'));
+      select.innerHTML = `<option value="">Todos los trabajadores</option>` +
+        trabajadores.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+      if (trabajadores.includes(valorActual)) select.value = valorActual;
+    }
+
+    // Reporte mensual de OPs terminadas (TERMINADA o DESPACHADA) según su
+    // fecha real de término, filtrable por trabajador. Usa el mes que se está
+    // viendo en el calendario.
+    function imprimirReporteTerminadasTrabajador() {
+      const trabajador = ($('cal-term-worker')?.value || '').trim();
+      const prefix = `${calYear}-${pad2(calMonth + 1)}-`;
+      const respsDe = o => Array.isArray(o.responsableTrabajo)
+        ? o.responsableTrabajo.map(r => String(r).trim()).filter(Boolean)
+        : (o.responsableTrabajo ? [String(o.responsableTrabajo).trim()] : []);
+      const list = db.ots.filter(o => {
+        const estado = String(o.estadoOp || '').trim().toUpperCase();
+        if (!['TERMINADA', 'DESPACHADA'].includes(estado)) return false;
+        if (!String(o.fechaTermino || '').startsWith(prefix)) return false;
+        return !trabajador || respsDe(o).includes(trabajador);
+      }).sort((a, b) => String(a.fechaTermino || '').localeCompare(String(b.fechaTermino || '')) ||
+                        String(a.numero || '').localeCompare(String(b.numero || '')));
+
+      if (!list.length) {
+        alert(`No hay OP terminadas en ${CAL_MESES[calMonth]} ${calYear}${trabajador ? ' para ' + trabajador : ''}.`);
+        return;
+      }
+      let subtitulo = `${CAL_MESES[calMonth]} ${calYear} · ${list.length} OP terminada(s)`;
+      if (trabajador) {
+        subtitulo = `${CAL_MESES[calMonth]} ${calYear} · Trabajador: ${trabajador} · ${list.length} OP terminada(s)`;
+      } else {
+        const conteo = {};
+        list.forEach(o => {
+          const r = respsDe(o);
+          (r.length ? r : ['Sin trabajador']).forEach(n => { conteo[n] = (conteo[n] || 0) + 1; });
+        });
+        subtitulo += ' · ' + Object.entries(conteo).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${n}: ${c}`).join(' · ');
+      }
+      previewReport(list, 'OP Terminadas por Trabajador', subtitulo,
+        ['numero', 'cliente', 'area', 'responsables', 'fechaTermino', 'estadoOp']);
+    }
+
     function renderCalendarTab() {
+      renderCalTermWorkerOptions();
       renderCalendarToday();
       renderCalendarGrid();
       renderCalendarSelectedDetail();
@@ -9324,6 +9381,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       { key: 'cliente',       label: 'Cliente',                shortLabel: 'Cliente',     align: 'left',   weight: 15, get: o => esc(o.cliente || '-') },
       { key: 'area',          label: 'Área',                   shortLabel: 'Área',        align: 'left',   weight: 11, get: o => esc(o.area || '-') },
       { key: 'maquina',       label: 'Máquina',                shortLabel: 'Máquina',     align: 'left',   weight: 9,  get: o => esc(o.maquina || '-') },
+      { key: 'fechaTermino',  label: 'Fecha de término',       shortLabel: 'Término',     align: 'left',   weight: 9,  get: o => o.fechaTermino ? formatDateWithDayUpper(String(o.fechaTermino).slice(0,10)) : '-' },
+      { key: 'responsables',  label: 'Trabajador(es)',         shortLabel: 'Trabajador',  align: 'left',   weight: 14, get: o => esc((Array.isArray(o.responsableTrabajo) ? o.responsableTrabajo.join(', ') : (o.responsableTrabajo || '')) || '-') },
       { key: 'estadoOp',      label: 'Estado',                 shortLabel: 'Estado',      align: 'center', weight: 8,  get: o => getStatusBadge(o.estadoOp) },
       { key: 'prioridad',     label: 'Prioridad',              shortLabel: 'Prioridad',   align: 'center', weight: 11, get: o => getPriorityBadge(o.prioridad) },
       { key: 'planificador',  label: 'Planificador',           shortLabel: 'Planif.',     align: 'left',   weight: 7,  get: o => esc(o.planificador || 'GCC') },
@@ -11425,7 +11484,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       // Solo lectura: bloquear edición, pero mantener operativos los controles
       // necesarios para consultar y generar/imprimir reportes, y también los
       // filtros de consulta del historial de OP (búsqueda y botones de plazo/soldadura).
-      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas):not(#he-report-from):not(#he-report-to):not(#search-op), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select):not(#trend-periodo):not(#he-report-worker)').forEach(el => { el.disabled = true; });
+      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas):not(#he-report-from):not(#he-report-to):not(#search-op), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select):not(#trend-periodo):not(#he-report-worker):not(#cal-term-worker)').forEach(el => { el.disabled = true; });
       document.querySelectorAll('#app-root button').forEach(btn => {
         const t=(btn.textContent||'').toLowerCase();
         const allow =
