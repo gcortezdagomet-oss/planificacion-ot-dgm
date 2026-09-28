@@ -9819,6 +9819,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         case 'piezas': return o.piezas || '-';
         case 'kilos': return Math.round((o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0));
         case 'trabajo': return o.instrucciones || '-';
+        case 'fechaTermino': return o.fechaTermino ? formatDateWithDayUpper(String(o.fechaTermino).slice(0,10)) : '-';
+        case 'responsables': return (Array.isArray(o.responsableTrabajo) ? o.responsableTrabajo.join(', ') : (o.responsableTrabajo || '')) || '-';
         default: return '';
       }
     }
@@ -9833,7 +9835,10 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         .filter(Boolean);
       const activeCols = cols.length ? cols : REPORT_COLUMNS.filter(c => REPORT_COLUMNS_DEFAULT.includes(c.key));
 
-      const ordenados = [...list].sort((a, b) => String(a.entrega || '').localeCompare(String(b.entrega || '')) || String(a.numero || '').localeCompare(String(b.numero || '')));
+      // Si el reporte incluye la fecha de término (reporte de OP terminadas), se
+      // ordena por esa fecha para que el Excel quede igual que la vista previa.
+      const campoOrden = activeCols.some(c => c.key === 'fechaTermino') ? 'fechaTermino' : 'entrega';
+      const ordenados = [...list].sort((a, b) => String(a[campoOrden] || '').localeCompare(String(b[campoOrden] || '')) || String(a.numero || '').localeCompare(String(b.numero || '')));
 
       const data = ordenados.map(o => {
         const row = {};
