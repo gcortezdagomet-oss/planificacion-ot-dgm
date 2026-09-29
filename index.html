@@ -9539,7 +9539,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       { key: 'piezas',        label: 'Piezas',                 shortLabel: 'Piezas',      align: 'center', weight: 6,  get: o => esc(o.piezas || '-') },
       { key: 'kilos',         label: 'Kilos',                  shortLabel: 'Kilos',       align: 'right',  weight: 6,  get: o => Math.round((o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0)).toLocaleString('es-CL') },
       { key: 'comentarios',   label: 'Comentarios',            shortLabel: 'Comentarios', align: 'left',   weight: 20, get: o => esc(o.comentarios || '-').replace(/\r?\n/g, '<br>') },
-      { key: 'soldadura',     label: 'Soldadura',              shortLabel: 'Soldadura',   align: 'left',   weight: 20, get: o => getReportSoldaduraBadge(o) },
+      { key: 'soldadura',     label: 'Estado de soldadura',     shortLabel: 'Estado',   align: 'left',   weight: 20, get: o => getReportSoldaduraBadge(o) },
       { key: 'trabajo',       label: 'Trabajo / Instrucciones',shortLabel: 'Trabajo',     align: 'left',   weight: 42, get: o => esc(o.instrucciones || '-').replace(/\r?\n/g, '<br>') },
     ];
     const REPORT_COLUMNS_DEFAULT = ['numero', 'entrega', 'cliente', 'area', 'estadoOp', 'prioridad', 'planificador'];
@@ -9850,7 +9850,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const totalWeight = activeCols.reduce((a, c) => a + (c.weight || 8), 0);
       const colgroupHtml = activeCols.map(c => `<col style="width:${((c.weight || 8) / totalWeight * 100).toFixed(2)}%;">`).join('');
 
-      const theadHtml = activeCols.map(c => `<th style="padding:${headPad}; text-align:${c.align}; font-size:${headFont}px; text-transform:uppercase; color:#64748b; border-bottom:2px solid #cbd5e1;">${esc(c.shortLabel || c.label)}</th>`).join('');
+      const theadHtml = activeCols.map(c => `<th style="padding:${headPad}; text-align:${c.align}; font-size:${headFont}px; text-transform:uppercase; color:#64748b; border-bottom:2px solid #cbd5e1;">${esc((c.key === 'soldadura' && activeCols.some(x => x.key === 'estadoOp')) ? 'Estado soldadura' : c.shortLabel || c.label)}</th>`).join('');
 
       const rows = ordenados.map(o => `
         <tr style="page-break-inside:avoid;">
