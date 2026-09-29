@@ -5431,8 +5431,16 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         const coincideConAutoActual = valorActual && valorActual === String(desc || '').trim().toUpperCase();
         const esAutoAnterior = ultimaAuto && valorActual === ultimaAuto;
         if (descInput.dataset.manual !== 'true' || esAutoAnterior || coincideConAutoActual || !valorActual) {
-          descInput.value = desc;
-          descInput.dataset.autoValue = desc;
+          // Una descripción que ya existía (p.ej. la guardada al editar una OP)
+          // y que NO fue generada automáticamente en esta sesión nunca se borra
+          // por quedar sin calce exacto en el catálogo (ocurre mientras se
+          // cambia material/tipo/calidad/medida/espesor). Solo se reemplaza
+          // cuando efectivamente se calculó una descripción nueva.
+          const descripcionGuardadaSinCalce = !desc && valorActual && !esAutoAnterior;
+          if (!descripcionGuardadaSinCalce) {
+            descInput.value = desc;
+            descInput.dataset.autoValue = desc;
+          }
           if (coincideConAutoActual) descInput.dataset.manual = 'false';
         }
       }
