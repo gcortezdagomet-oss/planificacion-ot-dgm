@@ -594,7 +594,7 @@
       #tab-list table td:nth-child(6)::before { content:'Área'; }
       #tab-list table td:nth-child(7)::before { content:'Entrega'; }
       #tab-list table td:nth-child(8)::before { content:'Prioridad'; }
-      #tab-list table td:nth-child(9)::before { content:'Soldadura Ext.'; }
+      #tab-list table td:nth-child(9)::before { content:'Soldadura'; }
       /* El "-" de Soldadura Ext. es casi invisible sobre fondo blanco en tarjeta */
       #tab-list table td:nth-child(9) span[style*="cbd5e1"] { color:var(--text-muted) !important; }
       /* Grupo de reordenar (▲▼) + botones de acción, todos del mismo tamaño */
@@ -2802,7 +2802,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             </select>
           </div>
           <div class="field">
-            <label>Soldadura (Externa)</label>
+            <label>Soldadura</label>
             <select id="soldadura">
               <option value="NO" selected>NO</option>
               <option value="SI">SÍ</option>
@@ -2834,26 +2834,38 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 
         <div id="soldadura-seguimiento-section" style="display:none; margin-top:15px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:14px 16px;">
           <div style="font-weight:800; color:#991b1b; font-size:0.9rem; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
-            <span>⚠️</span> Seguimiento Soldadura Externa
+            <span>🔥</span> Seguimiento de soldadura
           </div>
           <div class="soldadura-seguimiento-grid">
             <label class="soldadura-step">
-              <input type="checkbox" id="sold-enviado-check" onchange="onSoldaduraStepChange('enviado')">
-              <span>Enviado a soldar</span>
-              <input type="date" id="sold-enviado-fecha" title="Fecha de envío">
+              <input type="checkbox" id="sold-cilindrado-check" onchange="onSoldaduraStepChange('cilindrado')">
+              <span>Cilindrado OK</span>
+              <input type="date" id="sold-cilindrado-fecha" title="Fecha en que quedó cilindrado">
             </label>
             <label class="soldadura-step">
-              <input type="checkbox" id="sold-recibido-check" onchange="onSoldaduraStepChange('recibido')">
-              <span>Llegó para recilindrar</span>
-              <input type="date" id="sold-recibido-fecha" title="Fecha de llegada">
+              <input type="checkbox" id="sold-lista-check" onchange="onSoldaduraStepChange('lista')">
+              <span>Lista para soldar</span>
+              <input type="date" id="sold-lista-fecha" title="Fecha en que quedó lista para soldar">
             </label>
-            <label class="soldadura-step">
+            <label class="soldadura-step" style="border-color:#bfdbfe; color:#1e3a8a;">
+              <input type="checkbox" id="sold-ensayo-check" onchange="onLlevaEnsayoChange()">
+              <span>🧪 Lleva ensayo</span>
+            </label>
+            <label class="soldadura-step" id="sold-ensayos-step" style="display:none; border-color:#bfdbfe; color:#1e3a8a;">
               <input type="checkbox" id="sold-ensayos-check" onchange="onSoldaduraStepChange('ensayos')">
               <span>Ensayos recibidos</span>
-              <input type="date" id="sold-ensayos-fecha" title="Fecha de ensayos">
+              <input type="date" id="sold-ensayos-fecha" title="Fecha en que llegaron los ensayos">
             </label>
           </div>
-          <textarea id="sold-notas" placeholder="Notas de seguimiento (ej: N° guía del proveedor, taller, observaciones...)" style="width:100%; margin-top:10px; min-height:44px; font-family:inherit; font-size:0.85rem; padding:8px; border:1px solid #fecaca; border-radius:6px; box-sizing:border-box; resize:vertical;"></textarea>
+          <textarea id="sold-notas" placeholder="Notas de soldadura (ej: qué falta, observaciones para el soldador...)" style="width:100%; margin-top:10px; min-height:44px; font-family:inherit; font-size:0.85rem; padding:8px; border:1px solid #fecaca; border-radius:6px; box-sizing:border-box; resize:vertical;"></textarea>
+          <div style="margin-top:12px; padding-top:10px; border-top:1px dashed #fecaca;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+              <label style="margin:0; font-size:0.8rem; font-weight:700; color:#991b1b; text-transform:none; letter-spacing:0;">📄 Texto del trabajo para el reporte de soldadura <span style="font-weight:500; color:#b45309;">(opcional)</span></label>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="copiarInstruccionesATextoSoldadura()">📋 Copiar instrucciones de la OP</button>
+            </div>
+            <textarea id="sold-texto-reporte" placeholder="Escribe solo lo que se suelda (ej: Ítems 3 y 5: ducto Ø510, bisel en V a 30°). Si lo dejas vacío, el reporte usa las instrucciones de la OP." style="width:100%; min-height:60px; font-family:inherit; font-size:0.85rem; padding:8px; border:1px solid #fecaca; border-radius:6px; box-sizing:border-box; resize:vertical;"></textarea>
+            <div style="font-size:0.72rem; color:#991b1b; margin-top:3px;">Solo se usa en el reporte con el filtro "Solo trabajos con soldadura". No cambia las instrucciones de la OP.</div>
+          </div>
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
@@ -3038,7 +3050,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             <button type="button" class="deadline-filter-btn filtro-vencida" data-filtro="vencidas" onclick="setFiltroPlazo('vencidas')">🔴 Vencidas <span id="count-vencidas" class="deadline-filter-count">0</span></button>
             <button type="button" class="deadline-filter-btn filtro-proxima" data-filtro="porvencer" onclick="setFiltroPlazo('porvencer')">🟡 Por vencer (2d) <span id="count-porvencer" class="deadline-filter-count">0</span></button>
             <button type="button" class="deadline-filter-btn" data-filtro="encurso" onclick="setFiltroPlazo('encurso')">🟦 En curso <span id="count-encurso" class="deadline-filter-count">0</span></button>
-            <button type="button" class="deadline-filter-btn soldadura-filter-btn" data-filtro-soldadura="si" onclick="setFiltroSoldadura('si')">⚠️ Soldadura externa <span id="count-soldadura" class="deadline-filter-count">0</span></button>
+            <button type="button" class="deadline-filter-btn soldadura-filter-btn" data-filtro-soldadura="si" onclick="setFiltroSoldadura('si')">🔥 Soldadura <span id="count-soldadura" class="deadline-filter-count">0</span></button>
           </div>
           <span id="sort-entrega-indicator" style="display:none; font-size:.78rem; font-weight:700; color:var(--primary); align-items:center; gap:6px;">
             📅 Ordenado por fecha de entrega
@@ -3056,7 +3068,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
               <th>Área</th>
               <th id="th-entrega" onclick="toggleSortEntrega()" title="Clic para ordenar por fecha de entrega (las más atrasadas primero)">Entrega <span id="th-entrega-arrow">↕</span></th>
               <th>Prioridad</th>
-              <th>Soldadura Ext.</th>
+              <th>Soldadura</th>
               <th>Orden / Acciones</th>
             </tr>
           </thead>
@@ -3616,7 +3628,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         <button class="btn btn-secondary btn-sm" onclick="applyReportColumnsPreset('sinCliente')">🚫 Sin cliente</button>
         <button class="btn btn-secondary btn-sm" onclick="applyReportColumnsPreset('completo')">📋 Todo</button>
         <button class="btn btn-secondary btn-sm" onclick="applyReportColumnsPreset('basico')">✏️ Básico</button>
-        <button class="btn btn-secondary btn-sm" style="border-color:#b91c1c; color:#b91c1c;" onclick="applyReportSoldaduraPreset()" title="Marca solo soldadura externa y deja las columnas sin cliente">🔥 Soldadura sin cliente</button>
+        <button class="btn btn-secondary btn-sm" style="border-color:#b91c1c; color:#b91c1c;" onclick="applyReportSoldaduraPreset()" title="Marca solo trabajos con soldadura y deja las columnas sin cliente">🔥 Soldadura sin cliente</button>
       </div>
 
       <div id="report-columns-list" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap:10px 16px; background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;"></div>
@@ -3631,9 +3643,9 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       <div id="report-filtro-soldadura-box" style="margin-top:16px; background:#fef2f2; border:1px solid #fecaca; border-radius:var(--radius-sm); padding:12px 16px;">
         <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:700; color:#7f1d1d; text-transform:none; letter-spacing:0; cursor:pointer;">
           <input type="checkbox" id="report-solo-soldadura" style="width:16px; height:16px; accent-color:#b91c1c; cursor:pointer;">
-          🔥 Solo trabajos con soldadura externa
+          🔥 Solo trabajos con soldadura
         </label>
-        <div style="font-size:0.75rem; color:#991b1b; margin-top:4px;">Este filtro no se guarda: cada reporte nuevo parte desactivado.</div>
+        <div style="font-size:0.75rem; color:#991b1b; margin-top:4px;">Este filtro no se guarda: cada reporte nuevo parte desactivado. En la columna Trabajo se usa el texto de soldadura de cada OP, si lo escribiste.</div>
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
@@ -6026,12 +6038,12 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     }
 
     // ==========================================================================
-    // SEGUIMIENTO SOLDADURA EXTERNA: cuando la OP requiere soldadura externa,
+    // SEGUIMIENTO SOLDADURA (en planta): cuando la OP requiere soldadura,
     // permite registrar si ya se envió, si llegó de vuelta para recilindrar
     // y si se recibieron los ensayos, cada uno con su fecha.
     // ==========================================================================
 
-    const SOLDADURA_STEPS = ['enviado', 'recibido', 'ensayos'];
+    const SOLDADURA_STEPS = ['cilindrado', 'lista', 'ensayos'];
 
     function toggleSoldaduraSeguimiento() {
       const visible = ($('soldadura')?.value || 'NO').toUpperCase() === 'SI';
@@ -6049,14 +6061,35 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       }
     }
 
+    // "Ensayos recibidos" solo aplica si el trabajo lleva ensayo.
+    function refreshEnsayoRecibidoVisibility() {
+      const step = $('sold-ensayos-step');
+      if (step) step.style.display = $('sold-ensayo-check')?.checked ? '' : 'none';
+    }
+    function copiarInstruccionesATextoSoldadura() {
+      const box = $('sold-texto-reporte');
+      if (!box) return;
+      if (box.value.trim() && !confirm('Ya hay un texto escrito. ¿Reemplazarlo por las instrucciones de la OP?')) return;
+      box.value = $('instrucciones')?.value || '';
+      box.focus();
+    }
+    function onLlevaEnsayoChange() {
+      if (!$('sold-ensayo-check')?.checked) {
+        if ($('sold-ensayos-check')) $('sold-ensayos-check').checked = false;
+        if ($('sold-ensayos-fecha')) $('sold-ensayos-fecha').value = '';
+      }
+      refreshEnsayoRecibidoVisibility();
+    }
+
     function getSoldaduraSeguimiento() {
-      const data = { notas: $('sold-notas')?.value || '' };
+      const data = { notas: $('sold-notas')?.value || '', llevaEnsayo: !!$('sold-ensayo-check')?.checked, textoReporte: $('sold-texto-reporte')?.value || '' };
       SOLDADURA_STEPS.forEach(step => {
         data[step] = {
           check: !!$(`sold-${step}-check`)?.checked,
           fecha: $(`sold-${step}-fecha`)?.value || ''
         };
       });
+      if (!data.llevaEnsayo) data.ensayos = { check: false, fecha: '' };
       return data;
     }
 
@@ -6068,6 +6101,9 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         if ($(`sold-${step}-fecha`)) $(`sold-${step}-fecha`).value = paso.fecha || '';
       });
       if ($('sold-notas')) $('sold-notas').value = d.notas || '';
+      if ($('sold-texto-reporte')) $('sold-texto-reporte').value = d.textoReporte || '';
+      if ($('sold-ensayo-check')) $('sold-ensayo-check').checked = !!d.llevaEnsayo;
+      refreshEnsayoRecibidoVisibility();
     }
 
     // Devuelve un badge compacto con el paso actual de seguimiento, para usar
@@ -6076,15 +6112,19 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const requiereSoldadura = (o.soldadura || 'NO').toUpperCase() === 'SI';
       if (!requiereSoldadura) return '';
       const s = o.soldaduraSeguimiento || {};
-      const done = SOLDADURA_STEPS.filter(step => s[step] && s[step].check).length;
-      const labels = ['Enviado', 'Recilindrado', 'Ensayos OK'];
-      if (done === 0) {
-        return `<span class="badge-soldadura-track" style="background:#fee2e2; color:#991b1b;">⚠️ Sin enviar</span>`;
+      const cil = !!(s.cilindrado && s.cilindrado.check);
+      const lista = !!(s.lista && s.lista.check);
+      let badge;
+      if (lista) badge = `<span class="badge-soldadura-track" style="background:#dcfce7; color:#166534;">✅ Lista para soldar</span>`;
+      else if (cil) badge = `<span class="badge-soldadura-track" style="background:#fef3c7; color:#92400e;">🔄 Cilindrado OK</span>`;
+      else badge = `<span class="badge-soldadura-track" style="background:#fee2e2; color:#991b1b;">❌ Cilindrado pendiente</span>`;
+      if (s.llevaEnsayo) {
+        const ens = !!(s.ensayos && s.ensayos.check);
+        badge += ens
+          ? ` <span class="badge-soldadura-track" style="background:#dcfce7; color:#166534;">🧪 Ensayos recibidos</span>`
+          : ` <span class="badge-soldadura-track" style="background:#dbeafe; color:#1e40af;">🧪 Ensayos pendientes</span>`;
       }
-      if (done === SOLDADURA_STEPS.length) {
-        return `<span class="badge-soldadura-track" style="background:#dcfce7; color:#166534;">✅ Ensayos OK</span>`;
-      }
-      return `<span class="badge-soldadura-track" style="background:#fef3c7; color:#92400e;">🔄 ${labels[done - 1]}</span>`;
+      return badge;
     }
 
     function getNextOPNumber() {
@@ -8168,7 +8208,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         <div class="dashboard-op-grid">
           <div class="dash-op-card dash-op-info"><div class="dash-op-number">${active.length}</div><div class="dash-op-label">OP activas</div></div>
           <div class="dash-op-card" style="border-top-color: var(--primary);"><div class="dash-op-number">${Math.round(extra.kilosTotales||0).toLocaleString('es-CL')} kg</div><div class="dash-op-label">Kilos en producción</div></div>
-          <div class="dash-op-card" style="border-top-color: #991b1b;"><div class="dash-op-number" style="color:#991b1b;">${extra.soldaduraPendiente ?? 0}</div><div class="dash-op-label">Soldadura pendiente</div><div class="dash-op-sub">${extra.soldaduraSinEnviar ?? 0} sin enviar · ${extra.soldaduraEnRecilindrado ?? 0} en recilindrado</div></div>
+          <div class="dash-op-card" style="border-top-color: #991b1b;"><div class="dash-op-number" style="color:#991b1b;">${extra.soldaduraPendiente ?? 0}</div><div class="dash-op-label">Soldadura: aún no lista</div><div class="dash-op-sub">${extra.soldaduraLista ?? 0} lista(s) para soldar</div></div>
           <div class="dash-op-card" style="border-top-color: #0369a1;"><div class="dash-op-number" style="color:#0369a1;">${extra.diasPlazoProm ?? '—'}</div><div class="dash-op-label">Plazo promedio (días)</div></div>
         </div>`;
 
@@ -8393,21 +8433,17 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const kilosTotales = otsActivas.reduce((acc, o) =>
         acc + (o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0), 0);
 
-      let soldaduraPendiente = 0, soldaduraSinEnviar = 0, soldaduraEnRecilindrado = 0;
+      let soldaduraPendiente = 0, soldaduraLista = 0;
       otsActivas.forEach(o => {
         if ((o.soldadura || 'NO').toUpperCase() !== 'SI') return;
-        const enviado = !!(o.soldaduraSeguimiento && o.soldaduraSeguimiento.enviado && o.soldaduraSeguimiento.enviado.check);
-        const ensayado = !!(o.soldaduraSeguimiento && o.soldaduraSeguimiento.ensayos && o.soldaduraSeguimiento.ensayos.check);
-        if (!ensayado) soldaduraPendiente++;
-        if (!enviado) soldaduraSinEnviar++;
-        if (enviado && !ensayado) soldaduraEnRecilindrado++;
+        const lista = !!(o.soldaduraSeguimiento && o.soldaduraSeguimiento.lista && o.soldaduraSeguimiento.lista.check);
+        if (lista) soldaduraLista++; else soldaduraPendiente++;
       });
 
       renderDashboardOperativo(otsFiltradasEstado, {
         kilosTotales,
         soldaduraPendiente,
-        soldaduraSinEnviar,
-        soldaduraEnRecilindrado,
+        soldaduraLista,
         diasPlazoProm: cuentaDiasPlazo ? Math.round(sumaDiasPlazo / cuentaDiasPlazo) : '—'
       });
       renderDashboardPerformance(otsFiltradasEstado);
@@ -9502,7 +9538,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       { key: 'cantidadTotal', label: 'Cantidad',               shortLabel: 'Cant.',       align: 'center', weight: 5,  get: o => esc(o.cantidadTotal || '-') },
       { key: 'piezas',        label: 'Piezas',                 shortLabel: 'Piezas',      align: 'center', weight: 6,  get: o => esc(o.piezas || '-') },
       { key: 'kilos',         label: 'Kilos',                  shortLabel: 'Kilos',       align: 'right',  weight: 6,  get: o => Math.round((o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0)).toLocaleString('es-CL') },
-      { key: 'soldadura',     label: 'Soldadura externa',      shortLabel: 'Soldadura',   align: 'center', weight: 10, get: o => getReportSoldaduraBadge(o) },
+      { key: 'comentarios',   label: 'Comentarios',            shortLabel: 'Comentarios', align: 'left',   weight: 20, get: o => esc(o.comentarios || '-').replace(/\r?\n/g, '<br>') },
+      { key: 'soldadura',     label: 'Soldadura',              shortLabel: 'Soldadura',   align: 'left',   weight: 20, get: o => getReportSoldaduraBadge(o) },
       { key: 'trabajo',       label: 'Trabajo / Instrucciones',shortLabel: 'Trabajo',     align: 'left',   weight: 42, get: o => esc(o.instrucciones || '-').replace(/\r?\n/g, '<br>') },
     ];
     const REPORT_COLUMNS_DEFAULT = ['numero', 'entrega', 'cliente', 'area', 'estadoOp', 'prioridad', 'planificador'];
@@ -9518,21 +9555,55 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     function opTieneSoldadura(o) {
       return String(o.soldadura || 'NO').trim().toUpperCase() === 'SI';
     }
+    // Pasos del seguimiento de soldadura (en planta), tal como se llenan en el formulario de la OP.
+    const REPORT_SOLDADURA_PASOS = [
+      { key: 'cilindrado', label: 'Cilindrado OK',     labelNo: 'Cilindrado pendiente' },
+      { key: 'lista',      label: 'Lista para soldar', labelNo: 'No lista para soldar' },
+      { key: 'ensayos',    label: 'Ensayos recibidos', labelNo: 'Ensayos pendientes', soloConEnsayo: true },
+    ];
+    function fmtFechaCorta(f) {
+      const m = String(f || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+      return m ? `${m[3]}/${m[2]}` : '';
+    }
+    function getReportSoldaduraPasos(o) {
+      const seg = o.soldaduraSeguimiento || {};
+      const llevaEnsayo = !!seg.llevaEnsayo;
+      return REPORT_SOLDADURA_PASOS.filter(p => !p.soloConEnsayo || llevaEnsayo).map(p => {
+        const paso = seg[p.key] || {};
+        return { label: paso.check ? p.label : p.labelNo, ok: !!paso.check, fecha: fmtFechaCorta(paso.fecha) };
+      });
+    }
+    function getReportSoldaduraLlevaEnsayo(o) {
+      return !!(o.soldaduraSeguimiento && o.soldaduraSeguimiento.llevaEnsayo);
+    }
+    function getReportSoldaduraNotas(o) {
+      return String((o.soldaduraSeguimiento && o.soldaduraSeguimiento.notas) || '').trim();
+    }
+    // Versión texto (Excel): una línea por paso + ensayo + notas.
     function getReportSoldaduraEstadoTexto(o) {
       if (!opTieneSoldadura(o)) return 'NO';
-      const s = o.soldaduraSeguimiento || {};
-      const done = ['enviado', 'recibido', 'ensayos'].filter(step => s[step] && s[step].check).length;
-      if (done === 0) return 'SÍ - Sin enviar';
-      if (done === 3) return 'SÍ - Ensayos OK';
-      return 'SÍ - ' + ['Enviado', 'Recilindrado'][done - 1];
+      const lineas = getReportSoldaduraPasos(o).map(p => `${p.ok ? '✔' : '✘'} ${p.label}${p.ok && p.fecha ? ' (' + p.fecha + ')' : ''}`);
+      if (!getReportSoldaduraLlevaEnsayo(o)) lineas.push('Sin ensayo');
+      const notas = getReportSoldaduraNotas(o);
+      if (notas) lineas.push('Notas: ' + notas);
+      return lineas.join('\n');
     }
+    // Versión visual (vista previa / PDF): ✅/❌ por paso + ensayo + notas.
     function getReportSoldaduraBadge(o) {
       if (!opTieneSoldadura(o)) return '<span style="color:#94a3b8;">-</span>';
-      const t = getReportSoldaduraEstadoTexto(o).replace('SÍ - ', '');
-      const estilo = t === 'Sin enviar' ? 'background:#fee2e2; color:#991b1b;'
-                   : t === 'Ensayos OK' ? 'background:#dcfce7; color:#166534;'
-                   : 'background:#fef3c7; color:#92400e;';
-      return `<span style="display:inline-block; font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; white-space:nowrap; ${estilo}">${esc(t)}</span>`;
+      const pasos = getReportSoldaduraPasos(o).map(p => `
+        <div style="display:flex; gap:5px; align-items:flex-start; text-align:left; line-height:1.35; margin-bottom:2px; color:${p.ok ? '#166534' : '#991b1b'}; font-weight:700; font-size:10.5px;">
+          <span style="flex-shrink:0;">${p.ok ? '✅' : '❌'}</span>
+          <span>${esc(p.label)}${p.ok && p.fecha ? ` <span style="font-weight:500; color:#475569;">(${p.fecha})</span>` : ''}</span>
+        </div>`).join('');
+      const ensayo = getReportSoldaduraLlevaEnsayo(o)
+        ? ''
+        : `<div style="display:flex; gap:5px; align-items:flex-start; text-align:left; line-height:1.35; margin-bottom:2px; color:#64748b; font-weight:600; font-size:10.5px;"><span style="flex-shrink:0;">➖</span><span>Sin ensayo</span></div>`;
+      const notas = getReportSoldaduraNotas(o);
+      const notasHtml = notas
+        ? `<div style="margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1; text-align:left; font-size:10px; line-height:1.35; color:#475569; font-style:italic; white-space:normal;">📝 ${esc(notas).replace(/\r?\n/g, '<br>')}</div>`
+        : '';
+      return `<div style="min-width:120px;">${pasos}${ensayo}${notasHtml}</div>`;
     }
     const REPORT_COLUMNS_STORAGE_KEY = 'reporteColumnasSeleccion';
 
@@ -9669,7 +9740,11 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         let listFiltrada = list.filter(o => selectedEstados.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
         let subtituloFinal = subtitulo;
         if ($('report-solo-soldadura') && $('report-solo-soldadura').checked) {
-          listFiltrada = listFiltrada.filter(opTieneSoldadura);
+          listFiltrada = listFiltrada.filter(opTieneSoldadura).map(o => {
+            // Copia solo para el reporte: la OP original no se modifica.
+            const txt = String((o.soldaduraSeguimiento && o.soldaduraSeguimiento.textoReporte) || '').trim();
+            return txt ? { ...o, instrucciones: txt } : o;
+          });
           subtituloFinal = `${subtitulo} · Solo con soldadura externa (${listFiltrada.length} OP)`;
         }
         previewReport(listFiltrada, titulo, subtituloFinal, selectedCols);
@@ -9959,6 +10034,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         case 'kilos': return Math.round((o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0));
         case 'trabajo': return o.instrucciones || '-';
         case 'soldadura': return getReportSoldaduraEstadoTexto(o);
+        case 'comentarios': return o.comentarios || '-';
         case 'fechaTermino': return o.fechaTermino ? formatDateWithDayUpper(String(o.fechaTermino).slice(0,10)) : '-';
         case 'responsables': return (Array.isArray(o.responsableTrabajo) ? o.responsableTrabajo.join(', ') : (o.responsableTrabajo || '')) || '-';
         default: return '';
@@ -10479,11 +10555,11 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           if ((o.soldadura || 'NO').toUpperCase() !== 'SI') return '';
           const s = o.soldaduraSeguimiento || {};
           const partes = [];
-          if (s.enviado && s.enviado.check) partes.push(`Enviado ${s.enviado.fecha || ''}`.trim());
-          if (s.recibido && s.recibido.check) partes.push(`Recilindrado ${s.recibido.fecha || ''}`.trim());
-          if (s.ensayos && s.ensayos.check) partes.push(`Ensayos OK ${s.ensayos.fecha || ''}`.trim());
+          partes.push(s.cilindrado && s.cilindrado.check ? `Cilindrado OK ${s.cilindrado.fecha || ''}`.trim() : 'Cilindrado pendiente');
+          partes.push(s.lista && s.lista.check ? `Lista para soldar ${s.lista.fecha || ''}`.trim() : 'No lista para soldar');
+          partes.push(s.llevaEnsayo ? (s.ensayos && s.ensayos.check ? `Ensayos recibidos ${s.ensayos.fecha || ''}`.trim() : 'Ensayos pendientes') : 'Sin ensayo');
           if (s.notas) partes.push(`Notas: ${s.notas}`);
-          return partes.length ? partes.join(' | ') : 'Sin enviar';
+          return partes.join(' | ');
         })();
 
         const row = [
