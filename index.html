@@ -3030,7 +3030,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         <div style="margin-bottom: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
           <div class="history-search-wrap" style="flex:1; min-width:260px; display:flex; gap:8px; align-items:center;">
             <span class="history-search-icon">🔎</span>
-            <input type="search" id="search-op" placeholder="Buscar N° OP..." oninput="renderOPsTable()" onkeyup="renderOPsTable()" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="search" aria-label="Buscar por número de OP, cliente, parte o estado">
+            <input type="search" id="search-op" placeholder="Buscar N° OP..." oninput="renderOPsTableDebounced()" onsearch="renderOPsTable()" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="search" aria-label="Buscar por número de OP, cliente, parte o estado">
             <button type="button" class="btn btn-secondary btn-sm history-clear-btn" onclick="clearOPSearch()" title="Limpiar búsqueda">✕</button>
           </div>
           <div class="deadline-filter-group" id="deadline-filter-group">
@@ -3102,7 +3102,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           <h2 style="margin: 0;">Guías Registradas</h2>
         </div>
         <div style="margin-bottom: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-          <input type="text" id="search-guia" placeholder="🔍 Buscar por RUT, Cliente, CD o Notas..." oninput="renderGuiasTable()" style="flex:1; min-width:220px;">
+          <input type="text" id="search-guia" placeholder="🔍 Buscar por RUT, Cliente, CD o Notas..." oninput="renderGuiasTableDebounced()" style="flex:1; min-width:220px;">
           <div class="deadline-filter-group" id="guia-filter-group">
             <button type="button" class="deadline-filter-btn active" data-filtro="todas" onclick="setFiltroGuia('todas')">Todas</button>
             <button type="button" class="deadline-filter-btn filtro-proxima" data-filtro="pendiente" onclick="setFiltroGuia('pendiente')">🟠 Pendientes <span id="count-guia-pendiente" class="deadline-filter-count">0</span></button>
@@ -3411,7 +3411,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
           <h3 style="margin: 0;">Listado de Clientes Registrados (<span id="client-count-label">0</span>)</h3>
-          <input type="text" id="search-client-db" placeholder="🔍 Filtrar cliente por RUT o nombre..." oninput="renderMasterLists()" style="max-width: 300px;">
+          <input type="text" id="search-client-db" placeholder="🔍 Filtrar cliente por RUT o nombre..." oninput="renderMasterListsDebounced()" style="max-width: 300px;">
         </div>
 
         <div style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 35px;">
@@ -3447,7 +3447,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <button class="btn btn-primary" id="cat-save-btn" onclick="guardarRegistroCatalogo()">＋ Agregar registro</button>
             <button class="btn btn-secondary" onclick="cancelarEdicionCatalogo()">Cancelar</button>
-            <input id="search-catalogo" type="text" placeholder="🔍 Buscar en catálogo..." oninput="renderCatalogoAdmin()" style="margin-left:auto;max-width:320px;">
+            <input id="search-catalogo" type="text" placeholder="🔍 Buscar en catálogo..." oninput="renderCatalogoAdminDebounced()" style="margin-left:auto;max-width:320px;">
           </div>
           <div style="margin-top:12px;font-size:.8rem;color:#475569;">Registros activos: <b id="catalogo-count">0</b></div>
         </div>
@@ -4239,19 +4239,50 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         `<button type="button" class="contacto-history-call" onclick="llamarHistorial(db.ots.find(x => x.id === '${safeId}'), event)" title="Llamar">📞</button></div>`;
     }
 
+    // Estado de sincronización con Supabase.
+    //  - remoteSavePending: hubo un saveDB() mientras otro guardado estaba en
+    //    vuelo; se reintenta apenas termine el actual (antes ese cambio se perdía).
+    //  - dbRemoteUpdatedAt / dbRemoteSig: última versión remota vista, para que
+    //    el sondeo solo recargue y re-dibuje cuando de verdad hay cambios.
+    let remoteSavePending = false;
+    let dbRemoteUpdatedAt = null;
+    let dbRemoteSig = null;
+
     function saveDB() {
       try { localStorage.setItem('dagomet_db', JSON.stringify(db)); } catch (err) { console.error('Error al guardar cache local:', err); }
       if (window.dagometSupabase && window.dagometCurrentUser && window.dagometCurrentProfile?.rol !== 'read_only') {
-        clearTimeout(remoteSaveTimer); remoteSaveTimer = setTimeout(saveDBRemote, 250);
+        clearTimeout(remoteSaveTimer);
+        remoteSaveTimer = setTimeout(() => { remoteSaveTimer = null; saveDBRemote(); }, 250);
       }
     }
     async function saveDBRemote() {
-      if (remoteSaveInFlight || !window.dagometSupabase || !window.dagometCurrentUser || window.dagometCurrentProfile?.rol === 'read_only') return;
+      if (!window.dagometSupabase || !window.dagometCurrentUser || window.dagometCurrentProfile?.rol === 'read_only') return;
+      if (remoteSaveInFlight) { remoteSavePending = true; return; }
       remoteSaveInFlight = true;
       try {
-        const { error } = await window.dagometSupabase.from('app_data').upsert({ id: 1, data: db, updated_at: new Date().toISOString(), updated_by: window.dagometCurrentUser.id });
-        if (error) console.error('No se pudo sincronizar con Supabase:', error);
-      } finally { remoteSaveInFlight = false; }
+        const { data: guardado, error } = await window.dagometSupabase.from('app_data')
+          .upsert({ id: 1, data: db, updated_at: new Date().toISOString(), updated_by: window.dagometCurrentUser.id })
+          .select('updated_at');
+        if (error) {
+          console.error('No se pudo sincronizar con Supabase:', error);
+        } else {
+          const fila = Array.isArray(guardado) ? guardado[0] : guardado;
+          if (fila && fila.updated_at) dbRemoteUpdatedAt = fila.updated_at;
+          dbRemoteSig = null; // la copia remota ahora es la nuestra
+        }
+      } finally {
+        remoteSaveInFlight = false;
+        if (remoteSavePending) { remoteSavePending = false; saveDBRemote(); }
+      }
+    }
+    // Consulta barata (solo updated_at) para saber si otro usuario o la Edge
+    // Function modificó los datos desde la última vez que los leímos.
+    async function remoteHasChanges() {
+      if (!window.dagometSupabase || !window.dagometCurrentUser) return false;
+      const { data, error } = await window.dagometSupabase.from('app_data').select('updated_at').eq('id', 1).maybeSingle();
+      if (error || !data || !data.updated_at) return false;
+      if (!dbRemoteUpdatedAt) return true;
+      return new Date(data.updated_at).getTime() !== new Date(dbRemoteUpdatedAt).getTime();
     }
     // Las correcciones de horas extras hechas por Solo Lectura sí deben
     // quedar compartidas. Actualizamos únicamente horasExtra + auditoria en
@@ -4281,11 +4312,21 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       if (window.dagometCurrentProfile?.rol === 'read_only') await saveHorasExtraRemote();
     }
 
-    async function loadDBRemote() {
+    async function loadDBRemote(opts) {
       if (!window.dagometSupabase || !window.dagometCurrentUser) return false;
-      const { data, error } = await window.dagometSupabase.from('app_data').select('data').eq('id',1).maybeSingle();
+      const { data, error } = await window.dagometSupabase.from('app_data').select('data, updated_at').eq('id',1).maybeSingle();
       if (error) { console.error('Error leyendo Supabase:', error); return false; }
-      if (data?.data && typeof data.data === 'object') { db=data.data; try { localStorage.setItem('dagomet_db', JSON.stringify(db)); } catch (_) {} return true; }
+      if (data?.data && typeof data.data === 'object') {
+        const sig = JSON.stringify(data.data);
+        const igual = dbRemoteSig !== null && sig === dbRemoteSig;
+        dbRemoteSig = sig;
+        dbRemoteUpdatedAt = data.updated_at || dbRemoteUpdatedAt;
+        // Con onlyIfChanged (sondeo) no reemplazamos db ni re-dibujamos si la
+        // copia remota es idéntica a la última que ya cargamos.
+        if (igual && opts && opts.onlyIfChanged) return false;
+        db=data.data; try { localStorage.setItem('dagomet_db', JSON.stringify(db)); } catch (_) {}
+        return true;
+      }
       await saveDBRemote(); return false;
     }
 
@@ -4355,6 +4396,33 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     function normalizeStr(str) {
       return (str || '').toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     }
+
+    // Caché de normalizeStr: el buscador normaliza los mismos textos (cliente,
+    // parte, materiales...) de todas las OP en cada tecla; así se calcula una vez.
+    (function () {
+      const original = normalizeStr;
+      const cache = new Map();
+      normalizeStr = function (str) {
+        const key = (str == null) ? '' : String(str);
+        let r = cache.get(key);
+        if (r === undefined) {
+          if (cache.size > 30000) cache.clear();
+          r = original(key);
+          cache.set(key, r);
+        }
+        return r;
+      };
+    })();
+
+    // Debounce genérico para los buscadores (espera 200 ms sin teclear).
+    function dagometDebounce(fn, ms) {
+      let t;
+      return function () { clearTimeout(t); t = setTimeout(fn, ms || 200); };
+    }
+    const renderOPsTableDebounced = dagometDebounce(() => renderOPsTable());
+    const renderGuiasTableDebounced = dagometDebounce(() => renderGuiasTable());
+    const renderMasterListsDebounced = dagometDebounce(() => renderMasterLists());
+    const renderCatalogoAdminDebounced = dagometDebounce(() => renderCatalogoAdmin());
 
     // Normalización adicional para calidades/normas escritas con distinta
     // puntuación o espacios: "ASTM A-53" = "ASTM A - 53" = "ASTM A53".
@@ -6732,6 +6800,14 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       renderStats();
     }
 
+    // Paginación: dibujar cientos de filas con tanto HTML es lo que más pesa.
+    // Se muestran 50 y un botón "Mostrar más". El límite vuelve a 50 solo
+    // cuando cambia la búsqueda, un filtro o el orden.
+    const OPS_TABLE_PAGE = 50;
+    let opsTableLimit = OPS_TABLE_PAGE;
+    let opsTableSig = '';
+    function opsTableMostrarMas() { opsTableLimit += OPS_TABLE_PAGE; renderOPsTable(); }
+
     function renderOPsTable() {
       const tbody = $('ops-table-body');
       const query = normalizeStr($('search-op') ? $('search-op').value : '');
@@ -6809,6 +6885,11 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const moveDisabled = sortOP.col ? 'disabled' : '';
       const moveTitle = sortOP.col ? 'Quita el orden por fecha (botón "✕ Quitar orden") para reordenar manualmente' : 'Mover OP en el historial';
 
+      const sigActual = [query, filtroPlazo, filtroSoldadura, filtroDashboardCampo, filtroDashboardValor, sortOP.col, sortOP.dir].join('|');
+      if (sigActual !== opsTableSig) { opsTableSig = sigActual; opsTableLimit = OPS_TABLE_PAGE; }
+      const totalFiltradas = filteredOTs.length;
+      filteredOTs = filteredOTs.slice(0, opsTableLimit);
+
       tbody.innerHTML = filteredOTs.length === 0
         ? `<tr><td colspan="10" style="text-align:center; padding:24px; color:var(--text-faint); font-style:italic;">No hay OPs que coincidan con el filtro seleccionado.</td></tr>`
         : filteredOTs.map(o => {
@@ -6848,7 +6929,9 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             </div></td>
           </tr>
         `;
-      }).join('');
+      }).join('') + (totalFiltradas > filteredOTs.length
+          ? `<tr><td colspan="10" style="text-align:center; padding:14px;"><button type="button" class="btn btn-secondary" onclick="opsTableMostrarMas()">Mostrar ${Math.min(OPS_TABLE_PAGE, totalFiltradas - filteredOTs.length)} más (${totalFiltradas - filteredOTs.length} restantes de ${totalFiltradas})</button></td></tr>`
+          : '');
     }
 
     // ==========================================================================
@@ -11443,11 +11526,19 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     let dbPollTimer = null;
     function startDBPolling() {
       if (dbPollTimer) return;
+      let dbPollCount = 0;
       dbPollTimer = setInterval(async () => {
-        if (formDirty || remoteSaveInFlight || remoteSaveTimer) return;
+        if (formDirty || remoteSaveInFlight || remoteSaveTimer || remoteSavePending) return;
         if (document.visibilityState === 'hidden') return;
         try {
-          const huboCambios = await loadDBRemote();
+          // Cada 20 s solo consultamos updated_at (liviano). Cada 6ª vuelta
+          // (~2 min) bajamos los datos igual, por si algo escribió sin tocar
+          // updated_at (p. ej. la Edge Function de liberación).
+          dbPollCount++;
+          const forzar = dbPollCount % 6 === 0;
+          if (!forzar && !(await remoteHasChanges())) return;
+          if (formDirty || remoteSaveInFlight || remoteSaveTimer || remoteSavePending) return;
+          const huboCambios = await loadDBRemote({ onlyIfChanged: true });
           if (huboCambios) {
             ensureOPOrder();
             loadSelects();
