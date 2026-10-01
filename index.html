@@ -2847,6 +2847,11 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
               <span>Lista para soldar</span>
               <input type="date" id="sold-lista-fecha" title="Fecha en que quedó lista para soldar">
             </label>
+            <label class="soldadura-step">
+              <input type="checkbox" id="sold-recilindrado-check" onchange="onSoldaduraStepChange('recilindrado')">
+              <span>Recilindrado OK</span>
+              <input type="date" id="sold-recilindrado-fecha" title="Fecha en que quedó recilindrado (después de soldar)">
+            </label>
             <label class="soldadura-step" style="border-color:#bfdbfe; color:#1e3a8a;">
               <input type="checkbox" id="sold-ensayo-check" onchange="onLlevaEnsayoChange()">
               <span>🧪 Lleva ensayo</span>
@@ -2858,6 +2863,10 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             </label>
           </div>
           <textarea id="sold-notas" placeholder="Notas de soldadura (ej: qué falta, observaciones para el soldador...)" style="width:100%; margin-top:10px; min-height:44px; font-family:inherit; font-size:0.85rem; padding:8px; border:1px solid #fecaca; border-radius:6px; box-sizing:border-box; resize:vertical;"></textarea>
+          <div style="margin-top:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" style="border-color:#b91c1c; color:#b91c1c;" onclick="crearOPSoldaduraDesdeActual()">➕ Crear OP de soldadura</button>
+            <span style="font-size:0.72rem; color:#991b1b;">Abre una OP nueva en el área SOLDADURA, con el mismo N° de esta OP, la siguiente PARTE y la nota de soldadura como instrucciones.</span>
+          </div>
           <div style="margin-top:12px; padding-top:10px; border-top:1px dashed #fecaca;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
               <label style="margin:0; font-size:0.8rem; font-weight:700; color:#991b1b; text-transform:none; letter-spacing:0;">📄 Texto del trabajo para el reporte de soldadura <span style="font-weight:500; color:#b45309;">(opcional)</span></label>
@@ -4066,7 +4075,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         'RECILINDRADO DE PLANCHAS',
         'FABRICACIÓN DE PIEZAS',
         'MECANIZADO',
-        'REPARACIÓN DE PIEZAS'
+        'REPARACIÓN DE PIEZAS',
+        'SOLDADURA'
       ],
       machines: [
         'CILINDRADORA N° 1', 'CILINDRADORA N° 2', 'CILINDRADORA N° 3', 'CILINDRADORA N° 4', 'CILINDRADORA N° 5', 'CILINDRADORA N° 6',
@@ -4111,6 +4121,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     if (!Array.isArray(db.guias)) db.guias = [];
     if (!Array.isArray(db.horasExtra)) db.horasExtra = [];
     if (!Array.isArray(db.auditoria)) db.auditoria = [];
+    // Área SOLDADURA: se agrega a las bases ya guardadas para poder crear OP de soldadura.
+    if (Array.isArray(db.areas) && !db.areas.includes('SOLDADURA')) { db.areas.push('SOLDADURA'); saveDB(); }
 
     if (db.clients && db.clients.length > 0 && typeof db.clients[0] === 'string') {
       db.clients = db.clients.map(c => ({ rut: 'S/RUT', name: c }));
@@ -6043,7 +6055,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     // y si se recibieron los ensayos, cada uno con su fecha.
     // ==========================================================================
 
-    const SOLDADURA_STEPS = ['cilindrado', 'lista', 'ensayos'];
+    const SOLDADURA_STEPS = ['cilindrado', 'lista', 'recilindrado', 'ensayos'];
 
     function toggleSoldaduraSeguimiento() {
       const visible = ($('soldadura')?.value || 'NO').toUpperCase() === 'SI';
@@ -6125,6 +6137,92 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           : ` <span class="badge-soldadura-track" style="background:#dbeafe; color:#1e40af;">🧪 Ensayos pendientes</span>`;
       }
       return badge;
+    }
+
+    // Crea una OP NUEVA en el área SOLDADURA a partir de la OP que se está viendo:
+    // copia número, cliente, parte, OC, folio, prioridad y fechas, y deja como instrucciones
+    // la información de las notas de soldadura. La OP actual no se modifica.
+    // Devuelve la siguiente "PARTE N" para un número de OP: cuenta las OP que ya
+    // comparten ese número (incluida la que se está viendo) y respeta los
+    // "PARTE N" ya usados, para no repetir. Ej.: OP sola -> PARTE 2; con PARTE 2 -> PARTE 3.
+    function siguienteParteOP(numero, editId, parteActual) {
+      const num = String(numero || '').trim().toUpperCase();
+      const otras = db.ots.filter(o => o.id !== editId && String(o.numero || '').trim().toUpperCase() === num);
+      let maxParte = 0;
+      [parteActual, ...otras.map(o => o.parteOp)].forEach(pt => {
+        const m = String(pt || '').match(/PARTE\s*(\d+)/i);
+        if (m) maxParte = Math.max(maxParte, parseInt(m[1], 10));
+      });
+      const totalConMismoNumero = otras.length + 1; // +1 = la OP que se está viendo
+      return 'PARTE ' + (Math.max(maxParte, totalConMismoNumero) + 1);
+    }
+
+    function crearOPSoldaduraDesdeActual() {
+      const editIdOrigen = $('edit-id').value;
+      const opOrigen = editIdOrigen ? db.ots.find(o => o.id === editIdOrigen) : null;
+      if (!opOrigen) {
+        alert('Primero guarda esta OP. La OP de soldadura se crea a partir de una OP ya guardada.');
+        return;
+      }
+      const numOrigen = $('numero').value || '';
+      const partes = [];
+      const textoRep = ($('sold-texto-reporte')?.value || '').trim();
+      const notas = ($('sold-notas')?.value || '').trim();
+      if (textoRep) partes.push(textoRep);
+      if (notas) partes.push(notas);
+      const datos = {
+        parteOp: siguienteParteOP(numOrigen, $('edit-id').value, $('parteOp').value),
+        planificador: $('planificador').value || 'GCC',
+        cliente: $('cliente-input').value || '',
+        ocCliente: $('ocCliente').value || '',
+        contacto: $('contactoOP').value || '',
+        fechaGuiaMat: $('fechaGuiaMat').value || '',
+        folio: $('folio').value || '',
+        prioridad: $('prioridad').value || 'NORMAL',
+        materialDe: $('materialDe').value || 'CLIENTE',
+        plazo: Number($('plazoProduccion').value) || 8,
+        entregaAuto: $('entregaAuto').checked,
+        entrega: $('entrega').value || '',
+        cantidad: $('cantidadTotalManual').value || 1,
+        instrucciones: partes.join('\n\n')
+      };
+      if (!confirmarDescartarCambios('Se abrirá una OP nueva de soldadura.\n\nSi la OP actual tiene cambios sin guardar, se perderán. ¿Continuar?')) return;
+
+      // Si la OP original no tiene parte, queda como PARTE 1 (la de soldadura es la siguiente).
+      if (!String(opOrigen.parteOp || '').trim() && !String($('parteOp').value || '').trim()) {
+        opOrigen.parteOp = 'PARTE 1';
+        registrarAuditoria('EDITAR OP', `Parte asignada automáticamente (PARTE 1) a la OP N° ${opOrigen.numero || '-'} al crear su OP de soldadura`, opOrigen.id);
+        saveDB();
+      }
+
+      resetForm();
+      // La OP de soldadura lleva el MISMO número que la OP original.
+      if (numOrigen) $('numero').value = numOrigen;
+      $('form-title').innerText = `Nueva OP de Soldadura (N° ${$('numero').value} · ${datos.parteOp})`;
+      $('parteOp').value = datos.parteOp;
+      $('planificador').value = datos.planificador;
+      $('cliente-input').value = datos.cliente;
+      $('ocCliente').value = datos.ocCliente;
+      $('contactoOP').value = datos.contacto;
+      $('fechaGuiaMat').value = datos.fechaGuiaMat;
+      $('folio').value = datos.folio;
+      $('prioridad').value = datos.prioridad;
+      $('materialDe').value = datos.materialDe;
+      $('plazoProduccion').value = datos.plazo;
+      $('entregaAuto').checked = datos.entregaAuto;
+      if (datos.entregaAuto) recalcularEntregaAutomatica(); else $('entrega').value = datos.entrega;
+      $('area').value = 'SOLDADURA';
+      $('notaImportante').value = defaultNotes['SOLDADURA'] || '';
+      toggleBombeadoSection();
+      toggleCurvasField();
+      $('cantidadTotalManual').value = datos.cantidad;
+      $('instrucciones').value = datos.instrucciones;
+      $('comentarios').value = '';
+      $('soldadura').value = 'NO';
+      toggleSoldaduraSeguimiento();
+      markFormDirty();
+      switchTab('tab-form');
+      alert(`Nueva OP de soldadura lista: N° ${$('numero').value} · ${datos.parteOp}. Revisa los datos y guárdala.`);
     }
 
     function getNextOPNumber() {
@@ -9559,6 +9657,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     const REPORT_SOLDADURA_PASOS = [
       { key: 'cilindrado', label: 'Cilindrado OK',     labelNo: 'Cilindrado pendiente' },
       { key: 'lista',      label: 'Soldada',            labelNo: 'No soldada' },
+      { key: 'recilindrado', label: 'Recilindrado OK',  labelNo: 'Recilindrado pendiente' },
       { key: 'ensayos',    label: 'Ensayos recibidos', labelNo: 'Ensayos pendientes', soloConEnsayo: true },
     ];
     function fmtFechaCorta(f) {
@@ -11619,6 +11718,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             // La antigua lista de 'materiales frecuentes' queda eliminada: el único catálogo válido es catalogoMateriales.
     if (Object.prototype.hasOwnProperty.call(db, 'commonMaterials')) { delete db.commonMaterials; saveDB(); }
             if(!Array.isArray(db.pesosMateriales)) db.pesosMateriales = null;
+            if (Array.isArray(db.areas) && !db.areas.includes('SOLDADURA')) db.areas.push('SOLDADURA');
             ensureOPOrder();
             saveDB();
             loadSelects();
