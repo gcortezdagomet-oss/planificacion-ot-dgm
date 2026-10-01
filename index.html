@@ -2844,8 +2844,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             </label>
             <label class="soldadura-step">
               <input type="checkbox" id="sold-lista-check" onchange="onSoldaduraStepChange('lista')">
-              <span>Lista para soldar</span>
-              <input type="date" id="sold-lista-fecha" title="Fecha en que quedó lista para soldar">
+              <span>Soldada</span>
+              <input type="date" id="sold-lista-fecha" title="Fecha en que se soldó">
             </label>
             <label class="soldadura-step">
               <input type="checkbox" id="sold-recilindrado-check" onchange="onSoldaduraStepChange('recilindrado')">
@@ -6127,7 +6127,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const cil = !!(s.cilindrado && s.cilindrado.check);
       const lista = !!(s.lista && s.lista.check);
       let badge;
-      if (lista) badge = `<span class="badge-soldadura-track" style="background:#dcfce7; color:#166534;">✅ Lista para soldar</span>`;
+      if (lista) badge = `<span class="badge-soldadura-track" style="background:#dcfce7; color:#166534;">✅ Soldada</span>`;
       else if (cil) badge = `<span class="badge-soldadura-track" style="background:#fef3c7; color:#92400e;">🔄 Cilindrado OK</span>`;
       else badge = `<span class="badge-soldadura-track" style="background:#fee2e2; color:#991b1b;">❌ Cilindrado pendiente</span>`;
       if (s.llevaEnsayo) {
@@ -8306,7 +8306,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         <div class="dashboard-op-grid">
           <div class="dash-op-card dash-op-info"><div class="dash-op-number">${active.length}</div><div class="dash-op-label">OP activas</div></div>
           <div class="dash-op-card" style="border-top-color: var(--primary);"><div class="dash-op-number">${Math.round(extra.kilosTotales||0).toLocaleString('es-CL')} kg</div><div class="dash-op-label">Kilos en producción</div></div>
-          <div class="dash-op-card" style="border-top-color: #991b1b;"><div class="dash-op-number" style="color:#991b1b;">${extra.soldaduraPendiente ?? 0}</div><div class="dash-op-label">Soldadura: aún no lista</div><div class="dash-op-sub">${extra.soldaduraLista ?? 0} lista(s) para soldar</div></div>
+          <div class="dash-op-card" style="border-top-color: #991b1b;"><div class="dash-op-number" style="color:#991b1b;">${extra.soldaduraPendiente ?? 0}</div><div class="dash-op-label">Soldadura: aún no soldada</div><div class="dash-op-sub">${extra.soldaduraLista ?? 0} soldada(s)</div></div>
           <div class="dash-op-card" style="border-top-color: #0369a1;"><div class="dash-op-number" style="color:#0369a1;">${extra.diasPlazoProm ?? '—'}</div><div class="dash-op-label">Plazo promedio (días)</div></div>
         </div>`;
 
@@ -10675,7 +10675,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           const s = o.soldaduraSeguimiento || {};
           const partes = [];
           partes.push(s.cilindrado && s.cilindrado.check ? `Cilindrado OK ${s.cilindrado.fecha || ''}`.trim() : 'Cilindrado pendiente');
-          partes.push(s.lista && s.lista.check ? `Lista para soldar ${s.lista.fecha || ''}`.trim() : 'No lista para soldar');
+          partes.push(s.lista && s.lista.check ? `Soldada ${s.lista.fecha || ''}`.trim() : 'No soldada');
           partes.push(s.llevaEnsayo ? (s.ensayos && s.ensayos.check ? `Ensayos recibidos ${s.ensayos.fecha || ''}`.trim() : 'Ensayos pendientes') : 'Sin ensayo');
           if (s.notas) partes.push(`Notas: ${s.notas}`);
           return partes.join(' | ');
