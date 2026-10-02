@@ -3035,7 +3035,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         </div>
 
         <div style="margin-top: 20px; display: flex; gap: 10px;">
-          <button class="btn btn-primary" onclick="saveOP()">Guardar OP</button>
+          <button class="btn btn-primary" id="guardar-op-btn" onclick="saveOP()">Guardar OP</button>
           <button class="btn btn-info" onclick="previewCurrentOP()">👁️ Previsualizar / Imprimir</button>
           <button class="btn btn-secondary" onclick="resetForm()">Limpiar Formulario</button>
         </div>
@@ -4166,6 +4166,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 
     let remoteSaveTimer = null;
     let remoteSaveInFlight = false;
+    // Estado del guardado en la nube: si falla, se avisa en pantalla y se reintenta (antes fallaba en silencio).
+    let remoteUnsynced = false, remoteSaveLastOk = null, remoteRetryTimer = null, remoteRetryCount = 0;
 
     // Registro simple de acciones importantes para trazabilidad.
     function registrarAuditoria(accion, detalle, entidad = '') {
@@ -4311,6 +4313,23 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         remoteSaveTimer = setTimeout(() => { remoteSaveTimer = null; saveDBRemote(); }, 250);
       }
     }
+    function mostrarEstadoSync(ok, detalle) {
+      let el = document.getElementById('sync-estado-banner');
+      if (ok) { if (el) el.remove(); return; }
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'sync-estado-banner';
+        el.style.cssText = 'position:fixed; left:50%; bottom:14px; transform:translateX(-50%); z-index:100000; background:#b91c1c; color:#fff; border-radius:8px; padding:10px 14px; font-size:12px; font-weight:700; box-shadow:0 4px 14px rgba(0,0,0,.3); max-width:92vw; text-align:center;';
+        document.body.appendChild(el);
+      }
+      el.textContent = '\u26a0 NO se pudo guardar en la nube (' + (detalle || 'sin conexi\u00f3n') + '). Tus cambios siguen en este dispositivo; reintentando\u2026 No cierres ni recargues esta p\u00e1gina.';
+    }
+    function programarReintentoGuardado() {
+      if (remoteRetryTimer) return;
+      remoteRetryCount++;
+      const espera = Math.min(30000, 3000 * remoteRetryCount);
+      remoteRetryTimer = setTimeout(() => { remoteRetryTimer = null; saveDBRemote(); }, espera);
+    }
     async function saveDBRemote() {
       if (!window.dagometSupabase || !window.dagometCurrentUser || window.dagometCurrentProfile?.rol === 'read_only') return;
       if (remoteSaveInFlight) { remoteSavePending = true; return; }
@@ -4319,18 +4338,35 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         const { data: guardado, error } = await window.dagometSupabase.from('app_data')
           .upsert({ id: 1, data: db, updated_at: new Date().toISOString(), updated_by: window.dagometCurrentUser.id })
           .select('updated_at');
-        if (error) {
-          console.error('No se pudo sincronizar con Supabase:', error);
-        } else {
-          const fila = Array.isArray(guardado) ? guardado[0] : guardado;
-          if (fila && fila.updated_at) dbRemoteUpdatedAt = fila.updated_at;
-          dbRemoteSig = null; // la copia remota ahora es la nuestra
-        }
+        if (error) throw error;
+        const fila = Array.isArray(guardado) ? guardado[0] : guardado;
+        if (fila && fila.updated_at) dbRemoteUpdatedAt = fila.updated_at;
+        dbRemoteSig = null; // la copia remota ahora es la nuestra
+        remoteSaveLastOk = true; remoteUnsynced = false; remoteRetryCount = 0;
+        if (remoteRetryTimer) { clearTimeout(remoteRetryTimer); remoteRetryTimer = null; }
+        mostrarEstadoSync(true);
+      } catch (error) {
+        console.error('No se pudo sincronizar con Supabase:', error);
+        remoteSaveLastOk = false; remoteUnsynced = true;
+        mostrarEstadoSync(false, (error && (error.message || error.code)) || 'error de red');
+        programarReintentoGuardado();
       } finally {
         remoteSaveInFlight = false;
         if (remoteSavePending) { remoteSavePending = false; saveDBRemote(); }
       }
     }
+    // Guarda local + nube y ESPERA el resultado. Devuelve true solo si qued\u00f3 en la nube.
+    async function saveDBAndWait() {
+      try { localStorage.setItem('dagomet_db', JSON.stringify(db)); } catch (err) { console.error('Error al guardar cache local:', err); }
+      if (!window.dagometSupabase || !window.dagometCurrentUser || window.dagometCurrentProfile?.rol === 'read_only') return true;
+      clearTimeout(remoteSaveTimer); remoteSaveTimer = null;
+      remoteSaveLastOk = null;
+      await saveDBRemote();
+      const t0 = Date.now();
+      while ((remoteSaveInFlight || remoteSavePending) && Date.now() - t0 < 20000) await new Promise(r => setTimeout(r, 200));
+      return remoteSaveLastOk === true;
+    }
+    window.addEventListener('online', () => { if (remoteUnsynced) saveDBRemote(); });
     // Consulta barata (solo updated_at) para saber si otro usuario o la Edge
     // Function modificó los datos desde la última vez que los leímos.
     async function remoteHasChanges() {
@@ -6319,7 +6355,18 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       formDirty = false;
     }
 
-    function saveOP() {
+    let opSaveInFlight = false;
+
+    async function saveOP() {
+      if (opSaveInFlight) return;
+      opSaveInFlight = true;
+      const btnGuardarOP = $('guardar-op-btn');
+      const textoOriginalGuardarOP = btnGuardarOP ? btnGuardarOP.textContent : '';
+      if (btnGuardarOP) {
+        btnGuardarOP.disabled = true;
+        btnGuardarOP.textContent = 'Guardando en la nube…';
+      }
+      try {
       const numInput = $('numero').value;
       const clientInput = $('cliente-input').value;
       const entregaInput = $('entrega').value;
@@ -6429,10 +6476,27 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       guiaVinculadaId = null;
 
       registrarAuditoria(editId ? 'EDITAR OP' : 'CREAR OP', `${editId ? 'OP modificada' : 'OP creada'} N° ${opData.numero || '-'} · ${opData.cliente || 'Sin cliente'} · ${opData.area || 'Sin área'}`, opData.numero || '');
-      saveDB();
+
+      // En celular no damos por guardada la OP hasta que Supabase confirme.
+      // La copia local ya quedó respaldada por saveDBAndWait(), y si falla
+      // la nube mantenemos el formulario para poder reintentar sin perder datos.
+      const guardadoEnNube = await saveDBAndWait();
+      if (!guardadoEnNube) {
+        formDirty = true;
+        alert('⚠️ La OP quedó guardada en este dispositivo, pero NO se confirmó en la nube. No cierres ni recargues esta página. Verifica la conexión y vuelve a presionar “Guardar OP” para reintentar.');
+        return;
+      }
+
       formDirty = false;
-      alert('OP Guardada con éxito.');
+      alert('OP Guardada con éxito y sincronizada con la nube.');
       newOP();
+    } finally {
+      opSaveInFlight = false;
+      if (btnGuardarOP) {
+        btnGuardarOP.disabled = false;
+        btnGuardarOP.textContent = textoOriginalGuardarOP || 'Guardar OP';
+      }
+    }
     }
 
     function editOP(id) {
@@ -7768,7 +7832,13 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         }
         if (paginasGuardadas || fotosGuardadas) {
           registrarAuditoria('GUARDAR EVIDENCIAS OP', `OP N° ${o.numero || '-'} · ${paginasGuardadas ? paginasGuardadas + ' página(s) escaneada(s)' : ''}${paginasGuardadas && fotosGuardadas ? ' · ' : ''}${fotosGuardadas ? fotosGuardadas + ' foto(s) de trabajo terminado' : ''}`, o.numero || '');
-          saveDB();
+        }
+        const enNube = (paginasGuardadas || fotosGuardadas) ? await saveDBAndWait() : true;
+        if (!enNube) {
+          alert('\u26a0 Las evidencias se guardaron en este dispositivo pero NO en la nube todav\u00eda (sin conexi\u00f3n o error). Se reintentar\u00e1 solo: mant\u00e9n esta p\u00e1gina abierta hasta que desaparezca el aviso rojo.');
+          cerrarEvidenciasOP();
+          renderOPsTable();
+          return;
         }
         alert(`Evidencias guardadas correctamente.\n${paginasGuardadas ? '📄 ' + paginasGuardadas + ' página(s) en PDF\n' : ''}${fotosGuardadas ? '📸 ' + fotosGuardadas + ' foto(s) del trabajo terminado' : ''}`);
         cerrarEvidenciasOP();
@@ -12201,7 +12271,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       if (dbPollTimer) return;
       let dbPollCount = 0;
       dbPollTimer = setInterval(async () => {
-        if (formDirty || remoteSaveInFlight || remoteSaveTimer || remoteSavePending) return;
+        if (formDirty || remoteSaveInFlight || remoteSaveTimer || remoteSavePending || remoteUnsynced) return;
         if (document.visibilityState === 'hidden') return;
         try {
           // Cada 20 s solo consultamos updated_at (liviano). Cada 6ª vuelta
@@ -12210,7 +12280,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           dbPollCount++;
           const forzar = dbPollCount % 6 === 0;
           if (!forzar && !(await remoteHasChanges())) return;
-          if (formDirty || remoteSaveInFlight || remoteSaveTimer || remoteSavePending) return;
+          if (formDirty || remoteSaveInFlight || remoteSaveTimer || remoteSavePending || remoteUnsynced) return;
           const huboCambios = await loadDBRemote({ onlyIfChanged: true });
           if (huboCambios) {
             ensureOPOrder();
