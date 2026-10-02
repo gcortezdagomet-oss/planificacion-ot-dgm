@@ -7577,10 +7577,20 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
               <div style="font-weight:800;color:var(--primary);margin-bottom:5px;">📸 2. Fotografiar trabajo terminado</div>
               <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:10px;">Agrega una o varias fotos del material/fabricación terminada, asociadas a esta OP.</div>
               <button type="button" class="btn btn-success btn-sm" onclick="capturarFotoTerminada()">📷 ${st.fotos.length ? 'Agregar fotos' : 'Tomar foto'}</button>
-              <input id="evidencia-foto-input" type="file" accept="image/*" capture="environment" multiple style="display:none;">
+              <input id="evidencia-foto-input" type="file" accept="image/*" multiple style="display:none;">
               <span style="font-size:.72rem;color:var(--text-muted);margin-left:8px;">${totalFotos} foto${totalFotos===1?'':'s'}</span>
             </div>
           </div>`}
+
+          <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px;background:#f8fafc;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:800;color:var(--primary);">📷 Fotos de liberación</div>
+                <div style="font-size:.74rem;color:var(--text-muted);margin-top:3px;">Aquí puedes consultar las mismas fotos que se cargaron al liberar esta OP desde el QR.</div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="abrirFotosLiberacionOP('${o.id}')">Ver fotos de liberación (${getTotalFotosLiberacion(o)})</button>
+            </div>
+          </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
             <div style="border:1px solid var(--border);border-radius:10px;padding:12px;">
