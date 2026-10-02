@@ -7181,8 +7181,25 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       getFotosLiberacionManual(o).forEach((foto, index) => {
         if (foto?.path) archivos.push({ bucket: DOC_ATTACH_BUCKET, path: foto.path, nombre: foto.name || `Foto_manual_${index + 1}` });
       });
-      ((o.documentosAdjuntos && o.documentosAdjuntos.docOpEscaneada) || []).forEach((archivo, index) => {
+      ((o.documentosAdjuntos && o.documentosAdjuntos[EVIDENCIA_OP_DOC_ID]) || []).forEach((archivo, index) => {
         if (archivo?.path) archivos.push({ bucket: DOC_ATTACH_BUCKET, path: archivo.path, nombre: archivo.name || `OP escaneada ${index + 1}` });
+      });
+      // Fotos del trabajo terminado (pantalla "Evidencias"): mismos archivos que ve el botón 📷 Evidencias.
+      getEvidenciaFotos(o).forEach((foto, index) => {
+        if (!foto?.path) return;
+        const extension = (foto.name || foto.path).match(/\.[a-z0-9]+$/i)?.[0] || '.jpg';
+        archivos.push({ bucket: DOC_ATTACH_BUCKET, path: foto.path, nombre: `Foto_trabajo_terminado_${index + 1}${extension}` });
+      });
+      // Evita nombres repetidos al descargar (Teams/el navegador pisarían o renombrarían archivos).
+      const usados = new Set();
+      archivos.forEach(a => {
+        let nombre = a.nombre, n = 2;
+        while (usados.has(nombre.toLowerCase())) {
+          const m = a.nombre.match(/^(.*?)(\.[a-z0-9]+)?$/i);
+          nombre = `${m[1]}_${n++}${m[2] || ''}`;
+        }
+        usados.add(nombre.toLowerCase());
+        a.nombre = nombre;
       });
       return archivos;
     }
@@ -7264,7 +7281,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             <div style="background:#fff; color:#0f172a; border-top:1px solid var(--border); padding:12px 14px; max-height:38vh; overflow-y:auto; font-size:.8rem;">${mail.html}</div>
           </details>
           <div style="color:var(--text-muted); font-size:.75rem; margin-top:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span>📎 Al abrir Teams se descargarán las fotos de liberación y la OP escaneada para adjuntarlas al chat.</span>
+            <span>📎 Al abrir Teams se descargarán todas las evidencias de la OP (OP escaneada, fotos del trabajo terminado y fotos de liberación) para adjuntarlas al chat: ${listarAdjuntosTeams(o).length} archivo(s).</span>
             <button type="button" class="btn btn-secondary btn-sm" id="correo-termino-ver-fotos" style="margin-left:auto;">📷 Ver fotos</button>
           </div>
           <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; justify-content:flex-end; align-items:center;">
@@ -7277,7 +7294,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             <summary style="cursor:pointer;">ⓘ Cómo funcionan los botones</summary>
             <div style="margin-top:6px;">
               "Abrir en Outlook" y "Outlook Web" cargan el texto sin negritas ni viñetas; si quieres el formato tal cual, usa "Copiar con formato" y pégalo en un correo nuevo.<br>
-              La OP queda marcada como "Avisado" al usar Outlook o "Copiar con formato". Teams descarga los archivos, copia el mensaje y abre el chat para que puedas pegarlo y adjuntar las descargas. Teams no marca la OP como avisada.
+              La OP queda marcada como "Avisado" al usar Outlook o "Copiar con formato". Teams descarga todas las evidencias de la OP (las mismas que ves en 📷 Evidencias y en las fotos de liberación), copia el mensaje y abre el chat para que puedas pegarlo y adjuntar las descargas. Teams no marca la OP como avisada.
             </div>
           </details>
         </div>`;
@@ -7326,7 +7343,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           const cantidadArchivos = listarAdjuntosTeams(o).length;
           mensajeCompleto += cantidadArchivos
             ? `\n\nHay ${cantidadArchivos} archivo(s) de la OP para adjuntar a este chat.`
-            : '\n\nEsta OP no tiene fotos de liberación ni OP escaneada adjuntas.';
+            : '\n\nEsta OP no tiene evidencias adjuntas (OP escaneada, fotos del trabajo terminado ni fotos de liberación).';
           if (preview) {
             preview.value = mensajeCompleto;
             preview.style.display = 'block';
