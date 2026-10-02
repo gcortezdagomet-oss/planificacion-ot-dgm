@@ -7204,7 +7204,11 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         if (foto?.path) archivos.push({ bucket: DOC_ATTACH_BUCKET, path: foto.path, nombre: foto.name || `Foto_manual_${index + 1}` });
       });
       ((o.documentosAdjuntos && o.documentosAdjuntos[EVIDENCIA_OP_DOC_ID]) || []).forEach((archivo, index) => {
-        if (archivo?.path) archivos.push({ bucket: DOC_ATTACH_BUCKET, path: archivo.path, nombre: archivo.name || `OP escaneada ${index + 1}` });
+        if (!archivo?.path) return;
+        // El PDF escaneado se baja solo con el N° de OP (también los ya guardados con nombre largo). Si hay más de uno, abajo se numera _2, _3...
+        const numeroPdf = String(o.numero || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+        const esPdfEscaneo = archivo.tipo === 'PDF_ESCANEADO' && numeroPdf;
+        archivos.push({ bucket: DOC_ATTACH_BUCKET, path: archivo.path, nombre: esPdfEscaneo ? `${numeroPdf}.pdf` : (archivo.name || `OP escaneada ${index + 1}`) });
       });
       // Fotos del trabajo terminado (pantalla "Evidencias"): mismos archivos que ve el botón 📷 Evidencias.
       getEvidenciaFotos(o).forEach((foto, index) => {
@@ -7603,6 +7607,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       return q.map(p => [p[0]+(p[0]-cx)*0.02, p[1]+(p[1]-cy)*0.02]);
     }
 
+    // Ajustes del escaner: piso de fondo (mas bajo = levanta sombras mas oscuras) y punto blanco (mas bajo = limpia mas grises claros)
+    const SCAN_PISO_FONDO = 55, SCAN_PUNTO_BLANCO = 0.92;
     function procesarEscaneoColor(px, W, H) {
       const gray = new Uint8Array(W*H);
       for (let i=0, j=0; i<gray.length; i++, j+=4) gray[i] = (px[j]*77 + px[j+1]*150 + px[j+2]*29) >> 8;
@@ -7629,15 +7635,43 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           L[o] = (R[o]*77 + G[o]*150 + Bl[o]*29) >> 8;
         }
       }
-      // Fondo (papel) por bloques grandes: percentil 90, interpolado. Se aplica la MISMA ganancia a R, G y B (conserva los colores).
-      const B = 48, gx = Math.ceil(OW/B), gy = Math.ceil(OH/B), bg = new Float32Array(gx*gy);
+      // Fondo (papel) por bloques: percentil 90 SOLO de pixeles neutros (grises/blancos), asi las cajas de color (azul, rojo) no se toman como fondo.
+      // Los bloques sin papel visible se rellenan con los vecinos, se suaviza, y se aplica la MISMA ganancia a R, G y B (conserva los colores).
+      const B = 48, gx = Math.ceil(OW/B), gy = Math.ceil(OH/B);
+      let bg = new Float32Array(gx*gy);
       for (let by=0; by<gy; by++) for (let bx=0; bx<gx; bx++) {
-        const hist = new Uint32Array(256); let n = 0;
-        for (let y=by*B; y<Math.min(OH,(by+1)*B); y+=2) for (let x=bx*B; x<Math.min(OW,(bx+1)*B); x+=2) { hist[L[y*OW+x]]++; n++; }
+        const hist = new Uint32Array(256); let n = 0, tot = 0;
+        for (let y=by*B; y<Math.min(OH,(by+1)*B); y+=2) for (let x=bx*B; x<Math.min(OW,(bx+1)*B); x+=2) {
+          const o = y*OW+x; tot++;
+          if (Math.max(R[o],G[o],Bl[o]) - Math.min(R[o],G[o],Bl[o]) < 45) { hist[L[o]]++; n++; }
+        }
+        if (n < tot*0.25) { bg[by*gx+bx] = NaN; continue; }
         let acc = 0, p = 255; for (let i=0;i<256;i++) { acc += hist[i]; if (acc >= n*0.9) { p = i; break; } }
-        bg[by*gx+bx] = Math.max(p, 150);
+        bg[by*gx+bx] = Math.max(p, SCAN_PISO_FONDO);
       }
-      const lut = new Uint8Array(256); for (let i=0;i<256;i++) lut[i] = 255*Math.pow(i/255, 1.2); // contraste suave: no borra los grises claros
+      for (let it=0; it<80; it++) {
+        let faltan = 0; const nb = bg.slice();
+        for (let by=0; by<gy; by++) for (let bx=0; bx<gx; bx++) {
+          if (!isNaN(bg[by*gx+bx])) continue;
+          let sm = 0, c = 0;
+          for (let dy=-1; dy<=1; dy++) for (let dx=-1; dx<=1; dx++) {
+            const yy = by+dy, xx = bx+dx; if (yy<0||yy>=gy||xx<0||xx>=gx) continue;
+            const v = bg[yy*gx+xx]; if (!isNaN(v)) { sm += v; c++; }
+          }
+          if (c) nb[by*gx+bx] = sm/c; else faltan++;
+        }
+        bg = nb; if (!faltan) break;
+      }
+      for (let i=0;i<bg.length;i++) if (isNaN(bg[i])) bg[i] = 235;
+      { const sm = bg.slice(); // suavizado 3x3 para que no queden "parches" de bloque
+        for (let by=0; by<gy; by++) for (let bx=0; bx<gx; bx++) {
+          let t = 0, c = 0;
+          for (let dy=-1; dy<=1; dy++) for (let dx=-1; dx<=1; dx++) { const yy=by+dy, xx=bx+dx; if (yy<0||yy>=gy||xx<0||xx>=gx) continue; t += bg[yy*gx+xx]; c++; }
+          sm[by*gx+bx] = t/c;
+        }
+        bg = sm; }
+      // Contraste suave con "punto blanco": todo lo que queda a >=92% del papel se vuelve blanco puro (borra restos grises de sombra), sin tocar tintas ni lapiz.
+      const lut = new Uint8Array(256); for (let i=0;i<256;i++) lut[i] = Math.min(255, 255*Math.pow(i/(255*SCAN_PUNTO_BLANCO), 1.2));
       const out = new Uint8ClampedArray(N*4);
       for (let y=0; y<OH; y++) {
         const fy = Math.min(gy-1, Math.max(0, y/B-0.5)), y0b = fy|0, y1b = Math.min(gy-1,y0b+1), ty = fy-y0b;
@@ -7712,7 +7746,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         let paginasGuardadas = 0;
         if (evidenciaOPState.paginas.length) {
           const pdfBlob = await crearPdfDesdeImagenes(evidenciaOPState.paginas);
-          const pdfFile = new File([pdfBlob], `OP_${numero}_terminada_${Date.now()}.pdf`, {type:'application/pdf'});
+          const pdfFile = new File([pdfBlob], `${numero}.pdf`, {type:'application/pdf'}); // Nombre corto: solo el N° de OP (el path en Storage sigue siendo único por el Date.now() del prefijo)
           const path = `${numero}/${EVIDENCIA_OP_DOC_ID}/${Date.now()}_${sanitizeFileName(pdfFile.name)}`;
           const {error}=await sb.storage.from(DOC_ATTACH_BUCKET).upload(path,pdfFile,{upsert:false,contentType:'application/pdf'});
           if(error) throw error;
@@ -10233,6 +10267,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       // Se calculan sobre las OPs que realmente forman parte del reporte,
       // respetando el rango de fechas seleccionado.
       const esReporteCompleto = String(titulo || '').trim() === 'Reporte Completo de OPs';
+      // El Reporte de Soldadura lo ve un externo a la empresa: no se muestra el total de OPs en planta.
+      const esReporteSoldadura = String(titulo || '').trim() === 'Reporte de Soldadura';
       const opsEnCursoReporte = esReporteCompleto
         ? ordenados.filter(o => String(o.estadoOp || 'EN CURSO').trim().toUpperCase() === 'EN CURSO')
         : [];
@@ -10330,10 +10366,12 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:14px;">
+            ${esReporteSoldadura ? '' : `
             <div style="background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; padding:8px 14px; text-align:center;">
               <div style="font-size:9px; color:#4338ca; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">OPs en curso en planta</div>
               <div style="font-size:18px; color:#263581; font-weight:800; line-height:1.2;">${getTotalOpsEnCursoPlanta()}</div>
             </div>
+            `}
             <div style="text-align:right; font-size:10px; color:#94a3b8;">
               Generado el ${formatDateWithDayUpper(todayKey())}
             </div>
