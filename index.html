@@ -3776,7 +3776,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     window.dagometSupabase=window.supabase.createClient(window.DAGOMET_SUPABASE_URL,window.DAGOMET_SUPABASE_ANON_KEY);
     const sb=window.dagometSupabase;
     async function loadProfile(user){const {data,error}=await sb.from('profiles').select('id,nombre,rol,activo,pestanas_permitidas').eq('id',user.id).maybeSingle();if(error)throw error;if(!data||data.activo===false)throw new Error('Tu usuario no está habilitado. Contacta al administrador.');window.dagometCurrentProfile=data;return data;}
-    async function finishSession(session){if(!session?.user){setLoginUI();return false;}try{const profile=await loadProfile(session.user);window.dagometCurrentUser=session.user;setLoggedUI(profile,session.user);return true;}catch(e){await sb.auth.signOut();setLoginUI();showError(e.message||'No se pudo validar el usuario.');return false;}}
+    async function finishSession(session){if(!session?.user){setLoginUI();return false;}try{const profile=await loadProfile(session.user);window.dagometCurrentUser=session.user;setLoggedUI(profile,session.user);setTimeout(()=>{ if(typeof procesarColaEvidencias==='function') procesarColaEvidencias(); if(typeof procesarColaEvidenciasPDF==='function') procesarColaEvidenciasPDF(); },700);return true;}catch(e){await sb.auth.signOut();setLoginUI();showError(e.message||'No se pudo validar el usuario.');return false;}}
     document.getElementById('logout-btn').addEventListener('click',async()=>{await sb.auth.signOut();location.reload();});
 
     // ===== CAMBIAR MI CONTRASEÑA (cualquier usuario logueado) =====
@@ -7622,14 +7622,186 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       } catch (err) { alert('No se pudo preparar la página: ' + (err.message || err)); }
     }
 
+    // ==========================================================================
+    // COLA LOCAL DE EVIDENCIAS
+    // Las fotos tomadas desde el celular se guardan primero en IndexedDB (que sí
+    // puede conservar archivos/Blob). Así, si se corta Internet justo después de
+    // tomar la foto, NO se pierde: queda pendiente y se vuelve a intentar al
+    // recuperar la conexión, incluso si el usuario cierra y vuelve a abrir la app.
+    // ==========================================================================
+    const EVIDENCE_QUEUE_DB = 'dagomet_evidence_queue_v1';
+    const EVIDENCE_QUEUE_STORE = 'items';
+    let evidenceQueueDBPromise = null;
+    let evidenceQueueProcessing = false;
+
+    function abrirEvidenceQueueDB() {
+      if (evidenceQueueDBPromise) return evidenceQueueDBPromise;
+      evidenceQueueDBPromise = new Promise((resolve, reject) => {
+        if (!window.indexedDB) { reject(new Error('Este navegador no permite almacenamiento local de archivos.')); return; }
+        const req = indexedDB.open(EVIDENCE_QUEUE_DB, 1);
+        req.onupgradeneeded = () => {
+          const idb = req.result;
+          if (!idb.objectStoreNames.contains(EVIDENCE_QUEUE_STORE)) {
+            const store = idb.createObjectStore(EVIDENCE_QUEUE_STORE, { keyPath: 'id' });
+            store.createIndex('opId', 'opId', { unique:false });
+            store.createIndex('estado', 'estado', { unique:false });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error || new Error('No se pudo abrir la cola local.'));
+      });
+      return evidenceQueueDBPromise;
+    }
+
+    async function guardarEnColaEvidencia(item) {
+      const idb = await abrirEvidenceQueueDB();
+      return new Promise((resolve, reject) => {
+        const tx = idb.transaction(EVIDENCE_QUEUE_STORE, 'readwrite');
+        tx.objectStore(EVIDENCE_QUEUE_STORE).put(item);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error || new Error('No se pudo guardar la foto localmente.'));
+      });
+    }
+
+    async function leerColaEvidencias() {
+      const idb = await abrirEvidenceQueueDB();
+      return new Promise((resolve, reject) => {
+        const tx = idb.transaction(EVIDENCE_QUEUE_STORE, 'readonly');
+        const req = tx.objectStore(EVIDENCE_QUEUE_STORE).getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error || new Error('No se pudo leer la cola local.'));
+      });
+    }
+
+    async function quitarDeColaEvidencia(id) {
+      const idb = await abrirEvidenceQueueDB();
+      return new Promise((resolve, reject) => {
+        const tx = idb.transaction(EVIDENCE_QUEUE_STORE, 'readwrite');
+        tx.objectStore(EVIDENCE_QUEUE_STORE).delete(id);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error || new Error('No se pudo limpiar la cola local.'));
+      });
+    }
+
+    function nuevoIdEvidenciaLocal() {
+      try { return crypto.randomUUID(); } catch (_) {
+        return 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      }
+    }
+
+    async function encolarFotoEvidencia(opId, archivo) {
+      const id = nuevoIdEvidenciaLocal();
+      const item = {
+        id,
+        opId,
+        tipo: 'FOTO_TRABAJO_TERMINADO',
+        nombre: archivo.name || ('foto_' + Date.now() + '.jpg'),
+        contentType: archivo.type || 'image/jpeg',
+        size: archivo.size || 0,
+        blob: archivo,
+        creadaEn: Date.now(),
+        estado: 'PENDIENTE'
+      };
+      await guardarEnColaEvidencia(item);
+      return item;
+    }
+
+    async function procesarColaEvidencias() {
+      if (evidenceQueueProcessing) return;
+      if (!navigator.onLine) return;
+      const sb = window.dagometSupabase;
+      if (!sb || !window.dagometCurrentUser || window.dagometCurrentProfile?.rol === 'read_only') return;
+
+      evidenceQueueProcessing = true;
+      try {
+        const cola = await leerColaEvidencias();
+        for (const item of cola) {
+          if (!item || item.estado === 'SUBIENDO') continue;
+          const o = db.ots.find(x => x.id === item.opId);
+          if (!o || !item.blob) continue;
+
+          const numero = String(o.numero || 'SIN_NUMERO').trim().toUpperCase()
+            .replace(/[^a-zA-Z0-9_-]/g,'_') || 'SIN_NUMERO';
+          // Path determinista: si la subida alcanzó a terminar pero se cortó
+          // antes de guardar la metadata, el reintento reutiliza el mismo archivo
+          // en vez de crear duplicados.
+          const path = `${numero}/fotos_op_terminada/cola_${item.id}_${sanitizeFileName(item.nombre)}`;
+
+          try {
+            item.estado = 'SUBIENDO';
+            await guardarEnColaEvidencia(item);
+
+            const { error } = await sb.storage.from(DOC_ATTACH_BUCKET).upload(
+              path, item.blob,
+              { upsert:true, contentType:item.contentType || 'image/jpeg', cacheControl:'31536000' }
+            );
+            if (error) throw error;
+
+            if (!Array.isArray(o.fotosOPTerminada)) o.fotosOPTerminada = [];
+            const yaRegistrada = o.fotosOPTerminada.some(f => f && f.path === path);
+            if (!yaRegistrada) {
+              o.fotosOPTerminada.push({
+                path,
+                name:item.nombre,
+                size:item.size,
+                uploadedAt:Date.now(),
+                por:window.dagometCurrentProfile?.nombre || window.dagometCurrentUser?.email || '-'
+              });
+            }
+
+            // Guardamos metadata en la nube antes de borrar la copia local.
+            // Si falla este paso, la foto queda en IndexedDB y se reintentará.
+            const ok = await saveDBAndWait();
+            if (!ok) {
+              item.estado = 'PENDIENTE';
+              await guardarEnColaEvidencia(item);
+              break;
+            }
+
+            await quitarDeColaEvidencia(item.id);
+          } catch (err) {
+            console.error('Reintento de evidencia:', err);
+            item.estado = 'PENDIENTE';
+            try { await guardarEnColaEvidencia(item); } catch (_) {}
+            // No bloqueamos las demás fotos para que una sola con error no
+            // impida subir el resto.
+          }
+        }
+      } catch (err) {
+        console.error('No se pudo procesar la cola local de evidencias:', err);
+      } finally {
+        evidenceQueueProcessing = false;
+        if (evidenciaOPState) renderEvidenciasOP();
+        if (typeof renderOPsTable === 'function') renderOPsTable();
+      }
+    }
+
+    // Se reintenta al volver la conexión y también periódicamente. La cola vive
+    // fuera de localStorage, por lo que contiene realmente los archivos de foto.
+    window.addEventListener('online', () => {
+      setTimeout(procesarColaEvidencias, 300);
+    });
+    setInterval(() => { if (navigator.onLine) procesarColaEvidencias(); }, 15000);
+
     async function agregarFotosEvidencia(files) {
       if (!evidenciaOPState) return;
-      const imagenes = files.filter(f => f && /^image\//i.test(f.type || ''));
-      for (const file of imagenes) {
-        try { evidenciaOPState.fotos.push(await reducirImagenParaSubir(file)); }
-        catch (err) { console.error(err); }
+      const imagenes = files.filter(f => f && /^image\\//i.test(f.type || ''));
+      for (const original of imagenes) {
+        try {
+          const archivo = await reducirImagenParaSubir(original);
+          const item = await encolarFotoEvidencia(evidenciaOPState.id, archivo);
+          // La UI muestra la foto inmediatamente, aunque todavía no exista
+          // en Supabase. La copia real queda persistida en IndexedDB.
+          evidenciaOPState.fotos.push(archivo);
+          evidenciaOPState.fotosLocalIds = evidenciaOPState.fotosLocalIds || [];
+          evidenciaOPState.fotosLocalIds.push(item.id);
+        } catch (err) {
+          console.error('No se pudo guardar la foto localmente:', err);
+          alert('No se pudo guardar la foto en este dispositivo: ' + (err.message || err));
+        }
       }
       renderEvidenciasOP();
+      procesarColaEvidencias();
     }
 
     // ---- Escáner de documentos: detecta la hoja, la endereza (perspectiva) y limpia fondo/sombras ----
@@ -7802,51 +7974,110 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       if (window.dagometCurrentProfile?.rol === 'read_only') return;
       const o = db.ots.find(x => x.id === evidenciaOPState.id);
       const sb = window.dagometSupabase;
-      if (!o || !sb) { alert('No hay conexión con Supabase.'); return; }
+      if (!o) return;
+
       const btn = document.getElementById('guardar-evidencias-op');
-      if (btn) { btn.disabled=true; btn.textContent='⏳ Guardando...'; }
+      if (btn) { btn.disabled=true; btn.textContent='⏳ Sincronizando...'; }
+
       try {
         const numero = String(o.numero || 'SIN_NUMERO').trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g,'_') || 'SIN_NUMERO';
         let paginasGuardadas = 0;
+
+        // El PDF escaneado se genera y se sube al confirmar. Si no hay conexión,
+        // lo guardamos también en la cola local para que no se pierda.
         if (evidenciaOPState.paginas.length) {
           const pdfBlob = await crearPdfDesdeImagenes(evidenciaOPState.paginas);
-          const pdfFile = new File([pdfBlob], `${numero}.pdf`, {type:'application/pdf'}); // Nombre corto: solo el N° de OP (el path en Storage sigue siendo único por el Date.now() del prefijo)
-          const path = `${numero}/${EVIDENCIA_OP_DOC_ID}/${Date.now()}_${sanitizeFileName(pdfFile.name)}`;
-          const {error}=await sb.storage.from(DOC_ATTACH_BUCKET).upload(path,pdfFile,{upsert:false,contentType:'application/pdf'});
-          if(error) throw error;
-          if(!o.documentosAdjuntos) o.documentosAdjuntos={};
-          if(!Array.isArray(o.documentosAdjuntos[EVIDENCIA_OP_DOC_ID])) o.documentosAdjuntos[EVIDENCIA_OP_DOC_ID]=[];
-          o.documentosAdjuntos[EVIDENCIA_OP_DOC_ID].push({path,name:pdfFile.name,size:pdfFile.size,uploadedAt:Date.now(),tipo:'PDF_ESCANEADO',paginas:evidenciaOPState.paginas.length});
-          paginasGuardadas=evidenciaOPState.paginas.length;
+          const pdfFile = new File([pdfBlob], `${numero}.pdf`, {type:'application/pdf'});
+          const queueId = nuevoIdEvidenciaLocal();
+          const pdfQueueItem = {
+            id:queueId, opId:o.id, tipo:'PDF_ESCANEADO', nombre:pdfFile.name,
+            contentType:'application/pdf', size:pdfFile.size, blob:pdfFile,
+            paginas:evidenciaOPState.paginas.length, creadaEn:Date.now(), estado:'PENDIENTE'
+          };
+          await guardarEnColaEvidencia(pdfQueueItem);
+
+          // Para PDFs también usamos el mismo mecanismo de cola, con path
+          // determinista e idempotente.
+          if (navigator.onLine && sb && window.dagometCurrentUser) {
+            await procesarColaEvidenciasPDF();
+          }
+          paginasGuardadas = evidenciaOPState.paginas.length;
         }
 
-        let fotosGuardadas=0;
-        if (!Array.isArray(o.fotosOPTerminada)) o.fotosOPTerminada=[];
-        for (let i=0;i<evidenciaOPState.fotos.length;i++) {
-          const archivo=evidenciaOPState.fotos[i];
-          const path=`${numero}/fotos_op_terminada/${Date.now()}_${i}_${sanitizeFileName(archivo.name)}`;
-          const {error}=await sb.storage.from(DOC_ATTACH_BUCKET).upload(path,archivo,{upsert:false,contentType:archivo.type||'image/jpeg'});
-          if(error) throw error;
-          o.fotosOPTerminada.push({path,name:archivo.name,size:archivo.size,uploadedAt:Date.now(),por:window.dagometCurrentProfile?.nombre||window.dagometCurrentUser?.email||'-'});
-          fotosGuardadas++;
-        }
-        if (paginasGuardadas || fotosGuardadas) {
-          registrarAuditoria('GUARDAR EVIDENCIAS OP', `OP N° ${o.numero || '-'} · ${paginasGuardadas ? paginasGuardadas + ' página(s) escaneada(s)' : ''}${paginasGuardadas && fotosGuardadas ? ' · ' : ''}${fotosGuardadas ? fotosGuardadas + ' foto(s) de trabajo terminado' : ''}`, o.numero || '');
-        }
-        const enNube = (paginasGuardadas || fotosGuardadas) ? await saveDBAndWait() : true;
-        if (!enNube) {
-          alert('\u26a0 Las evidencias se guardaron en este dispositivo pero NO en la nube todav\u00eda (sin conexi\u00f3n o error). Se reintentar\u00e1 solo: mant\u00e9n esta p\u00e1gina abierta hasta que desaparezca el aviso rojo.');
+        // Las fotos ya fueron guardadas en IndexedDB al momento de seleccionarlas.
+        // Aquí solo intentamos sincronizarlas ahora; si falla, la cola permanece.
+        await procesarColaEvidencias();
+
+        const pendientes = (await leerColaEvidencias()).filter(x => x.opId === o.id);
+        const fotosPendientes = pendientes.filter(x => x.tipo === 'FOTO_TRABAJO_TERMINADO').length;
+        const pdfPendientes = pendientes.filter(x => x.tipo === 'PDF_ESCANEADO').length;
+
+        const fotosEnNube = getEvidenciaFotos(o).length;
+        const hayAlgo = paginasGuardadas || evidenciaOPState.fotos.length;
+
+        if (hayAlgo && !fotosPendientes && !pdfPendientes) {
+          registrarAuditoria(
+            'GUARDAR EVIDENCIAS OP',
+            `OP N° ${o.numero || '-'} · ${paginasGuardadas ? paginasGuardadas + ' página(s) escaneada(s)' : ''}${paginasGuardadas && evidenciaOPState.fotos.length ? ' · ' : ''}${evidenciaOPState.fotos.length ? evidenciaOPState.fotos.length + ' foto(s) de trabajo terminado' : ''}`,
+            o.numero || ''
+          );
+          await saveDBAndWait();
+          alert(`✅ Evidencias sincronizadas correctamente.\n${paginasGuardadas ? '📄 ' + paginasGuardadas + ' página(s) en PDF\n' : ''}${evidenciaOPState.fotos.length ? '📸 ' + evidenciaOPState.fotos.length + ' foto(s) del trabajo terminado' : ''}`);
           cerrarEvidenciasOP();
           renderOPsTable();
           return;
         }
-        alert(`Evidencias guardadas correctamente.\n${paginasGuardadas ? '📄 ' + paginasGuardadas + ' página(s) en PDF\n' : ''}${fotosGuardadas ? '📸 ' + fotosGuardadas + ' foto(s) del trabajo terminado' : ''}`);
+
+        if (hayAlgo) {
+          alert(`📱 Evidencias guardadas en este teléfono.\n\n${fotosPendientes || pdfPendientes ? '⚠️ Aún quedan evidencias pendientes de sincronizar. El sistema las subirá automáticamente cuando vuelva la conexión. Puedes cerrar esta ventana y la cola permanecerá guardada.' : ''}`);
+          cerrarEvidenciasOP();
+          renderOPsTable();
+          return;
+        }
+
         cerrarEvidenciasOP();
-        renderOPsTable();
       } catch (err) {
         console.error('Error guardando evidencias:',err);
-        alert('No se pudieron guardar las evidencias: ' + (err.message || err));
+        // Importante: no borramos la cola. Si la foto ya quedó en IndexedDB,
+        // seguirá disponible para el próximo reintento.
+        alert('⚠️ Las evidencias quedaron protegidas en este dispositivo, pero todavía no se pudieron sincronizar. Se reintentará automáticamente cuando vuelva la conexión.');
         if (btn) { btn.disabled=false; btn.textContent='💾 Guardar evidencias'; }
+        procesarColaEvidencias();
+      }
+    }
+
+    // Cola específica para PDFs escaneados. Se mantiene separada de la cola de
+    // fotos porque el PDF lleva metadata adicional (cantidad de páginas).
+    let evidencePdfQueueProcessing = false;
+    async function procesarColaEvidenciasPDF() {
+      if (evidencePdfQueueProcessing || !navigator.onLine) return;
+      const sb = window.dagometSupabase;
+      if (!sb || !window.dagometCurrentUser || window.dagometCurrentProfile?.rol === 'read_only') return;
+      evidencePdfQueueProcessing = true;
+      try {
+        const cola = (await leerColaEvidencias()).filter(x => x.tipo === 'PDF_ESCANEADO');
+        for (const item of cola) {
+          const o = db.ots.find(x => x.id === item.opId);
+          if (!o || !item.blob) continue;
+          const numero = String(o.numero || 'SIN_NUMERO').trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g,'_') || 'SIN_NUMERO';
+          const path = `${numero}/${EVIDENCIA_OP_DOC_ID}/cola_${item.id}_${sanitizeFileName(item.nombre)}`;
+          try {
+            await sb.storage.from(DOC_ATTACH_BUCKET).upload(path,item.blob,{upsert:true,contentType:'application/pdf',cacheControl:'31536000'}).then(({error})=>{if(error)throw error;});
+            if (!o.documentosAdjuntos) o.documentosAdjuntos = {};
+            if (!Array.isArray(o.documentosAdjuntos[EVIDENCIA_OP_DOC_ID])) o.documentosAdjuntos[EVIDENCIA_OP_DOC_ID] = [];
+            if (!o.documentosAdjuntos[EVIDENCIA_OP_DOC_ID].some(x => x && x.path === path)) {
+              o.documentosAdjuntos[EVIDENCIA_OP_DOC_ID].push({
+                path,name:item.nombre,size:item.size,uploadedAt:Date.now(),tipo:'PDF_ESCANEADO',paginas:item.paginas || 1
+              });
+            }
+            if (!(await saveDBAndWait())) break;
+            await quitarDeColaEvidencia(item.id);
+          } catch (err) {
+            console.error('Reintento de PDF de evidencia:',err);
+          }
+        }
+      } finally {
+        evidencePdfQueueProcessing = false;
       }
     }
 
