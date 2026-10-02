@@ -2874,7 +2874,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
               <button type="button" class="btn btn-secondary btn-sm" onclick="copiarInstruccionesATextoSoldadura()">📋 Copiar instrucciones de la OP</button>
             </div>
             <textarea id="sold-texto-reporte" placeholder="Escribe solo lo que se suelda (ej: Ítems 3 y 5: ducto Ø510, bisel en V a 30°). Si lo dejas vacío, el reporte usa las instrucciones de la OP." style="width:100%; min-height:60px; font-family:inherit; font-size:0.85rem; padding:8px; border:1px solid #fecaca; border-radius:6px; box-sizing:border-box; resize:vertical;"></textarea>
-            <div style="font-size:0.72rem; color:#991b1b; margin-top:3px;">Solo se usa en el reporte con el filtro "Solo trabajos con soldadura". No cambia las instrucciones de la OP.</div>
+            <div style="font-size:0.72rem; color:#991b1b; margin-top:3px;">Se usa como "Trabajo" en el Reporte de soldadura. No cambia las instrucciones de la OP.</div>
           </div>
         </div>
 
@@ -3167,6 +3167,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             <button class="btn btn-success btn-sm" onclick="imprimirReporteSemana()">📅 Imprimir reporte semanal</button>
             <button class="btn btn-success btn-sm" onclick="imprimirReporteMes()">📊 Imprimir reporte del mes</button>
             <button class="btn btn-warning btn-sm" onclick="imprimirReporteCompleto()">🗂️ Reporte completo</button>
+            <button class="btn btn-secondary btn-sm" style="border-color:#b91c1c; color:#b91c1c;" onclick="imprimirReporteSoldadura()" title="Trabajos con soldadura o en el área Soldadura, con filtro por ensayo">🔥 Reporte de soldadura</button>
           </div>
           <div id="cal-term-worker-bar" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; width:100%;">
             <label style="display:flex; align-items:center; gap:5px; font-size:.82rem; font-weight:700; color:var(--text-muted);">
@@ -3638,7 +3639,6 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         <button class="btn btn-secondary btn-sm" onclick="applyReportColumnsPreset('sinCliente')">🚫 Sin cliente</button>
         <button class="btn btn-secondary btn-sm" onclick="applyReportColumnsPreset('completo')">📋 Todo</button>
         <button class="btn btn-secondary btn-sm" onclick="applyReportColumnsPreset('basico')">✏️ Básico</button>
-        <button class="btn btn-secondary btn-sm" style="border-color:#b91c1c; color:#b91c1c;" onclick="applyReportSoldaduraPreset()" title="Marca solo trabajos con soldadura y deja las columnas sin cliente">🔥 Soldadura sin cliente</button>
       </div>
 
       <div id="report-columns-list" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap:10px 16px; background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;"></div>
@@ -3650,14 +3650,6 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       </div>
       <div id="report-estados-list" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px 16px; background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;"></div>
 
-      <div id="report-filtro-soldadura-box" style="margin-top:16px; background:#fef2f2; border:1px solid #fecaca; border-radius:var(--radius-sm); padding:12px 16px;">
-        <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:700; color:#7f1d1d; text-transform:none; letter-spacing:0; cursor:pointer;">
-          <input type="checkbox" id="report-solo-soldadura" style="width:16px; height:16px; accent-color:#b91c1c; cursor:pointer;">
-          🔥 Solo trabajos con soldadura
-        </label>
-        <div style="font-size:0.75rem; color:#991b1b; margin-top:4px;">Este filtro no se guarda: cada reporte nuevo parte desactivado. En la columna Trabajo se usa el texto de soldadura de cada OP, si lo escribiste.</div>
-      </div>
-
       <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
         <button class="btn btn-secondary btn-sm" onclick="closeReportColumnsModal()">Cancelar</button>
         <button class="btn btn-primary btn-sm" id="report-columns-confirm-btn">👁️ Previsualizar reporte</button>
@@ -3666,6 +3658,36 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
   </div>
 
   <!-- MODAL: RANGO DE FECHAS (DOS DÍAS) PARA REPORTE COMPLETO -->
+  <div id="report-soldadura-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width:440px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h2 style="margin:0; border:none; padding:0;">🔥 Reporte de soldadura</h2>
+        <button class="btn btn-secondary btn-sm" onclick="cerrarModalReporteSoldadura()">✕ Cerrar</button>
+      </div>
+      <p style="margin:0 0 14px 0; color:var(--text-muted); font-size:0.85rem;">
+        Lista las OP que llevan soldadura o están en el área SOLDADURA, con cantidad, trabajo, N° de OP y cliente.
+      </p>
+      <div class="field" style="margin-bottom:12px;">
+        <label>Ensayo</label>
+        <select id="report-sold-ensayo">
+          <option value="todos">Todos (con y sin ensayo)</option>
+          <option value="con">Con ensayo (pendientes y recibidos)</option>
+          <option value="pendiente">Con ensayo · documentos pendientes de recibir</option>
+          <option value="recibido">Con ensayo · documentos ya recibidos</option>
+          <option value="sin">Sin ensayo</option>
+        </select>
+      </div>
+      <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; text-transform:none; letter-spacing:0; cursor:pointer;">
+        <input type="checkbox" id="report-sold-solo-curso" style="width:16px; height:16px; cursor:pointer;">
+        Solo OP en curso
+      </label>
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
+        <button class="btn btn-secondary btn-sm" onclick="cerrarModalReporteSoldadura()">Cancelar</button>
+        <button class="btn btn-warning btn-sm" onclick="confirmarReporteSoldadura()">👁️ Previsualizar</button>
+      </div>
+    </div>
+  </div>
+
   <div id="report-rango-modal" class="modal-overlay">
     <div class="modal-content" style="max-width:420px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
@@ -9977,6 +9999,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       { key: 'kilos',         label: 'Kilos',                  shortLabel: 'Kilos',       align: 'right',  weight: 6,  get: o => Math.round((o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0)).toLocaleString('es-CL') },
       { key: 'comentarios',   label: 'Comentarios',            shortLabel: 'Comentarios', align: 'left',   weight: 20, get: o => esc(o.comentarios || '-').replace(/\r?\n/g, '<br>') },
       { key: 'soldadura',     label: 'Estado de soldadura',     shortLabel: 'Estado',   align: 'left',   weight: 20, get: o => getReportSoldaduraBadge(o) },
+      { key: 'ensayo',        label: 'Ensayo',                 shortLabel: 'Ensayo',      align: 'center', weight: 12, get: o => getReportEnsayoBadge(o) },
       { key: 'trabajo',       label: 'Trabajo / Instrucciones',shortLabel: 'Trabajo',     align: 'left',   weight: 42, get: o => esc(o.instrucciones || '-').replace(/\r?\n/g, '<br>') },
     ];
     const REPORT_COLUMNS_DEFAULT = ['numero', 'entrega', 'cliente', 'area', 'estadoOp', 'prioridad', 'planificador'];
@@ -9985,7 +10008,6 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       sinCliente: ['numero', 'entrega', 'area', 'maquina', 'estadoOp', 'prioridad', 'planificador'],
       completo: REPORT_COLUMNS.map(c => c.key),
       basico: ['numero', 'entrega', 'cliente', 'estadoOp'],
-      soldaduraSinCliente: ['numero', 'entrega', 'area', 'maquina', 'soldadura', 'estadoOp', 'prioridad', 'planificador'],
     };
 
     // Helpers de soldadura externa para los reportes.
@@ -10137,12 +10159,6 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       renderReportColumnsCheckboxes(keys);
     }
 
-    function applyReportSoldaduraPreset() {
-      renderReportColumnsCheckboxes(REPORT_COLUMNS_PRESETS.soldaduraSinCliente);
-      const chk = $('report-solo-soldadura');
-      if (chk) chk.checked = true;
-    }
-
     function applyReportEstadosPreset(presetName) {
       const estados = presetName === 'soloEnCurso' ? ['EN CURSO'] : [...REPORT_ESTADOS];
       renderReportEstadosCheckboxes(estados);
@@ -10152,8 +10168,6 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       reportColumnsPending = { list, titulo, subtitulo };
       renderReportColumnsCheckboxes(loadReportColumnsSelection());
       renderReportEstadosCheckboxes(loadReportEstadosSelection());
-      if ($('report-solo-soldadura')) $('report-solo-soldadura').checked = false;
-      if ($('report-filtro-soldadura-box')) $('report-filtro-soldadura-box').style.display = '';
       $('report-columns-confirm-btn').textContent = '👁️ Previsualizar reporte';
       $('report-columns-modal').style.display = 'flex';
     }
@@ -10162,9 +10176,6 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       reportColumnsPending = null;
       renderReportColumnsCheckboxes(loadReportColumnsSelection());
       renderReportEstadosCheckboxes(loadReportEstadosSelection());
-      // El filtro de soldadura es solo para un reporte puntual, no una preferencia guardada.
-      if ($('report-solo-soldadura')) $('report-solo-soldadura').checked = false;
-      if ($('report-filtro-soldadura-box')) $('report-filtro-soldadura-box').style.display = 'none';
       $('report-columns-confirm-btn').textContent = '💾 Guardar preferencias por defecto';
       $('report-columns-modal').style.display = 'flex';
     }
@@ -10189,16 +10200,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       closeReportColumnsModal();
       if (reportColumnsPending) {
         const { list, titulo, subtitulo } = reportColumnsPending;
-        let listFiltrada = list.filter(o => selectedEstados.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
-        let subtituloFinal = subtitulo;
-        if ($('report-solo-soldadura') && $('report-solo-soldadura').checked) {
-          listFiltrada = listFiltrada.filter(opTieneSoldadura).map(o => {
-            // Copia solo para el reporte: la OP original no se modifica.
-            const txt = String((o.soldaduraSeguimiento && o.soldaduraSeguimiento.textoReporte) || '').trim();
-            return txt ? { ...o, instrucciones: txt } : o;
-          });
-          subtituloFinal = `${subtitulo} · Solo con soldadura externa (${listFiltrada.length} OP)`;
-        }
+        const listFiltrada = list.filter(o => selectedEstados.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
+        const subtituloFinal = subtitulo;
         previewReport(listFiltrada, titulo, subtituloFinal, selectedCols);
         reportColumnsPending = null;
       }
@@ -10490,6 +10493,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         case 'piezas': return o.piezas || '-';
         case 'kilos': return Math.round((o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0));
         case 'trabajo': return o.instrucciones || '-';
+        case 'ensayo': return getReportEnsayoTexto(o);
         case 'soldadura': return getReportSoldaduraEstadoTexto(o);
         case 'comentarios': return o.comentarios || '-';
         case 'fechaTermino': return o.fechaTermino ? formatDateWithDayUpper(String(o.fechaTermino).slice(0,10)) : '-';
@@ -10600,6 +10604,53 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 
       cerrarModalReporteRango();
       openReportColumnPicker(list, 'Reporte Completo de OPs', rango);
+    }
+
+    // ---- Reporte de soldadura: OP con soldadura externa o dentro del área SOLDADURA ----
+    function opEsDeSoldadura(o) {
+      return opTieneSoldadura(o) || String(o.area || '').trim().toUpperCase() === 'SOLDADURA';
+    }
+    // 'sin' | 'pendiente' | 'recibido'
+    function getReportEnsayoEstado(o) {
+      const seg = o.soldaduraSeguimiento || {};
+      if (!seg.llevaEnsayo) return 'sin';
+      return (seg.ensayos && seg.ensayos.check) ? 'recibido' : 'pendiente';
+    }
+    function getReportEnsayoTexto(o) {
+      return { sin: 'Sin ensayo', pendiente: 'Ensayo pendiente', recibido: 'Ensayo recibido' }[getReportEnsayoEstado(o)];
+    }
+    function getReportEnsayoBadge(o) {
+      const e = getReportEnsayoEstado(o);
+      const st = { sin: 'color:#64748b;', pendiente: 'color:#1e40af;', recibido: 'color:#166534;' }[e];
+      return `<span style="font-weight:700; ${st}">${e === 'sin' ? '' : '🧪 '}${esc(getReportEnsayoTexto(o))}</span>`;
+    }
+    function imprimirReporteSoldadura() {
+      $('report-sold-ensayo').value = 'todos';
+      $('report-sold-solo-curso').checked = false;
+      $('report-soldadura-modal').style.display = 'flex';
+    }
+    function cerrarModalReporteSoldadura() {
+      $('report-soldadura-modal').style.display = 'none';
+    }
+    function confirmarReporteSoldadura() {
+      const filtro = $('report-sold-ensayo').value;
+      const soloCurso = $('report-sold-solo-curso').checked;
+      const list = db.ots.filter(o => {
+        if (!opEsDeSoldadura(o)) return false;
+        if (soloCurso && String(o.estadoOp || 'EN CURSO').trim().toUpperCase() !== 'EN CURSO') return false;
+        const e = getReportEnsayoEstado(o);
+        if (filtro === 'con') return e !== 'sin';
+        return filtro === 'todos' || e === filtro;
+      }).map(o => {
+        // Copia solo para el reporte: si la OP tiene "texto del trabajo para soldadura", se usa como Trabajo.
+        const txt = String((o.soldaduraSeguimiento && o.soldaduraSeguimiento.textoReporte) || '').trim();
+        return txt ? { ...o, instrucciones: txt } : o;
+      });
+      if (!list.length) { alert('No hay OP de soldadura que cumplan ese filtro.'); return; }
+      const etiqueta = { todos: 'con y sin ensayo', con: 'con ensayo', pendiente: 'ensayo pendiente de recibir', recibido: 'ensayo recibido', sin: 'sin ensayo' }[filtro];
+      const subtitulo = `Trabajos con soldadura o en área Soldadura · ${etiqueta}${soloCurso ? ' · solo en curso' : ''} · ${list.length} OP`;
+      cerrarModalReporteSoldadura();
+      previewReport(list, 'Reporte de Soldadura', subtitulo, ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ensayo']);
     }
 
     function imprimirReporteMes() {
