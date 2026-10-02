@@ -7477,10 +7477,11 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-bottom:14px;">
             <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#f8fafc;">
               <div style="font-weight:800;color:var(--primary);margin-bottom:5px;">📄 1. Escanear OP terminada</div>
-              <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:10px;">Fotografía cada hoja. Puedes agregar varias páginas y la app las guardará juntas en un PDF.</div>
+              <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:10px;">Fotografía cada hoja completa, de preferencia sobre una superficie oscura. La app la recorta, la endereza, quita sombras y la deja como escaneo en un solo PDF.</div>
               <button type="button" class="btn btn-primary btn-sm" onclick="capturarPaginaEvidencia()">📷 ${st.paginas.length ? 'Agregar página' : 'Tomar primera página'}</button>
               <input id="evidencia-pagina-input" type="file" accept="image/*" capture="environment" style="display:none;">
               <span style="font-size:.72rem;color:var(--text-muted);margin-left:8px;">${totalPaginas} página${totalPaginas===1?'':'s'}</span>
+              ${st.paginas.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${st.paginas.map((f,i)=>{ f._url = f._url || URL.createObjectURL(f); return `<span style="position:relative;display:inline-block;"><img src="${f._url}" alt="Página ${i+1}" style="height:110px;border:1px solid var(--border);border-radius:4px;background:#fff;"><button type="button" onclick="quitarPaginaEvidencia(${i})" title="Quitar y volver a tomar" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:0;background:#dc2626;color:#fff;cursor:pointer;font-size:11px;line-height:20px;padding:0;">✕</button></span>`; }).join('')}</div>` : ''}
             </div>
             <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#f8fafc;">
               <div style="font-weight:800;color:var(--primary);margin-bottom:5px;">📸 2. Fotografiar trabajo terminado</div>
@@ -7522,7 +7523,10 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     async function agregarPaginaEvidencia(file) {
       if (!evidenciaOPState || !/^image\//i.test(file.type || '')) return;
       try {
-        const imagen = await reducirImagenParaSubir(file);
+        document.body.style.cursor = 'progress';
+        await new Promise(r => setTimeout(r, 30));
+        const imagen = await escanearDocumento(file);
+        document.body.style.cursor = '';
         evidenciaOPState.paginas.push(imagen);
         renderEvidenciasOP();
       } catch (err) { alert('No se pudo preparar la página: ' + (err.message || err)); }
@@ -7538,22 +7542,133 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       renderEvidenciasOP();
     }
 
+    // ---- Escáner de documentos: detecta la hoja, la endereza (perspectiva) y limpia fondo/sombras ----
+    function detectarEsquinasDocumento(gray, W, H) {
+      const full = [[0,0],[W-1,0],[W-1,H-1],[0,H-1]];
+      const ds = Math.max(1, Math.round(Math.max(W,H)/400)), sw = Math.floor(W/ds), sh = Math.floor(H/ds), tot = sw*sh;
+      const sm = new Uint8Array(tot), hist = new Array(256).fill(0);
+      for (let y=0;y<sh;y++) for (let x=0;x<sw;x++) { const v = gray[y*ds*W + x*ds]; sm[y*sw+x] = v; hist[v]++; }
+      let sum = 0; for (let i=0;i<256;i++) sum += i*hist[i];
+      let wB = 0, sB = 0, best = -1, thr = 128;
+      for (let i=0;i<256;i++) {
+        wB += hist[i]; if (!wB) continue; const wF = tot-wB; if (!wF) break;
+        sB += i*hist[i]; const mB = sB/wB, mF = (sum-sB)/wF, vb = wB*wF*(mB-mF)*(mB-mF);
+        if (vb > best) { best = vb; thr = i; }
+      }
+      const lab = new Uint8Array(tot), stack = new Int32Array(tot);
+      let bestC = null;
+      for (let s0=0;s0<tot;s0++) {
+        if (lab[s0] || sm[s0] <= thr) continue;
+        let sp = 0, n = 0, tl=[0,0,1e9], br=[0,0,-1e9], tr=[0,0,-1e9], bl=[0,0,1e9];
+        stack[sp++] = s0; lab[s0] = 1;
+        while (sp) {
+          const p = stack[--sp], x = p % sw, y = (p/sw)|0, s = x+y, d = x-y; n++;
+          if (s < tl[2]) tl = [x,y,s]; if (s > br[2]) br = [x,y,s];
+          if (d > tr[2]) tr = [x,y,d]; if (d < bl[2]) bl = [x,y,d];
+          if (x>0 && !lab[p-1] && sm[p-1]>thr) { lab[p-1]=1; stack[sp++]=p-1; }
+          if (x<sw-1 && !lab[p+1] && sm[p+1]>thr) { lab[p+1]=1; stack[sp++]=p+1; }
+          if (y>0 && !lab[p-sw] && sm[p-sw]>thr) { lab[p-sw]=1; stack[sp++]=p-sw; }
+          if (y<sh-1 && !lab[p+sw] && sm[p+sw]>thr) { lab[p+sw]=1; stack[sp++]=p+sw; }
+        }
+        if (!bestC || n > bestC.n) bestC = { n, q: [tl,tr,br,bl] };
+      }
+      if (!bestC || bestC.n < tot*0.2 || bestC.n > tot*0.97) return full;
+      const q = bestC.q.map(p => [p[0]*ds, p[1]*ds]);
+      let area = 0; for (let i=0;i<4;i++) { const a=q[i], b=q[(i+1)%4]; area += a[0]*b[1]-b[0]*a[1]; }
+      if (Math.abs(area)/2 < W*H*0.2) return full;
+      const cx = q.reduce((s,p)=>s+p[0],0)/4, cy = q.reduce((s,p)=>s+p[1],0)/4;
+      return q.map(p => [p[0]+(cx-p[0])*0.012, p[1]+(cy-p[1])*0.012]);
+    }
+
+    function procesarEscaneoGris(gray, W, H) {
+      const q = detectarEsquinasDocumento(gray, W, H);
+      const [x0,y0] = q[0], [x1,y1] = q[1], [x2,y2] = q[2], [x3,y3] = q[3];
+      const dx1=x1-x2, dx2=x3-x2, dx3=x0-x1+x2-x3, dy1=y1-y2, dy2=y3-y2, dy3=y0-y1+y2-y3;
+      let g = 0, h = 0; const den = dx1*dy2 - dx2*dy1;
+      if (Math.abs(den) > 1e-9 && (dx3 || dy3)) { g = (dx3*dy2-dx2*dy3)/den; h = (dx1*dy3-dx3*dy1)/den; }
+      const a=x1-x0+g*x1, b=x3-x0+h*x3, c=x0, d=y1-y0+g*y1, e=y3-y0+h*y3, f=y0;
+      const land = Math.hypot(x1-x0,y1-y0) > Math.hypot(x3-x0,y3-y0);
+      const OW = land ? 2339 : 1654, OH = land ? 1654 : 2339;
+      const out = new Uint8Array(OW*OH);
+      for (let v=0; v<OH; v++) {
+        const t = v/(OH-1);
+        for (let u=0; u<OW; u++) {
+          const s = u/(OW-1), w = g*s + h*t + 1;
+          let x = (a*s+b*t+c)/w, y = (d*s+e*t+f)/w;
+          x = Math.min(W-1.001, Math.max(0, x)); y = Math.min(H-1.001, Math.max(0, y));
+          const ix = x|0, iy = y|0, fx = x-ix, fy = y-iy, i0 = iy*W+ix;
+          out[v*OW+u] = (gray[i0]*(1-fx)+gray[i0+1]*fx)*(1-fy) + (gray[i0+W]*(1-fx)+gray[i0+W+1]*fx)*fy;
+        }
+      }
+      // Fondo (papel) por bloques: percentil 85 de cada bloque, interpolado -> elimina sombras e iluminación despareja
+      const B = 32, gx = Math.ceil(OW/B), gy = Math.ceil(OH/B), bg = new Float32Array(gx*gy);
+      for (let by=0; by<gy; by++) for (let bx=0; bx<gx; bx++) {
+        const hist = new Uint32Array(256); let n = 0;
+        for (let y=by*B; y<Math.min(OH,(by+1)*B); y+=2) for (let x=bx*B; x<Math.min(OW,(bx+1)*B); x+=2) { hist[out[y*OW+x]]++; n++; }
+        let acc = 0, p = 255; for (let i=0;i<256;i++) { acc += hist[i]; if (acc >= n*0.85) { p = i; break; } }
+        bg[by*gx+bx] = Math.max(p, 60);
+      }
+      const LO = 60, HI = 235;
+      for (let y=0; y<OH; y++) {
+        const fy = Math.min(gy-1, Math.max(0, y/B-0.5)), y0b = fy|0, y1b = Math.min(gy-1,y0b+1), ty = fy-y0b;
+        for (let x=0; x<OW; x++) {
+          const fx = Math.min(gx-1, Math.max(0, x/B-0.5)), x0b = fx|0, x1b = Math.min(gx-1,x0b+1), tx = fx-x0b;
+          const bv = (bg[y0b*gx+x0b]*(1-tx)+bg[y0b*gx+x1b]*tx)*(1-ty) + (bg[y1b*gx+x0b]*(1-tx)+bg[y1b*gx+x1b]*tx)*ty;
+          const val = out[y*OW+x]*255/bv;
+          out[y*OW+x] = Math.max(0, Math.min(255, (val-LO)*255/(HI-LO)));
+        }
+      }
+      return { out, OW, OH };
+    }
+
+    async function escanearDocumento(file) {
+      const url = URL.createObjectURL(file);
+      try {
+        const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
+        const k = Math.min(1, 2400/Math.max(img.naturalWidth, img.naturalHeight));
+        const W = Math.round(img.naturalWidth*k), H = Math.round(img.naturalHeight*k);
+        const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        const cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(img, 0, 0, W, H);
+        const px = cx.getImageData(0, 0, W, H).data, gray = new Uint8Array(W*H);
+        for (let i=0, j=0; i<gray.length; i++, j+=4) gray[i] = (px[j]*77 + px[j+1]*150 + px[j+2]*29) >> 8;
+        const { out, OW, OH } = procesarEscaneoGris(gray, W, H);
+        const c2 = document.createElement('canvas'); c2.width = OW; c2.height = OH;
+        const c2x = c2.getContext('2d'), id = c2x.createImageData(OW, OH);
+        for (let i=0, j=0; i<out.length; i++, j+=4) { id.data[j]=id.data[j+1]=id.data[j+2]=out[i]; id.data[j+3]=255; }
+        c2x.putImageData(id, 0, 0);
+        const blob = await new Promise(res => c2.toBlob(res, 'image/jpeg', 0.8));
+        if (!blob) throw new Error('sin imagen');
+        return new File([blob], 'escaneo_' + Date.now() + '.jpg', { type: 'image/jpeg' });
+      } catch (err) {
+        console.warn('Escaneo automático falló, se usa la foto original:', err);
+        return reducirImagenParaSubir(file);
+      } finally { URL.revokeObjectURL(url); }
+    }
+
+    function quitarPaginaEvidencia(i) {
+      if (!evidenciaOPState) return;
+      evidenciaOPState.paginas.splice(i, 1);
+      renderEvidenciasOP();
+    }
+
     async function crearPdfDesdeImagenes(files) {
       if (!files.length) return null;
       if (!window.jspdf?.jsPDF) throw new Error('No se cargó el generador PDF. Revisa la conexión a Internet y vuelve a intentar.');
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4', compress:true });
       for (let i=0; i<files.length; i++) {
-        if (i) pdf.addPage('a4','portrait');
         const url = URL.createObjectURL(files[i]);
         try {
           const img = await new Promise((resolve,reject)=>{ const im=new Image(); im.onload=()=>resolve(im); im.onerror=reject; im.src=url; });
-          const pw=210, ph=297, margen=5;
+          const land = img.naturalWidth > img.naturalHeight;
+          pdf.addPage('a4', land ? 'landscape' : 'portrait');
+          const pw = land ? 297 : 210, ph = land ? 210 : 297, margen = 0;
           const escala=Math.min((pw-margen*2)/img.naturalWidth,(ph-margen*2)/img.naturalHeight);
           const w=img.naturalWidth*escala, h=img.naturalHeight*escala;
           pdf.addImage(img,'JPEG',(pw-w)/2,(ph-h)/2,w,h,'','FAST');
         } finally { URL.revokeObjectURL(url); }
       }
+      pdf.deletePage(1);
       return pdf.output('blob');
     }
 
