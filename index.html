@@ -7550,6 +7550,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const soloLectura = window.dagometCurrentProfile?.rol === 'read_only';
       const existentesOP = (o.documentosAdjuntos && o.documentosAdjuntos[EVIDENCIA_OP_DOC_ID]) || [];
       const fotosExistentes = getEvidenciaFotos(o);
+      const fotosLiberacion = getFotosLiberacionDe(o);
+      const fotosTrabajoTerminado = fotosExistentes.length + fotosLiberacion.length;
       const totalPaginas = existentesOP.length + st.paginas.length;
       const totalFotos = fotosExistentes.length + st.fotos.length;
 
@@ -7582,16 +7584,6 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             </div>
           </div>`}
 
-          <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px;background:#f8fafc;">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-              <div>
-                <div style="font-weight:800;color:var(--primary);">📷 Fotos de liberación</div>
-                <div style="font-size:.74rem;color:var(--text-muted);margin-top:3px;">Aquí puedes consultar las mismas fotos que se cargaron al liberar esta OP desde el QR.</div>
-              </div>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="abrirFotosLiberacionOP('${o.id}')">Ver fotos de liberación (${getTotalFotosLiberacion(o)})</button>
-            </div>
-          </div>
-
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
             <div style="border:1px solid var(--border);border-radius:10px;padding:12px;">
               <div style="font-weight:800;margin-bottom:8px;">📄 OP escaneada</div>
@@ -7599,8 +7591,15 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
               ${st.paginas.length ? `<div style="margin-top:8px;font-size:.74rem;color:#166534;font-weight:700;">✓ ${st.paginas.length} página${st.paginas.length===1?'':'s'} nueva${st.paginas.length===1?'':'s'} lista${st.paginas.length===1?'':'s'} para guardar.</div>` : ''}
             </div>
             <div style="border:1px solid var(--border);border-radius:10px;padding:12px;">
-              <div style="font-weight:800;margin-bottom:8px;">📸 Trabajo terminado</div>
-              ${fotosExistentes.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">${fotosExistentes.map((f,i)=>`<button type="button" class="btn btn-secondary btn-sm" onclick="verFotoTerminadaOP('${o.id}',${i})">🖼️ Foto ${i+1}</button>`).join('')}</div>` : '<div style="font-size:.76rem;color:var(--text-muted);">Todavía no hay fotos del trabajo terminado.</div>'}
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                <div style="font-weight:800;">📸 Trabajo terminado (${fotosTrabajoTerminado + st.fotos.length})</div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="abrirFotosLiberacionOP('${o.id}')">Ver/gestionar fotos de liberación (${getTotalFotosLiberacion(o)})</button>
+              </div>
+              ${fotosExistentes.length || fotosLiberacion.length || st.fotos.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">
+                ${fotosLiberacion.map((path,i)=>`<button type="button" class="btn btn-secondary btn-sm" onclick="verFotoLiberacionOP('${o.id}',${i})">🖼️ Foto liberación ${i+1}</button>`).join('')}
+                ${fotosExistentes.map((f,i)=>`<button type="button" class="btn btn-secondary btn-sm" onclick="verFotoTerminadaOP('${o.id}',${i})">🖼️ Foto evidencia ${i+1}</button>`).join('')}
+                ${st.fotos.map((f,i)=>{ f._url = f._url || URL.createObjectURL(f); return `<a class="btn btn-secondary btn-sm" href="${f._url}" target="_blank" rel="noopener">🖼️ Foto nueva ${i+1}</a>`; }).join('')}
+              </div>` : '<div style="font-size:.76rem;color:var(--text-muted);">Todavía no hay fotos del trabajo terminado.</div>'}
               ${st.fotos.length ? `<div style="margin-top:8px;font-size:.74rem;color:#166534;font-weight:700;">✓ ${st.fotos.length} foto${st.fotos.length===1?'':'s'} nueva${st.fotos.length===1?'':'s'} lista${st.fotos.length===1?'':'s'} para guardar.</div>` : ''}
             </div>
           </div>
@@ -7642,7 +7641,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     const EVIDENCE_QUEUE_DB = 'dagomet_evidence_queue_v1';
     const EVIDENCE_QUEUE_STORE = 'items';
     let evidenceQueueDBPromise = null;
-    let evidenceQueueProcessing = false;
+    let evidenceQueueProcessingPromise = null;
+    let evidenceQueueProcessRequested = false;
 
     function abrirEvidenceQueueDB() {
       if (evidenceQueueDBPromise) return evidenceQueueDBPromise;
@@ -7716,74 +7716,89 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       return item;
     }
 
-    async function procesarColaEvidencias() {
-      if (evidenceQueueProcessing) return;
-      if (!navigator.onLine) return;
-      const sb = window.dagometSupabase;
-      if (!sb || !window.dagometCurrentUser || window.dagometCurrentProfile?.rol === 'read_only') return;
+    function procesarColaEvidencias() {
+      if (evidenceQueueProcessingPromise) {
+        evidenceQueueProcessRequested = true;
+        return evidenceQueueProcessingPromise;
+      }
 
-      evidenceQueueProcessing = true;
-      try {
-        const cola = await leerColaEvidencias();
-        for (const item of cola) {
-          if (!item || item.estado === 'SUBIENDO') continue;
-          const o = db.ots.find(x => x.id === item.opId);
-          if (!o || !item.blob) continue;
+      const procesar = async () => {
+        do {
+          evidenceQueueProcessRequested = false;
+          if (!navigator.onLine) return;
+          const sb = window.dagometSupabase;
+          if (!sb || !window.dagometCurrentUser || window.dagometCurrentProfile?.rol === 'read_only') return;
 
-          const numero = String(o.numero || 'SIN_NUMERO').trim().toUpperCase()
-            .replace(/[^a-zA-Z0-9_-]/g,'_') || 'SIN_NUMERO';
-          // Path determinista: si la subida alcanzó a terminar pero se cortó
-          // antes de guardar la metadata, el reintento reutiliza el mismo archivo
-          // en vez de crear duplicados.
-          const path = `${numero}/fotos_op_terminada/cola_${item.id}_${sanitizeFileName(item.nombre)}`;
+          const cola = await leerColaEvidencias();
+          for (const item of cola) {
+            if (!item) continue;
+            const o = db.ots.find(x => x.id === item.opId);
+            if (!o || !item.blob) continue;
 
-          try {
-            item.estado = 'SUBIENDO';
-            await guardarEnColaEvidencia(item);
+            const numero = String(o.numero || 'SIN_NUMERO').trim().toUpperCase()
+              .replace(/[^a-zA-Z0-9_-]/g,'_') || 'SIN_NUMERO';
+            // Path determinista: si la subida alcanzó a terminar pero se cortó
+            // antes de guardar la metadata, el reintento reutiliza el mismo archivo
+            // en vez de crear duplicados.
+            const path = `${numero}/fotos_op_terminada/cola_${item.id}_${sanitizeFileName(item.nombre)}`;
 
-            const { error } = await sb.storage.from(DOC_ATTACH_BUCKET).upload(
-              path, item.blob,
-              { upsert:true, contentType:item.contentType || 'image/jpeg', cacheControl:'31536000' }
-            );
-            if (error) throw error;
-
-            if (!Array.isArray(o.fotosOPTerminada)) o.fotosOPTerminada = [];
-            const yaRegistrada = o.fotosOPTerminada.some(f => f && f.path === path);
-            if (!yaRegistrada) {
-              o.fotosOPTerminada.push({
-                path,
-                name:item.nombre,
-                size:item.size,
-                uploadedAt:Date.now(),
-                por:window.dagometCurrentProfile?.nombre || window.dagometCurrentUser?.email || '-'
-              });
-            }
-
-            // Guardamos metadata en la nube antes de borrar la copia local.
-            // Si falla este paso, la foto queda en IndexedDB y se reintentará.
-            const ok = await saveDBAndWait();
-            if (!ok) {
-              item.estado = 'PENDIENTE';
+            try {
+              // SUBIENDO también se reintenta: un cierre inesperado puede dejar
+              // ese estado persistido aunque la subida nunca terminara.
+              item.estado = 'SUBIENDO';
               await guardarEnColaEvidencia(item);
-              break;
-            }
 
-            await quitarDeColaEvidencia(item.id);
-          } catch (err) {
-            console.error('Reintento de evidencia:', err);
-            item.estado = 'PENDIENTE';
-            try { await guardarEnColaEvidencia(item); } catch (_) {}
-            // No bloqueamos las demás fotos para que una sola con error no
-            // impida subir el resto.
+              const { error } = await sb.storage.from(DOC_ATTACH_BUCKET).upload(
+                path, item.blob,
+                { upsert:true, contentType:item.contentType || 'image/jpeg', cacheControl:'31536000' }
+              );
+              if (error) throw error;
+
+              if (!Array.isArray(o.fotosOPTerminada)) o.fotosOPTerminada = [];
+              const yaRegistrada = o.fotosOPTerminada.some(f => f && f.path === path);
+              if (!yaRegistrada) {
+                o.fotosOPTerminada.push({
+                  path,
+                  name:item.nombre,
+                  size:item.size,
+                  uploadedAt:Date.now(),
+                  por:window.dagometCurrentProfile?.nombre || window.dagometCurrentUser?.email || '-'
+                });
+              }
+
+              // Guardamos metadata en la nube antes de borrar la copia local.
+              // Si falla este paso, la foto queda en IndexedDB y se reintentará.
+              const ok = await saveDBAndWait();
+              if (!ok) {
+                item.estado = 'PENDIENTE';
+                await guardarEnColaEvidencia(item);
+                break;
+              }
+
+              await quitarDeColaEvidencia(item.id);
+            } catch (err) {
+              console.error('Reintento de evidencia:', err);
+              item.estado = 'PENDIENTE';
+              try { await guardarEnColaEvidencia(item); } catch (_) {}
+              // No bloqueamos las demás fotos para que una sola con error no
+              // impida subir el resto.
+            }
           }
-        }
-      } catch (err) {
+        } while (evidenceQueueProcessRequested && navigator.onLine);
+      };
+
+      evidenceQueueProcessingPromise = procesar().catch(err => {
         console.error('No se pudo procesar la cola local de evidencias:', err);
-      } finally {
-        evidenceQueueProcessing = false;
+      }).finally(() => {
+        evidenceQueueProcessingPromise = null;
+        if (evidenceQueueProcessRequested) {
+          evidenceQueueProcessRequested = false;
+          procesarColaEvidencias();
+        }
         if (evidenciaOPState) renderEvidenciasOP();
         if (typeof renderOPsTable === 'function') renderOPsTable();
-      }
+      });
+      return evidenceQueueProcessingPromise;
     }
 
     // Se reintenta al volver la conexión y también periódicamente. La cola vive
