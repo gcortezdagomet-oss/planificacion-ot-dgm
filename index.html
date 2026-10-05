@@ -7735,15 +7735,19 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const procesar = async () => {
         do {
           evidenceQueueProcessRequested = false;
-          if (!navigator.onLine) return;
+          if (!navigator.onLine) { window.ultimoErrorEvidencia = 'El navegador indica que no hay conexión.'; return; }
           const sb = window.dagometSupabase;
-          if (!sb || !window.dagometCurrentUser || window.dagometCurrentProfile?.rol === 'read_only') return;
+          if (!sb) { window.ultimoErrorEvidencia = 'No hay conexión con Supabase (cliente no iniciado).'; return; }
+          if (!window.dagometCurrentUser) { window.ultimoErrorEvidencia = 'La sesión no está iniciada en este teléfono. Cierra sesión y vuelve a entrar.'; return; }
+          if (window.dagometCurrentProfile?.rol === 'read_only') { window.ultimoErrorEvidencia = 'Tu usuario es de solo lectura.'; return; }
 
           const cola = await leerColaEvidencias();
           for (const item of cola) {
             if (!item) continue;
             const o = db.ots.find(x => x.id === item.opId);
-            if (!o || !item.blob) continue;
+            if (!o) { window.ultimoErrorEvidencia = 'No se encontró la OP de esta evidencia en los datos cargados.'; continue; }
+            if (!item.blob) { window.ultimoErrorEvidencia = 'El archivo guardado en el teléfono está vacío.'; continue; }
+            if (item.tipo === 'PDF_ESCANEADO') continue; // los PDF los sube procesarColaEvidenciasPDF
 
             const numero = String(o.numero || 'SIN_NUMERO').trim().toUpperCase()
               .replace(/[^a-zA-Z0-9_-]/g,'_') || 'SIN_NUMERO';
@@ -7780,6 +7784,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
               // Si falla este paso, la foto queda en IndexedDB y se reintentará.
               const ok = await saveDBAndWait();
               if (!ok) {
+                window.ultimoErrorEvidencia = 'El archivo subió, pero no se pudo guardar el registro en la nube (app_data).';
                 item.estado = 'PENDIENTE';
                 await guardarEnColaEvidencia(item);
                 break;
@@ -8012,6 +8017,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const sb = window.dagometSupabase;
       if (!o) return;
 
+      window.ultimoErrorEvidencia = '';
       const btn = document.getElementById('guardar-evidencias-op');
       if (btn) { btn.disabled=true; btn.textContent='⏳ Sincronizando...'; }
 
@@ -8034,9 +8040,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 
           // Para PDFs también usamos el mismo mecanismo de cola, con path
           // determinista e idempotente.
-          if (navigator.onLine && sb && window.dagometCurrentUser) {
-            await procesarColaEvidenciasPDF();
-          }
+          await procesarColaEvidenciasPDF();
           paginasGuardadas = evidenciaOPState.paginas.length;
         }
 
@@ -8088,13 +8092,13 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     async function procesarColaEvidenciasPDF() {
       if (evidencePdfQueueProcessing || !navigator.onLine) return;
       const sb = window.dagometSupabase;
-      if (!sb || !window.dagometCurrentUser || window.dagometCurrentProfile?.rol === 'read_only') return;
+      if (!sb || !window.dagometCurrentUser || window.dagometCurrentProfile?.rol === 'read_only') { window.ultimoErrorEvidencia = 'No hay sesión activa en este teléfono para subir el PDF.'; return; }
       evidencePdfQueueProcessing = true;
       try {
         const cola = (await leerColaEvidencias()).filter(x => x.tipo === 'PDF_ESCANEADO');
         for (const item of cola) {
           const o = db.ots.find(x => x.id === item.opId);
-          if (!o || !item.blob) continue;
+          if (!o || !item.blob) { window.ultimoErrorEvidencia = 'No se encontró la OP o el archivo del PDF guardado.'; continue; }
           const numero = String(o.numero || 'SIN_NUMERO').trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g,'_') || 'SIN_NUMERO';
           const path = `${numero}/${EVIDENCIA_OP_DOC_ID}/cola_${item.id}_${sanitizeFileName(item.nombre)}`;
           try {
@@ -8106,7 +8110,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
                 path,name:item.nombre,size:item.size,uploadedAt:Date.now(),tipo:'PDF_ESCANEADO',paginas:item.paginas || 1
               });
             }
-            if (!(await saveDBAndWait())) break;
+            if (!(await saveDBAndWait())) { window.ultimoErrorEvidencia = 'El PDF subió, pero no se pudo guardar el registro en la nube (app_data).'; break; }
             await quitarDeColaEvidencia(item.id);
           } catch (err) {
             console.error('Reintento de PDF de evidencia:',err);
