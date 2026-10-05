@@ -7716,6 +7716,16 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       return item;
     }
 
+    // El path de la cola es determinista: si el archivo ya existe en Storage, la subida
+    // anterior sí terminó, así que se considera exitosa. Se usa upsert:false porque
+    // upsert:true exige permiso UPDATE en el bucket y suele fallar por RLS.
+    function esErrorStorageDuplicado(error) {
+      const m = String((error && (error.message || error.error)) || '').toLowerCase();
+      const c = String((error && (error.statusCode || error.status)) || '');
+      return c === '409' || /already exists|duplicate/.test(m);
+    }
+    window.ultimoErrorEvidencia = '';
+
     function procesarColaEvidencias() {
       if (evidenceQueueProcessingPromise) {
         evidenceQueueProcessRequested = true;
@@ -7750,9 +7760,9 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 
               const { error } = await sb.storage.from(DOC_ATTACH_BUCKET).upload(
                 path, item.blob,
-                { upsert:true, contentType:item.contentType || 'image/jpeg', cacheControl:'31536000' }
+                { upsert:false, contentType:item.contentType || 'image/jpeg', cacheControl:'31536000' }
               );
-              if (error) throw error;
+              if (error && !esErrorStorageDuplicado(error)) throw error;
 
               if (!Array.isArray(o.fotosOPTerminada)) o.fotosOPTerminada = [];
               const yaRegistrada = o.fotosOPTerminada.some(f => f && f.path === path);
@@ -7778,6 +7788,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
               await quitarDeColaEvidencia(item.id);
             } catch (err) {
               console.error('Reintento de evidencia:', err);
+              window.ultimoErrorEvidencia = (err && (err.message || err.error)) || String(err);
               item.estado = 'PENDIENTE';
               try { await guardarEnColaEvidencia(item); } catch (_) {}
               // No bloqueamos las demás fotos para que una sola con error no
@@ -8054,7 +8065,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         }
 
         if (hayAlgo) {
-          alert(`📱 Evidencias guardadas en este teléfono.\n\n${fotosPendientes || pdfPendientes ? '⚠️ Aún quedan evidencias pendientes de sincronizar. El sistema las subirá automáticamente cuando vuelva la conexión. Puedes cerrar esta ventana y la cola permanecerá guardada.' : ''}`);
+          alert(`📱 Evidencias guardadas en este teléfono.\n\n${fotosPendientes || pdfPendientes ? '⚠️ Aún quedan evidencias pendientes de sincronizar. El sistema las subirá automáticamente cuando vuelva la conexión. Puedes cerrar esta ventana y la cola permanecerá guardada.' + (window.ultimoErrorEvidencia ? '\n\nMotivo técnico: ' + window.ultimoErrorEvidencia : '') : ''}`);
           cerrarEvidenciasOP();
           renderOPsTable();
           return;
@@ -8087,7 +8098,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           const numero = String(o.numero || 'SIN_NUMERO').trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g,'_') || 'SIN_NUMERO';
           const path = `${numero}/${EVIDENCIA_OP_DOC_ID}/cola_${item.id}_${sanitizeFileName(item.nombre)}`;
           try {
-            await sb.storage.from(DOC_ATTACH_BUCKET).upload(path,item.blob,{upsert:true,contentType:'application/pdf',cacheControl:'31536000'}).then(({error})=>{if(error)throw error;});
+            await sb.storage.from(DOC_ATTACH_BUCKET).upload(path,item.blob,{upsert:false,contentType:'application/pdf',cacheControl:'31536000'}).then(({error})=>{if(error && !esErrorStorageDuplicado(error))throw error;});
             if (!o.documentosAdjuntos) o.documentosAdjuntos = {};
             if (!Array.isArray(o.documentosAdjuntos[EVIDENCIA_OP_DOC_ID])) o.documentosAdjuntos[EVIDENCIA_OP_DOC_ID] = [];
             if (!o.documentosAdjuntos[EVIDENCIA_OP_DOC_ID].some(x => x && x.path === path)) {
@@ -8099,6 +8110,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             await quitarDeColaEvidencia(item.id);
           } catch (err) {
             console.error('Reintento de PDF de evidencia:',err);
+            window.ultimoErrorEvidencia = (err && (err.message || err.error)) || String(err);
           }
         }
       } finally {
