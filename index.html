@@ -5292,6 +5292,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         // actualizamos cuando efectivamente logramos calcular una nueva.
         if (nuevaDescripcion || !descInput.value) {
           descInput.value = nuevaDescripcion;
+          descInput.dataset.ultimoValor = nuevaDescripcion;
         }
       }
       actualizarEtiquetaLargo(row);
@@ -5596,10 +5597,15 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           // por quedar sin calce exacto en el catálogo (ocurre mientras se
           // cambia material/tipo/calidad/medida/espesor). Solo se reemplaza
           // cuando efectivamente se calculó una descripción nueva.
-          const descripcionGuardadaSinCalce = !desc && valorActual && !esAutoAnterior;
-          if (!descripcionGuardadaSinCalce) {
+          // Nunca se pisa un texto existente con una descripción vacía: durante
+          // la cascada (sobre todo en CAÑERÍAS, con muchos campos encadenados)
+          // hay estados intermedios sin calce en el catálogo y antes eso borraba
+          // la descripción.
+          const sinNuevaDescripcion = !desc && !!valorActual;
+          if (!sinNuevaDescripcion) {
             descInput.value = desc;
             descInput.dataset.autoValue = desc;
+            descInput.dataset.ultimoValor = desc;
           }
           if (coincideConAutoActual) descInput.dataset.manual = 'false';
         }
@@ -5773,6 +5779,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         descripcionInputTemprano.dataset.manual = (descripcionManualInicial || tieneDescGuardada) ? 'true' : 'false';
         descripcionInputTemprano.dataset.protegidaGuardada = (!descripcionManualInicial && tieneDescGuardada) ? 'true' : 'false';
         descripcionInputTemprano.dataset.autoValue = '';
+        descripcionInputTemprano.dataset.ultimoValor = oldDesc;
       }
 
       const fields = ['material','tipo','calidad','medida','espesor'];
@@ -5818,6 +5825,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           descripcionInput.dataset.manual = 'true';
           descripcionInput.dataset.protegidaGuardada = 'false';
           descripcionInput.value = descripcionInput.value.toUpperCase();
+          descripcionInput.dataset.ultimoValor = descripcionInput.value;
           marcarDuplicadosMateriales();
         });
       }
@@ -5886,6 +5894,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         const descripcionInput = r.querySelector('.m-descripcion');
         let descripcion = String(descripcionInput?.value || '').trim().toUpperCase();
         if (!descripcion) descripcion = buildMaterialDescription(r).toUpperCase();
+        if (!descripcion && descripcionInput) descripcion = String(descripcionInput.dataset.ultimoValor || '').trim().toUpperCase();
         if (descripcionInput) descripcionInput.value = descripcion;
         list.push({
           material: mat.value.toUpperCase(),
