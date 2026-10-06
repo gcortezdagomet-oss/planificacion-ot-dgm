@@ -596,7 +596,7 @@
       #tab-list table td:nth-child(7)::before { content:'Entrega'; }
       #tab-list table td:nth-child(8)::before { content:'Prioridad'; }
       #tab-list table td:nth-child(9)::before { content:'Soldadura'; }
-      /* El "-" de Soldadura Ext. es casi invisible sobre fondo blanco en tarjeta */
+      /* El "-" de Soldadura es casi invisible sobre fondo blanco en tarjeta */
       #tab-list table td:nth-child(9) span[style*="cbd5e1"] { color:var(--text-muted) !important; }
       /* Grupo de reordenar (▲▼) + botones de acción, todos del mismo tamaño */
       #tab-list table td:nth-child(10) .sort-arrows { flex-direction:row; margin-right:2px; }
@@ -6128,6 +6128,9 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     // ==========================================================================
 
     const SOLDADURA_STEPS = ['cilindrado', 'lista', 'recilindrado', 'ensayos'];
+    // Marca de ensayo heredada: la OP de SOLDADURA derivada (soldadura = NO) la lleva para que el reporte la cuente.
+    let ensayoHeredadoOP = null;
+    const NOTA_LLEVA_ENSAYO = '⚠️ LLEVA ENSAYO: coordinar con inspector antes de entregar';
 
     function toggleSoldaduraSeguimiento() {
       const visible = ($('soldadura')?.value || 'NO').toUpperCase() === 'SI';
@@ -6191,7 +6194,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     }
 
     // Devuelve un badge compacto con el paso actual de seguimiento, para usar
-    // en la tabla de historial. null si la OP no requiere soldadura externa.
+    // en la tabla de historial. null si la OP no requiere soldadura.
     function getSoldaduraTrackBadge(o) {
       const requiereSoldadura = (o.soldadura || 'NO').toUpperCase() === 'SI';
       if (!requiereSoldadura) return '';
@@ -6245,6 +6248,10 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         return;
       }
       const numOrigen = $('numero').value || '';
+      // Si la original lleva ensayo, la OP de soldadura lo hereda y lleva una nota destacada.
+      const llevaEnsayoOrigen = !esRecil && !!$('sold-ensayo-check')?.checked;
+      // Los materiales de la OP original se copian a la OP derivada (soldadura / recilindrado).
+      const materialesOrigen = JSON.parse(JSON.stringify(getMateriales()));
       const partes = [];
       const textoRep = ($('sold-texto-reporte')?.value || '').trim();
       const notas = ($('sold-notas')?.value || '').trim();
@@ -6298,10 +6305,13 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       $('entregaAuto').checked = datos.entregaAuto;
       if (datos.entregaAuto) recalcularEntregaAutomatica(); else $('entrega').value = datos.entrega;
       $('area').value = areaNueva;
-      $('notaImportante').value = defaultNotes[areaNueva] || '';
+      $('notaImportante').value = [defaultNotes[areaNueva] || '', llevaEnsayoOrigen ? NOTA_LLEVA_ENSAYO : ''].filter(Boolean).join('  ·  ');
+      ensayoHeredadoOP = llevaEnsayoOrigen ? { llevaEnsayo: true, heredado: true, ensayos: { check: false, fecha: '' } } : null;
       toggleBombeadoSection();
       toggleCurvasField();
       $('cantidadTotalManual').value = datos.cantidad;
+      $('materiales-container').innerHTML = '';
+      if (materialesOrigen.length) materialesOrigen.forEach(m => addMaterialRow(m)); else addMaterialRow();
       $('instrucciones').value = datos.instrucciones;
       $('comentarios').value = '';
       $('soldadura').value = 'NO';
@@ -6354,6 +6364,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       $('materialDe').value = 'CLIENTE';
       $('soldadura').value = 'NO';
       setSoldaduraSeguimiento(null);
+      ensayoHeredadoOP = null;
       toggleSoldaduraSeguimiento();
       $('cantidadTotalManual').value = 1;
       setUnidadMedidaForm(null);
@@ -6453,7 +6464,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         prioridad: $('prioridad').value,
         materialDe: $('materialDe').value,
         soldadura: $('soldadura').value || 'NO',
-        soldaduraSeguimiento: ($('soldadura').value || 'NO').toUpperCase() === 'SI' ? getSoldaduraSeguimiento() : null,
+        soldaduraSeguimiento: ($('soldadura').value || 'NO').toUpperCase() === 'SI' ? getSoldaduraSeguimiento() : (ensayoHeredadoOP ? { ...ensayoHeredadoOP } : null),
         instrucciones: $('instrucciones').value,
         documentacionFabricacion: getDocumentacionFabricacion(),
         documentosAdjuntos: getDocumentosAdjuntos(),
@@ -6581,6 +6592,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       $('soldadura').value = o.soldadura || 'NO';
       setSoldaduraSeguimiento(o.soldaduraSeguimiento);
       toggleSoldaduraSeguimiento();
+      ensayoHeredadoOP = (String(o.soldadura || 'NO').toUpperCase() !== 'SI' && o.soldaduraSeguimiento && o.soldaduraSeguimiento.llevaEnsayo) ? o.soldaduraSeguimiento : null;
       $('cantidadTotalManual').value = o.cantidadTotal || 1;
       setUnidadMedidaForm(o);
       $('piezasTotal').value = o.piezas || '';
@@ -6654,6 +6666,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       $('materialDe').value = o.materialDe || 'CLIENTE';
       $('soldadura').value = o.soldadura || 'NO';
       setSoldaduraSeguimiento(null);
+      ensayoHeredadoOP = null;
       toggleSoldaduraSeguimiento();
       $('cantidadTotalManual').value = o.cantidadTotal || 1;
       setUnidadMedidaForm(o);
@@ -6780,7 +6793,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     // Filtro rápido de plazo en el historial: 'todas' | 'vencidas' | 'porvencer'.
     let filtroPlazo = 'todas';
 
-    // Filtro rápido de soldadura externa en el historial: 'todas' | 'si'.
+    // Filtro rápido de soldadura en el historial: 'todas' | 'si'.
     // FIX: esta variable se usaba (renderOPsTable, setFiltroSoldadura, clearOPSearch,
     // filterHistoryByOP) pero nunca se declaraba, lo que producía
     // "ReferenceError: filtroSoldadura is not defined" y rompía la carga de la app.
@@ -10472,7 +10485,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       basico: ['numero', 'entrega', 'cliente', 'estadoOp'],
     };
 
-    // Helpers de soldadura externa para los reportes.
+    // Helpers de soldadura para los reportes.
     function opTieneSoldadura(o) {
       return String(o.soldadura || 'NO').trim().toUpperCase() === 'SI';
     }
@@ -11072,7 +11085,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       openReportColumnPicker(list, 'Reporte Completo de OPs', rango);
     }
 
-    // ---- Reporte de soldadura: OP con soldadura externa o dentro del área SOLDADURA ----
+    // ---- Reporte de soldadura: OP con soldadura o dentro del área SOLDADURA ----
     function opEsDeSoldadura(o) {
       return opTieneSoldadura(o) || String(o.area || '').trim().toUpperCase() === 'SOLDADURA';
     }
@@ -11080,6 +11093,13 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     function getReportEnsayoEstado(o) {
       const seg = o.soldaduraSeguimiento || {};
       if (!seg.llevaEnsayo) return 'sin';
+      // OP de soldadura derivada: los ensayos se marcan como recibidos en la OP original (mismo N°).
+      if (seg.heredado) {
+        const num = String(o.numero || '').trim().toUpperCase();
+        const orig = db.ots.find(x => x.id !== o.id && String(x.numero || '').trim().toUpperCase() === num
+          && opTieneSoldadura(x) && x.soldaduraSeguimiento && x.soldaduraSeguimiento.llevaEnsayo);
+        if (orig) return (orig.soldaduraSeguimiento.ensayos && orig.soldaduraSeguimiento.ensayos.check) ? 'recibido' : 'pendiente';
+      }
       return (seg.ensayos && seg.ensayos.check) ? 'recibido' : 'pendiente';
     }
     function getReportEnsayoTexto(o) {
@@ -11502,7 +11522,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const headers = [
         'Numero_OP','Parte_OP','Estado_OP','Planificador','Cliente','OC_Cliente',
         'Fecha_Guia_Mat','Fecha_Entrega','REV_CD','Area','Maquina','Prioridad',
-        'Material_De','Soldadura_Externa','Soldadura_Seguimiento','Cantidad_Total_Piezas','Piezas','Peso_Total',
+        'Material_De','Soldadura','Soldadura_Seguimiento','Cantidad_Total_Piezas','Piezas','Peso_Total',
         'Fecha_Inicio','Hora_Inicio','Fecha_Termino','Hora_Termino',
         'Responsables_Trabajo','Responsable_Revision','Nota_Importante',
         'Detalle_Materiales','Tipo_Perfil_Bombeado','Medidas_Bombeado',
@@ -11650,7 +11670,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const isSoldaduraSiBombeado = (o.soldadura || 'NO').toUpperCase() === 'SI';
       const soldaduraBadgeHtmlBombeado = isSoldaduraSiBombeado ? `
         <div style="background: #fee2e2; color: #991b1b; padding: 8px 16px; border-radius: 6px; font-weight: 700; font-size: 12px; text-align: center; border: 1px solid #fecaca; display: flex; align-items: center; justify-content: center; gap: 8px;">
-          <span>⚠️</span> <b>REQUIERE SOLDADURA EXTERNA</b> <span>⚠️</span>
+          <span>⚠️</span> <b>REQUIERE SOLDADURA</b> <span>⚠️</span>
         </div>` : '';
 
       let respTrabajoTextBombeado = '';
@@ -11968,7 +11988,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       
       const soldaduraBadgeHtml = isSoldaduraSi ? `
         <div style="background: #fee2e2; color: #991b1b; padding: 8px 16px; border-radius: 6px; font-weight: 700; font-size: 12px; text-align: center; border: 1px solid #fecaca; display: flex; align-items: center; justify-content: center; gap: 8px;">
-          <span>⚠️</span> <b>REQUIERE SOLDADURA EXTERNA</b> <span>⚠️</span>
+          <span>⚠️</span> <b>REQUIERE SOLDADURA</b> <span>⚠️</span>
         </div>
       ` : '';
 
