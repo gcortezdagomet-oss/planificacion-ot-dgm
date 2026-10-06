@@ -3685,6 +3685,10 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         <input type="checkbox" id="report-sold-solo-curso" style="width:16px; height:16px; cursor:pointer;">
         Solo OP activas (en curso, o en pausa esperando soldadura)
       </label>
+      <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; text-transform:none; letter-spacing:0; cursor:pointer; margin-top:10px;">
+        <input type="checkbox" id="report-sold-con-cliente" checked style="width:16px; height:16px; cursor:pointer;">
+        Incluir columna Cliente <span style="font-weight:500; color:var(--text-muted);">(desmárcala para el soldador)</span>
+      </label>
       <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
         <button class="btn btn-secondary btn-sm" onclick="cerrarModalReporteSoldadura()">Cancelar</button>
         <button class="btn btn-warning btn-sm" onclick="confirmarReporteSoldadura()">👁️ Previsualizar</button>
@@ -11153,7 +11157,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const etiqueta = { todos: 'con y sin ensayo', con: 'con ensayo', pendiente: 'ensayo pendiente de recibir', recibido: 'ensayo recibido', sin: 'sin ensayo' }[filtro];
       const subtitulo = `Trabajos con soldadura o en área Soldadura · ${etiqueta}${soloCurso ? ' · solo activas (en curso o en pausa esperando soldadura)' : ''} · ${list.length} OP`;
       cerrarModalReporteSoldadura();
-      previewReport(list, 'Reporte de Soldadura', subtitulo, ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ensayo']);
+      const conCliente = $('report-sold-con-cliente').checked;
+      previewReport(list, 'Reporte de Soldadura', subtitulo, conCliente ? ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ensayo'] : ['numero', 'cantidadTotal', 'trabajo', 'ensayo']);
     }
 
     function imprimirReporteMes() {
