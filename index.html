@@ -11089,6 +11089,16 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     function opEsDeSoldadura(o) {
       return opTieneSoldadura(o) || String(o.area || '').trim().toUpperCase() === 'SOLDADURA';
     }
+    // OP derivada (SOLDADURA / RECILINDRADO) que tiene su OP original con soldadura (mismo N°).
+    // En el reporte se lista solo la original (cilindrado), que ya contempla todos los pasos.
+    const AREAS_OP_DERIVADA = ['SOLDADURA', 'RECILINDRADO DE PLANCHAS'];
+    function opDerivadaTieneOriginal(o) {
+      const areaDe = x => String(x.area || '').trim().toUpperCase();
+      if (!AREAS_OP_DERIVADA.includes(areaDe(o))) return false;
+      const num = String(o.numero || '').trim().toUpperCase();
+      return db.ots.some(x => x.id !== o.id && String(x.numero || '').trim().toUpperCase() === num
+        && !AREAS_OP_DERIVADA.includes(areaDe(x)) && opTieneSoldadura(x));
+    }
     // 'sin' | 'pendiente' | 'recibido'
     function getReportEnsayoEstado(o) {
       const seg = o.soldaduraSeguimiento || {};
@@ -11123,6 +11133,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const soloCurso = $('report-sold-solo-curso').checked;
       const list = db.ots.filter(o => {
         if (!opEsDeSoldadura(o)) return false;
+        if (opDerivadaTieneOriginal(o)) return false; // evita duplicar: solo la OP original
         if (soloCurso) {
           const est = String(o.estadoOp || 'EN CURSO').trim().toUpperCase();
           // La OP original (cilindrado) queda EN PAUSA mientras se suelda: sigue siendo "activa"
