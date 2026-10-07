@@ -3678,6 +3678,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           <option value="todos">Todos (con y sin ensayo)</option>
           <option value="con">Con ensayo (pendientes y recibidos)</option>
           <option value="pendiente">Con ensayo · documentos pendientes de recibir</option>
+          <option value="realizado_pendiente">Ensayo realizado · informe pendiente de recibir</option>
           <option value="recibido">Con ensayo · documentos ya recibidos</option>
           <option value="sin">Sin ensayo</option>
         </select>
@@ -11314,6 +11315,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         }
         const e = getReportEnsayoEstado(o);
         if (filtro === 'con') return e !== 'sin';
+        if (filtro === 'realizado_pendiente') return e === 'pendiente' && !!getReportEnsayoFecha(o);
         return filtro === 'todos' || e === filtro;
       }).map(o => {
         // Copia solo para el reporte: si la OP tiene "texto del trabajo para soldadura", se usa como Trabajo.
@@ -11321,7 +11323,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         return txt ? { ...o, instrucciones: txt } : o;
       });
       if (!list.length) { alert('No hay OP de soldadura que cumplan ese filtro.'); return; }
-      const etiqueta = { todos: 'con y sin ensayo', con: 'con ensayo', pendiente: 'informe de ensayo pendiente de recibir', recibido: 'ensayo recibido', sin: 'sin ensayo' }[filtro];
+      const etiqueta = { todos: 'con y sin ensayo', con: 'con ensayo', pendiente: 'informe de ensayo pendiente de recibir', realizado_pendiente: 'ensayo realizado · informe pendiente de recibir', recibido: 'ensayo recibido', sin: 'sin ensayo' }[filtro];
       const subtitulo = `Trabajos con soldadura o en área Soldadura · ${etiqueta}${soloCurso ? ' · solo activas (en curso o en pausa esperando soldadura)' : ''} · ${list.length} OP`;
       cerrarModalReporteSoldadura();
       const conCliente = $('report-sold-con-cliente').checked;
