@@ -3106,7 +3106,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           </div>
           <div class="field">
             <label>REV. / CD *</label>
-            <input type="text" id="guia-cd" placeholder="Ej: MAT DAGOMET">
+            <input type="text" id="guia-cd" placeholder="Ej: MAT DAGOMET" oninput="this.dataset.auto='0'" autocomplete="off">
           </div>
           <div class="field">
             <label>Fecha de Llegada del Material *</label>
@@ -4363,6 +4363,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       ensureOPOrder();
       loadSelects();
       renderGuiasTable();
+      try { sugerirCDGuia(); } catch (_) {}
       if (typeof renderOPsTable === 'function' && document.getElementById('tab-list')?.classList.contains('active')) renderOPsTable();
       mostrarAvisosLiberacionOP();
     }
@@ -8539,10 +8540,50 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     // directamente la OP correspondiente (ver generarOPDesdeGuia).
     // ==========================================================================
 
+    // ----- Correlativo de CD -----
+    // Igual que el N° de OP: el campo se rellena solo con el siguiente número.
+    // Toma el CD numérico más alto entre las guías (respetando el prefijo y los
+    // ceros a la izquierda del último CD creado) y le suma 1. Si aún no hay ningún
+    // CD con número al final, el campo queda vacío para escribir el primero.
+    function normalizarCD(cd) {
+      return normalizeStr(cd).replace(/\s+/g, '');
+    }
+    function getNextCD() {
+      const partes = [];
+      (db.guias || []).forEach(g => {
+        const m = String(g.cd || '').trim().match(/^(.*?)(\d+)\s*$/);
+        if (!m || !isFinite(Number(m[2]))) return;
+        partes.push({ prefijo: m[1], num: Number(m[2]), ancho: m[2].length, creada: Number(g.createdAt) || 0 });
+      });
+      if (!partes.length) return '';
+      // El prefijo lo define la guía creada más recientemente; el número, el más alto con ese prefijo.
+      const ultima = partes.reduce((a, b) => (b.creada >= a.creada ? b : a));
+      const mismos = partes.filter(x => x.prefijo.toLowerCase() === ultima.prefijo.toLowerCase());
+      const max = mismos.reduce((a, b) => (b.num > a.num ? b : a));
+      return ultima.prefijo + String(max.num + 1).padStart(max.ancho, '0');
+    }
+    // Rellena el campo con el siguiente CD. Sin force, solo lo hace si el campo está
+    // vacío o todavía tiene un valor sugerido (nunca pisa lo que la persona escribió).
+    function sugerirCDGuia({ force = false } = {}) {
+      const el = $('guia-cd');
+      if (!el || $('guia-edit-id').value) return;
+      if (force || !el.value.trim() || el.dataset.auto === '1') {
+        const sig = getNextCD();
+        el.value = sig;
+        el.dataset.auto = sig ? '1' : '0';
+      }
+    }
+    function buscarGuiaPorCD(cd, excluirId) {
+      const clave = normalizarCD(cd);
+      if (!clave) return null;
+      return (db.guias || []).find(g => g.id !== excluirId && normalizarCD(g.cd) === clave) || null;
+    }
+
     function cancelarEdicionGuia() {
       $('guia-edit-id').value = '';
       $('guia-cliente-input').value = '';
       $('guia-cd').value = '';
+      sugerirCDGuia({ force: true });
       $('guia-fecha').value = '';
       $('guia-notas').value = '';
       $('guia-form-title').innerText = 'Registrar Guía de Material';
@@ -8562,6 +8603,19 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 
       const notas = $('guia-notas').value.trim();
       const editId = $('guia-edit-id').value;
+
+      // No permitir el mismo CD dos veces (ignora mayúsculas, tildes y espacios).
+      const repetida = buscarGuiaPorCD(cd, editId || null);
+      if (repetida) {
+        const eraSugerido = !editId && $('guia-cd').dataset.auto === '1';
+        let msg = `⚠️ El CD "${repetida.cd}" ya está registrado (${repetida.cliente || 'sin cliente'}, llegada ${repetida.fecha || '-'}, ${repetida.estado || 'PENDIENTE'}).\n\nLa guía NO se guardó para no repetirla.`;
+        if (eraSugerido) {
+          sugerirCDGuia({ force: true });
+          msg += `\n\nSe actualizó el CD sugerido a ${$('guia-cd').value}. Revisa y vuelve a guardar.`;
+        }
+        alert(msg);
+        return;
+      }
 
       if (editId) {
         const g = db.guias.find(x => x.id === editId);
@@ -8596,6 +8650,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       $('guia-edit-id').value = g.id;
       $('guia-cliente-input').value = g.cliente;
       $('guia-cd').value = g.cd;
+      $('guia-cd').dataset.auto = '0';
       $('guia-fecha').value = g.fecha;
       $('guia-notas').value = g.notas || '';
       $('guia-form-title').innerText = 'Editando Guía';
@@ -12790,6 +12845,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       loadSelects();
       newOP();
       renderGuiasTable();
+      sugerirCDGuia({ force: true });
       setTimeout(checkCloudBackup, 1200);
       applyReadOnlyPermissions();
       mostrarAvisosLiberacionOP();
