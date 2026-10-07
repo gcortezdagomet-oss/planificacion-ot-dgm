@@ -2856,6 +2856,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             <label class="soldadura-step" style="border-color:#bfdbfe; color:#1e3a8a;">
               <input type="checkbox" id="sold-ensayo-check" onchange="onLlevaEnsayoChange()">
               <span>🧪 Lleva ensayo</span>
+              <input type="date" id="sold-ensayo-fecha" style="display:none;" title="Fecha en que se realizó el ensayo">
             </label>
             <label class="soldadura-step" id="sold-ensayos-step" style="display:none; border-color:#bfdbfe; color:#1e3a8a;">
               <input type="checkbox" id="sold-ensayos-check" onchange="onSoldaduraStepChange('ensayos')">
@@ -6245,6 +6246,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     function refreshEnsayoRecibidoVisibility() {
       const step = $('sold-ensayos-step');
       if (step) step.style.display = $('sold-ensayo-check')?.checked ? '' : 'none';
+      const fe = $('sold-ensayo-fecha');
+      if (fe) fe.style.display = $('sold-ensayo-check')?.checked ? '' : 'none';
     }
     function copiarInstruccionesATextoSoldadura() {
       const box = $('sold-texto-reporte');
@@ -6257,12 +6260,13 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       if (!$('sold-ensayo-check')?.checked) {
         if ($('sold-ensayos-check')) $('sold-ensayos-check').checked = false;
         if ($('sold-ensayos-fecha')) $('sold-ensayos-fecha').value = '';
+        if ($('sold-ensayo-fecha')) $('sold-ensayo-fecha').value = '';
       }
       refreshEnsayoRecibidoVisibility();
     }
 
     function getSoldaduraSeguimiento() {
-      const data = { notas: $('sold-notas')?.value || '', llevaEnsayo: !!$('sold-ensayo-check')?.checked, textoReporte: $('sold-texto-reporte')?.value || '' };
+      const data = { notas: $('sold-notas')?.value || '', llevaEnsayo: !!$('sold-ensayo-check')?.checked, fechaEnsayo: $('sold-ensayo-check')?.checked ? ($('sold-ensayo-fecha')?.value || '') : '', textoReporte: $('sold-texto-reporte')?.value || '' };
       SOLDADURA_STEPS.forEach(step => {
         data[step] = {
           check: !!$(`sold-${step}-check`)?.checked,
@@ -6283,6 +6287,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       if ($('sold-notas')) $('sold-notas').value = d.notas || '';
       if ($('sold-texto-reporte')) $('sold-texto-reporte').value = d.textoReporte || '';
       if ($('sold-ensayo-check')) $('sold-ensayo-check').checked = !!d.llevaEnsayo;
+      if ($('sold-ensayo-fecha')) $('sold-ensayo-fecha').value = d.fechaEnsayo || '';
       refreshEnsayoRecibidoVisibility();
     }
 
@@ -10645,7 +10650,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       { key: 'cilindrado', label: 'Cilindrado OK',     labelNo: 'Cilindrado pendiente' },
       { key: 'lista',      label: 'Soldada',            labelNo: 'No soldada' },
       { key: 'recilindrado', label: 'Recilindrado OK',  labelNo: 'Recilindrado pendiente' },
-      { key: 'ensayos',    label: 'Ensayos recibidos', labelNo: 'Ensayos pendientes', soloConEnsayo: true },
+      { key: 'ensayos',    label: 'Ensayos recibidos', labelNo: 'Informe de ensayo pendiente', soloConEnsayo: true },
     ];
     function fmtFechaCorta(f) {
       const m = String(f || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -11123,7 +11128,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         case 'piezas': return o.piezas || '-';
         case 'kilos': return Math.round((o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0));
         case 'trabajo': return o.instrucciones || '-';
-        case 'ensayo': return getReportEnsayoTexto(o);
+        case 'ensayo': return getReportEnsayoTexto(o) + (getReportEnsayoFecha(o) ? ` (ensayo realizado: ${getReportEnsayoFecha(o)})` : '');
         case 'soldadura': return getReportSoldaduraEstadoTexto(o);
         case 'comentarios': return o.comentarios || '-';
         case 'fechaTermino': return o.fechaTermino ? formatDateWithDayUpper(String(o.fechaTermino).slice(0,10)) : '-';
@@ -11264,12 +11269,27 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       return (seg.ensayos && seg.ensayos.check) ? 'recibido' : 'pendiente';
     }
     function getReportEnsayoTexto(o) {
-      return { sin: 'Sin ensayo', pendiente: 'Ensayo pendiente', recibido: 'Ensayo recibido' }[getReportEnsayoEstado(o)];
+      return { sin: 'Sin ensayo', pendiente: 'Informe de ensayo pendiente', recibido: 'Ensayo recibido' }[getReportEnsayoEstado(o)];
+    }
+    // Fecha en que se realizó el ensayo (dd/mm). En la OP de soldadura derivada se toma de la OP original.
+    function getReportEnsayoFecha(o) {
+      const seg = o.soldaduraSeguimiento || {};
+      if (!seg.llevaEnsayo) return '';
+      let f = seg.fechaEnsayo || '';
+      if (!f && seg.heredado) {
+        const num = String(o.numero || '').trim().toUpperCase();
+        const orig = db.ots.find(x => x.id !== o.id && String(x.numero || '').trim().toUpperCase() === num
+          && opTieneSoldadura(x) && x.soldaduraSeguimiento && x.soldaduraSeguimiento.llevaEnsayo);
+        if (orig) f = orig.soldaduraSeguimiento.fechaEnsayo || '';
+      }
+      return fmtFechaCorta(f);
     }
     function getReportEnsayoBadge(o) {
       const e = getReportEnsayoEstado(o);
       const st = { sin: 'color:#64748b;', pendiente: 'color:#1e40af;', recibido: 'color:#166534;' }[e];
-      return `<span style="font-weight:700; ${st}">${e === 'sin' ? '' : '🧪 '}${esc(getReportEnsayoTexto(o))}</span>`;
+      const f = getReportEnsayoFecha(o);
+      const fHtml = f ? `<br><span style="font-weight:500; font-size:10px; color:#475569;">Ensayo realizado: ${f}</span>` : '';
+      return `<span style="font-weight:700; ${st}">${e === 'sin' ? '' : '🧪 '}${esc(getReportEnsayoTexto(o))}</span>${fHtml}`;
     }
     function imprimirReporteSoldadura() {
       $('report-sold-ensayo').value = 'todos';
@@ -11301,7 +11321,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         return txt ? { ...o, instrucciones: txt } : o;
       });
       if (!list.length) { alert('No hay OP de soldadura que cumplan ese filtro.'); return; }
-      const etiqueta = { todos: 'con y sin ensayo', con: 'con ensayo', pendiente: 'ensayo pendiente de recibir', recibido: 'ensayo recibido', sin: 'sin ensayo' }[filtro];
+      const etiqueta = { todos: 'con y sin ensayo', con: 'con ensayo', pendiente: 'informe de ensayo pendiente de recibir', recibido: 'ensayo recibido', sin: 'sin ensayo' }[filtro];
       const subtitulo = `Trabajos con soldadura o en área Soldadura · ${etiqueta}${soloCurso ? ' · solo activas (en curso o en pausa esperando soldadura)' : ''} · ${list.length} OP`;
       cerrarModalReporteSoldadura();
       const conCliente = $('report-sold-con-cliente').checked;
@@ -11721,7 +11741,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           const partes = [];
           partes.push(s.cilindrado && s.cilindrado.check ? `Cilindrado OK ${s.cilindrado.fecha || ''}`.trim() : 'Cilindrado pendiente');
           partes.push(s.lista && s.lista.check ? `Soldada ${s.lista.fecha || ''}`.trim() : 'No soldada');
-          partes.push(s.llevaEnsayo ? (s.ensayos && s.ensayos.check ? `Ensayos recibidos ${s.ensayos.fecha || ''}`.trim() : 'Ensayos pendientes') : 'Sin ensayo');
+          partes.push(s.llevaEnsayo ? (s.ensayos && s.ensayos.check ? `Ensayos recibidos ${s.ensayos.fecha || ''}`.trim() : 'Informe de ensayo pendiente') + (s.fechaEnsayo ? ` (ensayo realizado ${s.fechaEnsayo})` : '') : 'Sin ensayo');
           if (s.notas) partes.push(`Notas: ${s.notas}`);
           return partes.join(' | ');
         })();
