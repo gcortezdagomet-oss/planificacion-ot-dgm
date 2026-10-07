@@ -4338,16 +4338,95 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const espera = Math.min(30000, 3000 * remoteRetryCount);
       remoteRetryTimer = setTimeout(() => { remoteRetryTimer = null; saveDBRemote(); }, espera);
     }
+    // ===== Control de versiones al guardar =====
+    // Antes de guardar se compara la versión de la nube (updated_at) con la que
+    // esta pantalla cargó por última vez. El UPDATE lleva ".eq('updated_at', ...)":
+    // solo se aplica si la nube sigue igual a lo que cargamos (compare-and-swap,
+    // sin ventana de carrera). Si alguien guardó algo más nuevo, NO se sobrescribe:
+    // se avisa, se recarga la versión de la nube y el usuario repite su cambio.
+    let remoteLastConflict = false;
+
+    function mostrarAvisoConflicto(msg) {
+      let el = document.getElementById('sync-conflicto-banner');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'sync-conflicto-banner';
+        el.style.cssText = 'position:fixed; left:50%; top:14px; transform:translateX(-50%); z-index:100001; background:#c2410c; color:#fff; border-radius:8px; padding:12px 16px; font-size:13px; font-weight:700; box-shadow:0 4px 14px rgba(0,0,0,.35); max-width:92vw; text-align:center; cursor:pointer;';
+        el.title = 'Clic para cerrar';
+        el.addEventListener('click', () => el.remove());
+        document.body.appendChild(el);
+      }
+      el.textContent = '\u26a0 ' + msg + '  (clic para cerrar)';
+    }
+
+    function refrescarVistaTrasRecarga() {
+      ensureOPOrder();
+      loadSelects();
+      renderGuiasTable();
+      if (typeof renderOPsTable === 'function' && document.getElementById('tab-list')?.classList.contains('active')) renderOPsTable();
+      mostrarAvisosLiberacionOP();
+    }
+
+    async function resolverConflictoNube() {
+      remoteLastConflict = true;
+      remoteSaveLastOk = false;
+      clearTimeout(remoteSaveTimer); remoteSaveTimer = null;
+      remoteSavePending = false;                 // ese cambio pendiente también partía de datos viejos
+      if (remoteRetryTimer) { clearTimeout(remoteRetryTimer); remoteRetryTimer = null; }
+      remoteRetryCount = 0;
+      const recargado = await loadDBRemote();    // trae y aplica la versión más reciente de la nube
+      if (!recargado) {
+        remoteUnsynced = true;
+        mostrarEstadoSync(false, 'hay una versión más nueva en la nube y no se pudo recargar');
+        programarReintentoGuardado();            // reintenta: volverá a detectar el conflicto y a recargar
+        return;
+      }
+      remoteUnsynced = false;
+      mostrarEstadoSync(true);
+      try { refrescarVistaTrasRecarga(); } catch (e) { console.error('Error al refrescar tras recargar:', e); }
+      mostrarAvisoConflicto('Otra persona guardó cambios en la nube antes que tú. Se cargó la versión más reciente y tu último cambio NO se guardó. Revisa los datos y vuelve a hacerlo.');
+    }
+
     async function saveDBRemote() {
       if (!window.dagometSupabase || !window.dagometCurrentUser || window.dagometCurrentProfile?.rol === 'read_only') return;
       if (remoteSaveInFlight) { remoteSavePending = true; return; }
       remoteSaveInFlight = true;
+      remoteLastConflict = false;
       try {
-        const { data: guardado, error } = await window.dagometSupabase.from('app_data')
-          .upsert({ id: 1, data: db, updated_at: new Date().toISOString(), updated_by: window.dagometCurrentUser.id })
-          .select('updated_at');
-        if (error) throw error;
-        const fila = Array.isArray(guardado) ? guardado[0] : guardado;
+        const sb = window.dagometSupabase;
+        const ahora = new Date().toISOString();
+        const userId = window.dagometCurrentUser.id;
+        let fila = null, conflicto = false;
+        if (dbRemoteUpdatedAt) {
+          const { data: act, error } = await sb.from('app_data')
+            .update({ data: db, updated_at: ahora, updated_by: userId })
+            .eq('id', 1).eq('updated_at', dbRemoteUpdatedAt)
+            .select('updated_at');
+          if (error) throw error;
+          fila = Array.isArray(act) ? act[0] : act;
+          if (!fila) {
+            // 0 filas: o la nube cambió (conflicto real) o el servidor no aceptó la escritura (permisos).
+            const { data: actual, error: errLec } = await sb.from('app_data').select('updated_at').eq('id', 1).maybeSingle();
+            if (errLec) throw errLec;
+            if (actual && actual.updated_at && new Date(actual.updated_at).getTime() === new Date(dbRemoteUpdatedAt).getTime()) {
+              throw new Error('la nube no aceptó el guardado (revisa los permisos del usuario)');
+            }
+            conflicto = true;
+          }
+        } else {
+          // Nunca cargamos la nube en esta sesión: si ya existe una fila, es más nueva que lo que tenemos.
+          const { data: actual, error: errLec } = await sb.from('app_data').select('updated_at').eq('id', 1).maybeSingle();
+          if (errLec) throw errLec;
+          if (actual) conflicto = true;
+          else {
+            const { data: ins, error } = await sb.from('app_data')
+              .insert({ id: 1, data: db, updated_at: ahora, updated_by: userId })
+              .select('updated_at');
+            if (error) throw error;
+            fila = Array.isArray(ins) ? ins[0] : ins;
+          }
+        }
+        if (conflicto) { await resolverConflictoNube(); return; }
         if (fila && fila.updated_at) dbRemoteUpdatedAt = fila.updated_at;
         dbRemoteSig = null; // la copia remota ahora es la nuestra
         remoteSaveLastOk = true; remoteUnsynced = false; remoteRetryCount = 0;
@@ -4390,18 +4469,26 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     async function saveHorasExtraRemote() {
       if (!window.dagometSupabase || !window.dagometCurrentUser) return;
       try {
-        const { data: remoto, error: readError } = await window.dagometSupabase.from('app_data').select('data').eq('id', 1).maybeSingle();
-        if (readError) throw readError;
-        const remoteData = (remoto?.data && typeof remoto.data === 'object') ? remoto.data : {};
-        remoteData.horasExtra = Array.isArray(db.horasExtra) ? db.horasExtra : [];
-        remoteData.auditoria = Array.isArray(db.auditoria) ? db.auditoria : [];
-        const { error } = await window.dagometSupabase.from('app_data').upsert({
-          id: 1,
-          data: remoteData,
-          updated_at: new Date().toISOString(),
-          updated_by: window.dagometCurrentUser.id
-        });
-        if (error) throw error;
+        const sb = window.dagometSupabase;
+        // Lee la versión actual y escribe solo si nadie la cambió entremedio; si cambió, relee y reintenta.
+        for (let intento = 0; intento < 3; intento++) {
+          const { data: remoto, error: readError } = await sb.from('app_data').select('data, updated_at').eq('id', 1).maybeSingle();
+          if (readError) throw readError;
+          const remoteData = (remoto?.data && typeof remoto.data === 'object') ? remoto.data : {};
+          remoteData.horasExtra = Array.isArray(db.horasExtra) ? db.horasExtra : [];
+          remoteData.auditoria = Array.isArray(db.auditoria) ? db.auditoria : [];
+          const nuevo = { data: remoteData, updated_at: new Date().toISOString(), updated_by: window.dagometCurrentUser.id };
+          if (remoto && remoto.updated_at) {
+            const { data: act, error } = await sb.from('app_data').update(nuevo).eq('id', 1).eq('updated_at', remoto.updated_at).select('updated_at');
+            if (error) throw error;
+            if (Array.isArray(act) ? act.length : act) return;
+          } else {
+            const { error } = await sb.from('app_data').upsert({ id: 1, ...nuevo });
+            if (error) throw error;
+            return;
+          }
+        }
+        console.error('No se pudieron sincronizar las horas extras: la nube cambió varias veces seguidas.');
       } catch (err) {
         console.error('No se pudieron sincronizar las horas extras:', err);
       }
@@ -4427,6 +4514,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         db=data.data; try { localStorage.setItem('dagomet_db', JSON.stringify(db)); } catch (_) {}
         return true;
       }
+      dbRemoteUpdatedAt = (data && data.updated_at) || null; // si la fila existe, partimos de su versión
       await saveDBRemote(); return false;
     }
 
@@ -6551,6 +6639,10 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const guardadoEnNube = await saveDBAndWait();
       if (!guardadoEnNube) {
         formDirty = true;
+        if (remoteLastConflict) {
+          alert('⚠️ Otra persona guardó cambios en la nube mientras editabas. Se cargó la versión más reciente y esta OP NO se guardó. Revisa el formulario (tus datos siguen en pantalla) y presiona “Guardar OP” de nuevo.');
+          return;
+        }
         alert('⚠️ La OP quedó guardada en este dispositivo, pero NO se confirmó en la nube. No cierres ni recargues esta página. Verifica la conexión y vuelve a presionar “Guardar OP” para reintentar.');
         return;
       }
@@ -12512,7 +12604,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
       const dlAnchor = document.createElement('a');
       dlAnchor.setAttribute("href", dataStr);
-      dlAnchor.setAttribute("download", `respaldo_dagomet_${Date.now()}.json`);
+      dlAnchor.setAttribute("download", `respaldo_dagomet_${sufijoFechaHora()}.json`);
       dlAnchor.click();
       try { localStorage.setItem('dagomet_last_backup', String(Date.now())); } catch (err) { /* no crítico */ }
     }
@@ -12523,12 +12615,13 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     const CLOUD_BACKUP_BUCKET = 'respaldos';
     const HORAS_ENTRE_BACKUPS_AUTO = 24;
 
-    function nombreArchivoBackupHoy() {
-      const d = new Date();
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `dagomet_backup_${yyyy}-${mm}-${dd}.json`;
+    // Fecha y hora (hasta el segundo) en el nombre: cada respaldo es un archivo distinto.
+    function sufijoFechaHora(d = new Date()) {
+      const p = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
+    }
+    function nombreArchivoBackupAhora() {
+      return `dagomet_backup_${sufijoFechaHora()}.json`;
     }
 
     function renderCloudBackupStatus(mensaje, esError = false) {
@@ -12562,11 +12655,11 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 
       if (btn) { btn.disabled = true; btn.dataset.originalText = btn.dataset.originalText || btn.textContent; btn.textContent = '⏳ Respaldando...'; }
       try {
-        const fileName = nombreArchivoBackupHoy();
+        const fileName = nombreArchivoBackupAhora();
         const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
         const { error } = await sb.storage
           .from(CLOUD_BACKUP_BUCKET)
-          .upload(fileName, blob, { upsert: true, contentType: 'application/json', cacheControl: '0' });
+          .upload(fileName, blob, { upsert: false, contentType: 'application/json', cacheControl: '0' });
         if (error) throw error;
         const ahora = Date.now();
         try { localStorage.setItem('dagomet_last_cloud_backup', String(ahora)); } catch (_) {}
@@ -12683,11 +12776,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           if (formDirty || remoteSaveInFlight || remoteSaveTimer || remoteSavePending || remoteUnsynced) return;
           const huboCambios = await loadDBRemote({ onlyIfChanged: true });
           if (huboCambios) {
-            ensureOPOrder();
-            loadSelects();
-            renderGuiasTable();
-            if (typeof renderOPsTable === 'function' && document.getElementById('tab-list')?.classList.contains('active')) renderOPsTable();
-            mostrarAvisosLiberacionOP();
+            refrescarVistaTrasRecarga();
           }
         } catch (err) { console.error('Error al revisar actualizaciones remotas:', err); }
       }, 20000);
