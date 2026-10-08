@@ -206,6 +206,7 @@
     .materials-table th { background: var(--primary-light); color: var(--primary); font-size: 0.7rem; padding: 10px; text-align: left; border-bottom: 1px solid var(--border-strong); text-transform: uppercase; letter-spacing: 0.4px; }
     .materials-table td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
     .materials-table input, .materials-table select { padding: 8px; font-size: 0.85rem; }
+    .materials-table input.m-ancho:disabled { background:#f1f5f9; cursor:not-allowed; opacity:.65; }
     .materials-table input.m-material,
     .materials-table input.m-espesor,
     .materials-table input.m-descripcion,
@@ -255,16 +256,17 @@
       .materials-table-generic tbody td:nth-child(3)::before { content:'Calidad'; }
       .materials-table-generic tbody td:nth-child(4)::before { content:'Medida'; }
       .materials-table-generic tbody td:nth-child(5)::before { content:'Espesor (mm)'; }
-      .materials-table-generic tbody td:nth-child(6)::before { content:'Largo / dimensiones (mm)'; }
-      .materials-table-generic tbody td:nth-child(7) { grid-column:span 2; }
-      .materials-table-generic tbody td:nth-child(7)::before { content:'Descripción'; }
+      .materials-table-generic tbody td:nth-child(6)::before { content:'Largo (mm)'; }
+      .materials-table-generic tbody td:nth-child(7)::before { content:'Ancho (mm)'; }
       .materials-table-generic tbody td:nth-child(8) { grid-column:span 2; }
-      .materials-table-generic tbody td:nth-child(8)::before { content:'¿Es ducto?'; }
-      .materials-table-generic tbody td:nth-child(9)::before { content:'Cantidad'; }
-      .materials-table-generic tbody td:nth-child(10)::before { content:'Peso final (kg)'; }
-      .materials-table-generic tbody td:nth-child(11) { justify-content:flex-end; align-items:flex-start; }
-      .materials-table-generic tbody td:nth-child(11)::before { content:'Acción'; }
-      .materials-table-generic tbody td:nth-child(11) .btn { margin-right:4px; }
+      .materials-table-generic tbody td:nth-child(8)::before { content:'Descripción'; }
+      .materials-table-generic tbody td:nth-child(9) { grid-column:span 2; }
+      .materials-table-generic tbody td:nth-child(9)::before { content:'¿Es ducto?'; }
+      .materials-table-generic tbody td:nth-child(10)::before { content:'Cantidad'; }
+      .materials-table-generic tbody td:nth-child(11)::before { content:'Peso final (kg)'; }
+      .materials-table-generic tbody td:nth-child(12) { justify-content:flex-end; align-items:flex-start; }
+      .materials-table-generic tbody td:nth-child(12)::before { content:'Acción'; }
+      .materials-table-generic tbody td:nth-child(12) .btn { margin-right:4px; }
       .materials-table .m-descripcion { width:100%; min-width:0; }
       .materials-table .m-ducto-cell { min-width:0; text-align:left; }
       .materials-table .m-ducto-wrap { align-items:flex-start; }
@@ -291,8 +293,8 @@
 
     @media (max-width: 900px) {
       .materials-table tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .materials-table-generic tbody td:nth-child(7),
-      .materials-table-generic tbody td:nth-child(8) { grid-column:span 2; }
+      .materials-table-generic tbody td:nth-child(8),
+      .materials-table-generic tbody td:nth-child(9) { grid-column:span 2; }
       .materials-table-bombeado tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
@@ -2904,7 +2906,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
                 <th>CALIDAD</th>
                 <th>MEDIDA</th>
                 <th>ESPESOR (mm)</th>
-                <th>LARGO / DIMENSIONES (mm)</th>
+                <th>LARGO (mm)</th>
+                <th>ANCHO (mm)</th>
                 <th>DESCRIPCIÓN</th>
                 <th>¿ES DUCTO?</th>
                 <th>CANTIDAD</th>
@@ -2918,7 +2921,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         </div>
         <button class="btn btn-secondary btn-sm" style="margin-top: 10px;" onclick="addMaterialRow()">+ Agregar Material</button>
         <div class="formula-help" style="margin-top:12px;padding:10px 12px;background:#f8fafc;border:1px solid var(--border);border-radius:7px;font-size:.78rem;color:#475569;">
-          <b style="color:var(--primary);">Cálculo automático:</b> PLANCHA = Largo × Ancho × Espesor × Cantidad × Peso ÷ 1.000.000 &nbsp;|&nbsp; CANALES, TUBOS, CAÑERÍAS, PERFILES, PLETINAS, VIGAS, etc. = Peso (kg/m) × Largo (mm) × Cantidad ÷ 1.000. &nbsp;|&nbsp; <b>DUCTO:</b> si se activa, se calcula por diámetro y largo.
+          <b style="color:var(--primary);">Cálculo automático:</b> PLANCHA = Largo × Ancho × Espesor × Cantidad × Peso ÷ 1.000.000 (usa las casillas Largo y Ancho) &nbsp;|&nbsp; CANALES, TUBOS, CAÑERÍAS, PERFILES, PLETINAS, VIGAS, etc. = Peso (kg/m) × Largo (mm) × Cantidad ÷ 1.000. &nbsp;|&nbsp; <b>DUCTO:</b> si se activa, se calcula por diámetro y <b>Largo</b> (el Ancho no se usa).
         </div>
 
         <div id="bombeado-section" style="display: none;">
@@ -5499,21 +5502,40 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     }
 
     function actualizarEtiquetaLargo(row) {
-      const label = row.querySelector('.m-largo-label');
       const input = row.querySelector('.m-largo');
+      const ancho = row.querySelector('.m-ancho');
       const catalogRow = getSelectedCatalogRow(row);
       const unidad = catalogRow?.unidad || '';
-      if (!label || !input) return;
+      if (!input) return;
       if (unidad === 'm2') {
-        label.textContent = 'Largo × Ancho (mm)';
-        input.placeholder = 'Ej: 1000x2500';
+        input.placeholder = 'Ej: 2500';
+        if (ancho) ancho.placeholder = 'Ej: 1000';
       } else if (unidad === 'm') {
-        label.textContent = 'Largo (mm)';
         input.placeholder = 'Ej: 6000';
+        if (ancho) ancho.placeholder = '—';
       } else {
-        label.textContent = 'Largo / referencia (mm)';
-        input.placeholder = 'Ej: 905x6000';
+        input.placeholder = 'Ej: 6000';
+        if (ancho) ancho.placeholder = 'Ej: 1000';
       }
+    }
+
+    // Datos antiguos guardaban Largo y Ancho juntos en una sola casilla
+    // (ej. "1000x6000", convención ANCHO x LARGO). Se separan al cargar.
+    function separarLargoAnchoLegacy(texto) {
+      const t = cleanDimText(texto);
+      if (!/\dX\d/.test(t)) return null;
+      const nums = parseDimensions(t);
+      if (nums.length < 2) return null;
+      return { ancho: String(nums[0]), largo: String(nums[nums.length - 1]) };
+    }
+
+    // Texto de medidas para la descripción: ANCHO X LARGO en planchas
+    // normales; solo el LARGO en ductos y materiales lineales (perfilería).
+    function dimsParaDescripcion(largo, ancho, unidad, esDucto) {
+      const l = cleanDimText(largo || '');
+      const a = cleanDimText(ancho || '');
+      if (String(unidad || '').toLowerCase() === 'm2' && !esDucto && a && l) return `${a}X${l}`;
+      return l;
     }
 
     function cleanDimText(value) {
@@ -5607,7 +5629,12 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     function buildMaterialDescription(row) {
       const r = getSelectedCatalogRow(row);
       if (!r) return '';
-      const dims = cleanDimText(row.querySelector('.m-largo')?.value || '');
+      const dims = dimsParaDescripcion(
+        row.querySelector('.m-largo')?.value || '',
+        row.querySelector('.m-ancho')?.value || '',
+        r.unidad,
+        !!row.querySelector('.m-es-ducto')?.checked
+      );
       return formarDescripcionSimple({
         material: r.material,
         medida: r.medida,
@@ -5676,6 +5703,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const registro = seleccionarRegistroExacto(row);
       const cant = Math.max(1, Number(String(row.querySelector('.m-cantidad')?.value || '1').replace(',', '.')) || 1);
       const dimText = row.querySelector('.m-largo')?.value || '';
+      const anchoText = row.querySelector('.m-ancho')?.value || '';
+      const anchoInput = row.querySelector('.m-ancho');
       const kilosInput = row.querySelector('.m-peso-final');
       const descInput = row.querySelector('.m-descripcion');
       const ductoCheck = row.querySelector('.m-es-ducto');
@@ -5725,13 +5754,18 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       if (ductoOptions) {
         ductoOptions.classList.toggle('active', !!ductoCheck?.checked && esPlancha);
       }
+      // El Ancho solo se usa en planchas normales (no ductos ni perfilería).
+      if (anchoInput) {
+        const usaAncho = esPlancha && !ductoCheck?.checked;
+        anchoInput.disabled = !usaAncho;
+        anchoInput.title = usaAncho ? '' : 'El ancho no interviene en el cálculo de este material';
+      }
 
       if (!registro) {
         limpiarPeso();
         return;
       }
 
-      const dims = parseDimensions(dimText);
       const pesoCatalogo = Number(registro.peso) || 0;
       const espesor = Number(row.querySelector('.m-espesor')?.value || registro.espesor || 0);
       let pesoFinal = 0;
@@ -5741,7 +5775,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       // Interior = (Ø interior + espesor) × π × largo × espesor × densidad × cantidad / 1.000.000
       // Se conserva la densidad 8 usada por el cálculo anterior (kg/dm³ aproximado).
       if (ductoCheck?.checked && esPlancha) {
-        const largoMM = dims.length >= 2 ? dims[dims.length - 1] : Number(String(dimText).replace(',', '.')) || 0;
+        // DUCTO: solo interviene el LARGO (el ancho no se usa).
+        const largoMM = parseLargoLinealMM(dimText) || 0;
         const espesorMM = espesor;
         const diametroMM = Number(String(diametroDucto?.value || '').replace(',', '.')) || 0;
         const densidad = 8;
@@ -5760,12 +5795,13 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       // PLANCHA NORMAL:
       // Largo(mm) × Ancho(mm) × Espesor(mm) × Cantidad × Peso(kg/m²) / 1.000.000.
       else if (esPlancha) {
-        if (dims.length < 2 || !(espesor > 0)) {
+        // PLANCHA: Largo y Ancho vienen de casillas separadas.
+        const largoMM = parseLargoLinealMM(dimText) || 0;
+        const anchoMM = parseLargoLinealMM(anchoText) || 0;
+        if (!(largoMM > 0 && anchoMM > 0 && espesor > 0)) {
           limpiarPeso();
           return;
         }
-        const largoMM = dims[0];
-        const anchoMM = dims[1];
         pesoFinal = (largoMM * anchoMM * espesor * cant * (pesoCatalogo / espesor)) / 1000000;
       }
       // CANALES, TUBOS, CAÑERÍAS, PERFILES, PLETINAS, VIGAS, ETC.:
@@ -5815,7 +5851,12 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       materialRowUid++;
       const oldDesc = String(data.descripcion || '').toUpperCase();
       const descripcionManualInicial = data.descripcionManual === true || data.descripcionManual === 'true' || data.descripcionManual === 1 || data.descripcionManual === '1';
-      const largoInicial = data.largo || '';
+      let largoInicial = data.largo || '';
+      let anchoInicial = data.ancho || '';
+      if (!anchoInicial) {
+        const sep = separarLargoAnchoLegacy(largoInicial);
+        if (sep) { largoInicial = sep.largo; anchoInicial = sep.ancho; }
+      }
       const esDuctoInicial = data.esDucto === true || data.esDucto === 'true' || data.esDucto === 1 || data.esDucto === '1';
       const tipoDuctoInicial = String(data.tipoDucto || 'EXTERIOR').toUpperCase() === 'INTERIOR' ? 'INTERIOR' : 'EXTERIOR';
       const diametroDuctoInicial = data.diametroDucto || '';
@@ -5826,10 +5867,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         <td><select class="m-calidad" aria-label="Calidad"></select></td>
         <td><select class="m-medida" aria-label="Medida"></select></td>
         <td><select class="m-espesor" aria-label="Espesor"></select></td>
-        <td>
-          <label class="m-largo-label" style="display:block;font-size:.72rem;color:var(--text-muted);margin-bottom:2px;">Largo / dimensiones (mm)</label>
-          <input type="text" inputmode="decimal" placeholder="Ej: 6000" class="m-largo" value="${esc(largoInicial)}">
-        </td>
+        <td><input type="text" inputmode="decimal" placeholder="Ej: 6000" class="m-largo" aria-label="Largo (mm)" value="${esc(largoInicial)}"></td>
+        <td><input type="text" inputmode="decimal" placeholder="Ej: 1000" class="m-ancho" aria-label="Ancho (mm)" value="${esc(anchoInicial)}"></td>
         <td>
           <input type="text" class="m-descripcion" aria-label="Descripción del material" placeholder="Descripción" value="${esc(oldDesc)}">
           <div class="material-catalog-hint">Autocompletada · editable</div>
@@ -5937,10 +5976,10 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           pesoFinalInput.classList.add('peso-manual');
         });
       }
-      row.querySelector('.m-largo').addEventListener('input', () => {
+      ['.m-largo', '.m-ancho'].forEach(sel => row.querySelector(sel).addEventListener('input', () => {
         if (pesoFinalInput) { pesoFinalInput.dataset.manual = 'false'; pesoFinalInput.classList.remove('peso-manual'); }
         calculateMaterialRowWeight(row);
-      });
+      }));
       row.querySelector('.m-cantidad').addEventListener('input', () => {
         if (pesoFinalInput) { pesoFinalInput.dataset.manual = 'false'; pesoFinalInput.classList.remove('peso-manual'); }
         calculateMaterialRowWeight(row);
@@ -5973,6 +6012,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         espesor: row.querySelector('.m-espesor')?.value || '',
         cantidad: row.querySelector('.m-cantidad')?.value || 1,
         largo: row.querySelector('.m-largo')?.value || '',
+        ancho: row.querySelector('.m-ancho')?.value || '',
         esDucto: row.querySelector('.m-es-ducto')?.checked || false,
         tipoDucto: row.querySelector('.m-tipo-ducto')?.value || 'EXTERIOR',
         diametroDucto: row.querySelector('.m-diametro-ducto')?.value || '',
@@ -6005,6 +6045,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           unidad: catalogRow?.unidad || '',
           cantidad: r.querySelector('.m-cantidad')?.value || 1,
           largo: r.querySelector('.m-largo')?.value || '',
+          ancho: r.querySelector('.m-ancho')?.value || '',
           esDucto: !!r.querySelector('.m-es-ducto')?.checked,
           tipoDucto: r.querySelector('.m-tipo-ducto')?.value || 'EXTERIOR',
           diametroDucto: r.querySelector('.m-diametro-ducto')?.value || '',
@@ -11778,7 +11819,9 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     // cuando el usuario ya los incluyó en el campo de medidas. No modifica
     // los datos guardados, solo el texto que se muestra en el documento/PDF.
     function construirDescripcionCompleta(m) {
-      const dims = cleanDimText(m.largo || '');
+      const dims = (m.ancho !== undefined)
+        ? dimsParaDescripcion(m.largo, m.ancho, m.unidad, m.esDucto)
+        : cleanDimText(m.largo || ''); // OP antigua: largo y ancho juntos
       let desc = formarDescripcionSimple({
         material: m.material,
         medida: m.medida,
