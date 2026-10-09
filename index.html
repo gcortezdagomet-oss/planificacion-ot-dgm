@@ -3673,9 +3673,13 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         <button class="btn btn-secondary btn-sm" onclick="cerrarModalReporteSoldadura()">✕ Cerrar</button>
       </div>
       <p style="margin:0 0 12px 0; color:var(--text-muted); font-size:0.85rem;">Elige la lista que necesitas. Se abre la vista previa lista para imprimir o descargar.</p>
+      <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; text-transform:none; letter-spacing:0; cursor:pointer; margin-bottom:14px; padding:9px 12px; background:var(--bg); border-radius:8px;">
+        <input type="checkbox" id="report-sold-con-cliente" checked style="width:16px; height:16px; cursor:pointer;">
+        Incluir columna Cliente <span style="font-weight:500; color:var(--text-muted);">(desmárcala para el proveedor)</span>
+      </label>
       <button type="button" onclick="confirmarReporteSoldadura('falta_soldar')" style="display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--border-strong); border-left:5px solid #dc2626; border-radius:8px; padding:11px 14px; margin-bottom:10px; cursor:pointer;">
         <div style="font-weight:800; font-size:0.92rem; color:var(--text);">1 · Trabajos que faltan por soldar</div>
-        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Para cotizar con el proveedor. Sin columna Cliente.</div>
+        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Para cotizar con el proveedor (desmarca Cliente arriba).</div>
       </button>
       <button type="button" onclick="confirmarReporteSoldadura('con_ensayo')" style="display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--border-strong); border-left:5px solid #2563eb; border-radius:8px; padding:11px 14px; margin-bottom:10px; cursor:pointer;">
         <div style="font-weight:800; font-size:0.92rem; color:var(--text);">2 · Trabajos que llevan ensayo</div>
@@ -11325,6 +11329,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       return `<span style="font-weight:700; ${st}">${e === 'sin' ? '' : '🧪 '}${esc(getReportEnsayoTexto(o))}</span>${fHtml}`;
     }
     function imprimirReporteSoldadura() {
+      $('report-sold-con-cliente').checked = true;
       $('report-soldadura-modal').style.display = 'flex';
     }
     function cerrarModalReporteSoldadura() {
@@ -11336,7 +11341,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     //  falta_inspeccion -> llevan ensayo y todavía no tienen fecha de ensayo realizado
     //  falta_informe    -> ensayo realizado, informe aún no recibido
     const REPORTES_SOLDADURA = {
-      falta_soldar:     { titulo: 'Faltan por soldar',            cols: ['numero', 'cantidadTotal', 'trabajo'] },
+      falta_soldar:     { titulo: 'Faltan por soldar',            cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo'] },
       con_ensayo:       { titulo: 'Trabajos que llevan ensayo',   cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ensayo'] },
       falta_inspeccion: { titulo: 'Faltan por inspeccionar',      cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ensayo'] },
       falta_informe:    { titulo: 'Falta informe del ensayo',     cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ensayo'] }
@@ -11369,7 +11374,10 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       });
       if (!list.length) { alert('No hay trabajos en esa lista.'); return; }
       cerrarModalReporteSoldadura();
-      previewReport(list, 'Reporte de Soldadura', `${cfg.titulo} · ${list.length} OP`, cfg.cols);
+      const conCliente = $('report-sold-con-cliente').checked;
+      const cols = cfg.cols.filter(c => conCliente || c !== 'cliente');
+      if (conCliente && !cols.includes('cliente')) cols.splice(1, 0, 'cliente');
+      previewReport(list, 'Reporte de Soldadura', `${cfg.titulo} · ${list.length} OP`, cols);
     }
 
     function imprimirReporteMes() {
