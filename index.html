@@ -3667,37 +3667,28 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 
   <!-- MODAL: RANGO DE FECHAS (DOS DÍAS) PARA REPORTE COMPLETO -->
   <div id="report-soldadura-modal" class="modal-overlay">
-    <div class="modal-content" style="max-width:440px;">
+    <div class="modal-content" style="max-width:480px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
         <h2 style="margin:0; border:none; padding:0;">🔥 Reporte de soldadura</h2>
         <button class="btn btn-secondary btn-sm" onclick="cerrarModalReporteSoldadura()">✕ Cerrar</button>
       </div>
-      <p style="margin:0 0 14px 0; color:var(--text-muted); font-size:0.85rem;">
-        Lista las OP que llevan soldadura o están en el área SOLDADURA, con cantidad, trabajo, N° de OP y cliente.
-      </p>
-      <div class="field" style="margin-bottom:12px;">
-        <label>Ensayo</label>
-        <select id="report-sold-ensayo">
-          <option value="todos">Todos (con y sin ensayo)</option>
-          <option value="con">Con ensayo (pendientes y recibidos)</option>
-          <option value="pendiente">Con ensayo · documentos pendientes de recibir</option>
-          <option value="realizado_pendiente">Ensayo realizado · informe pendiente de recibir</option>
-          <option value="recibido">Con ensayo · documentos ya recibidos</option>
-          <option value="sin">Sin ensayo</option>
-        </select>
-      </div>
-      <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; text-transform:none; letter-spacing:0; cursor:pointer;">
-        <input type="checkbox" id="report-sold-solo-curso" style="width:16px; height:16px; cursor:pointer;">
-        Solo OP activas (en curso, o en pausa esperando soldadura)
-      </label>
-      <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; text-transform:none; letter-spacing:0; cursor:pointer; margin-top:10px;">
-        <input type="checkbox" id="report-sold-con-cliente" checked style="width:16px; height:16px; cursor:pointer;">
-        Incluir columna Cliente <span style="font-weight:500; color:var(--text-muted);">(desmárcala para el soldador)</span>
-      </label>
-      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
-        <button class="btn btn-secondary btn-sm" onclick="cerrarModalReporteSoldadura()">Cancelar</button>
-        <button class="btn btn-warning btn-sm" onclick="confirmarReporteSoldadura()">👁️ Previsualizar</button>
-      </div>
+      <p style="margin:0 0 12px 0; color:var(--text-muted); font-size:0.85rem;">Elige la lista que necesitas. Se abre la vista previa lista para imprimir o descargar.</p>
+      <button type="button" onclick="confirmarReporteSoldadura('falta_soldar')" style="display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--border-strong); border-left:5px solid #dc2626; border-radius:8px; padding:11px 14px; margin-bottom:10px; cursor:pointer;">
+        <div style="font-weight:800; font-size:0.92rem; color:var(--text);">1 · Trabajos que faltan por soldar</div>
+        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Para cotizar con el proveedor. Sin columna Cliente.</div>
+      </button>
+      <button type="button" onclick="confirmarReporteSoldadura('con_ensayo')" style="display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--border-strong); border-left:5px solid #2563eb; border-radius:8px; padding:11px 14px; margin-bottom:10px; cursor:pointer;">
+        <div style="font-weight:800; font-size:0.92rem; color:var(--text);">2 · Trabajos que llevan ensayo</div>
+        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Todos los que llevan ensayos de soldadura.</div>
+      </button>
+      <button type="button" onclick="confirmarReporteSoldadura('falta_inspeccion')" style="display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--border-strong); border-left:5px solid #d97706; border-radius:8px; padding:11px 14px; margin-bottom:10px; cursor:pointer;">
+        <div style="font-weight:800; font-size:0.92rem; color:var(--text);">3 · Faltan por inspeccionar</div>
+        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Para el inspector: llevan ensayo y aún no tienen fecha de ensayo realizado.</div>
+      </button>
+      <button type="button" onclick="confirmarReporteSoldadura('falta_informe')" style="display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--border-strong); border-left:5px solid #7c3aed; border-radius:8px; padding:11px 14px; margin-bottom:10px; cursor:pointer;">
+        <div style="font-weight:800; font-size:0.92rem; color:var(--text);">4 · Falta el informe del ensayo</div>
+        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Para el inspector: ensayo ya realizado, informe aún no recibido.</div>
+      </button>
     </div>
   </div>
 
@@ -10907,7 +10898,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       // respetando el rango de fechas seleccionado.
       const esReporteCompleto = String(titulo || '').trim() === 'Reporte Completo de OPs';
       // El Reporte de Soldadura lo ve un externo a la empresa: no se muestra el total de OPs en planta.
-      const esReporteSoldadura = String(titulo || '').trim() === 'Reporte de Soldadura';
+      const esReporteSoldadura = String(titulo || '').trim().startsWith('Reporte de Soldadura');
       const opsEnCursoReporte = esReporteCompleto
         ? ordenados.filter(o => String(o.estadoOp || 'EN CURSO').trim().toUpperCase() === 'EN CURSO')
         : [];
@@ -11334,41 +11325,51 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       return `<span style="font-weight:700; ${st}">${e === 'sin' ? '' : '🧪 '}${esc(getReportEnsayoTexto(o))}</span>${fHtml}`;
     }
     function imprimirReporteSoldadura() {
-      $('report-sold-ensayo').value = 'todos';
-      $('report-sold-solo-curso').checked = false;
       $('report-soldadura-modal').style.display = 'flex';
     }
     function cerrarModalReporteSoldadura() {
       $('report-soldadura-modal').style.display = 'none';
     }
-    function confirmarReporteSoldadura() {
-      const filtro = $('report-sold-ensayo').value;
-      const soloCurso = $('report-sold-solo-curso').checked;
+    // 4 listas directas:
+    //  falta_soldar     -> OP con soldadura aún no soldada (cotizar con proveedor, sin Cliente)
+    //  con_ensayo       -> OP que llevan ensayo de soldadura
+    //  falta_inspeccion -> llevan ensayo y todavía no tienen fecha de ensayo realizado
+    //  falta_informe    -> ensayo realizado, informe aún no recibido
+    const REPORTES_SOLDADURA = {
+      falta_soldar:     { titulo: 'Faltan por soldar',            cols: ['numero', 'cantidadTotal', 'trabajo'] },
+      con_ensayo:       { titulo: 'Trabajos que llevan ensayo',   cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ensayo'] },
+      falta_inspeccion: { titulo: 'Faltan por inspeccionar',      cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ensayo'] },
+      falta_informe:    { titulo: 'Falta informe del ensayo',     cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ensayo'] }
+    };
+    function confirmarReporteSoldadura(modo) {
+      const cfg = REPORTES_SOLDADURA[modo];
+      if (!cfg) return;
+      const cerrada = o => ['TERMINADA', 'DESPACHADA', 'ANULADA'].includes(String(o.estadoOp || '').trim().toUpperCase());
+      const anulada = o => String(o.estadoOp || '').trim().toUpperCase() === 'ANULADA';
       const list = db.ots.filter(o => {
         if (!opEsDeSoldadura(o)) return false;
         if (opDerivadaTieneOriginal(o)) return false; // evita duplicar: solo la OP original
-        if (soloCurso) {
-          const est = String(o.estadoOp || 'EN CURSO').trim().toUpperCase();
-          // La OP original (cilindrado) queda EN PAUSA mientras se suelda: sigue siendo "activa"
-          // para este reporte hasta que se marque la soldadura como lista.
-          const esperandoSoldadura = est === 'EN PAUSA' && opTieneSoldadura(o) && !(o.soldaduraSeguimiento && o.soldaduraSeguimiento.lista && o.soldaduraSeguimiento.lista.check);
-          if (est !== 'EN CURSO' && !esperandoSoldadura) return false;
-        }
         const e = getReportEnsayoEstado(o);
-        if (filtro === 'con') return e !== 'sin';
-        if (filtro === 'realizado_pendiente') return e === 'pendiente' && !!getReportEnsayoFecha(o);
-        return filtro === 'todos' || e === filtro;
+        switch (modo) {
+          case 'falta_soldar':
+            if (cerrada(o)) return false;
+            return opTieneSoldadura(o) ? !(o.soldaduraSeguimiento && o.soldaduraSeguimiento.lista && o.soldaduraSeguimiento.lista.check) : true;
+          case 'con_ensayo':
+            return !anulada(o) && e !== 'sin';
+          case 'falta_inspeccion':
+            return !anulada(o) && e === 'pendiente' && !getReportEnsayoFecha(o);
+          case 'falta_informe':
+            return !anulada(o) && e === 'pendiente' && !!getReportEnsayoFecha(o);
+        }
+        return false;
       }).map(o => {
         // Copia solo para el reporte: si la OP tiene "texto del trabajo para soldadura", se usa como Trabajo.
         const txt = String((o.soldaduraSeguimiento && o.soldaduraSeguimiento.textoReporte) || '').trim();
         return txt ? { ...o, instrucciones: txt } : o;
       });
-      if (!list.length) { alert('No hay OP de soldadura que cumplan ese filtro.'); return; }
-      const etiqueta = { todos: 'con y sin ensayo', con: 'con ensayo', pendiente: 'informe de ensayo pendiente de recibir', realizado_pendiente: 'ensayo realizado · informe pendiente de recibir', recibido: 'ensayo recibido', sin: 'sin ensayo' }[filtro];
-      const subtitulo = `Trabajos con soldadura o en área Soldadura · ${etiqueta}${soloCurso ? ' · solo activas (en curso o en pausa esperando soldadura)' : ''} · ${list.length} OP`;
+      if (!list.length) { alert('No hay trabajos en esa lista.'); return; }
       cerrarModalReporteSoldadura();
-      const conCliente = $('report-sold-con-cliente').checked;
-      previewReport(list, 'Reporte de Soldadura', subtitulo, conCliente ? ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ensayo'] : ['numero', 'cantidadTotal', 'trabajo', 'ensayo']);
+      previewReport(list, 'Reporte de Soldadura', `${cfg.titulo} · ${list.length} OP`, cfg.cols);
     }
 
     function imprimirReporteMes() {
