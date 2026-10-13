@@ -3013,7 +3013,10 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             <textarea id="comentarios" rows="3"></textarea>
           </div>
           <div class="field" style="grid-column: span 2;">
-            <label>Responsables del Trabajo (Mantén Ctrl/Cmd presionado para seleccionar varios)</label>
+            <label style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+              <span>Responsables del Trabajo (Mantén Ctrl/Cmd presionado para seleccionar varios)</span>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="limpiarResponsablesTrabajo()" title="Dejar sin responsables">✖ Dejar vacío</button>
+            </label>
             <select id="responsableTrabajo" multiple style="height: 100px;"></select>
           </div>
           <div class="field" style="grid-column: span 2;">
@@ -4547,6 +4550,20 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       input.dispatchEvent(new Event('change', { bubbles: true }));
     });
 
+    // Muestra el nombre sin el cargo entre paréntesis: "JORGE NIÑO (MAESTRO)" -> "JORGE NIÑO".
+    // Solo es visual: el valor guardado sigue siendo el nombre completo.
+    function nombreSinCargo(n) {
+      return String(n == null ? '' : n).replace(/\s*\([^)]*\)/g, '').trim();
+    }
+
+    // Deselecciona todos los responsables para dejar el campo vacío
+    // (útil al duplicar/editar una OP, donde vienen preseleccionados).
+    function limpiarResponsablesTrabajo() {
+      const sel = document.getElementById('responsableTrabajo');
+      if (!sel) return;
+      for (let i = 0; i < sel.options.length; i++) sel.options[i].selected = false;
+    }
+
     function esc(str) {
       return (str || '').toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
@@ -5098,10 +5115,10 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         if (currentVal) maquinaElem.value = currentVal;
       }
 
-      $('responsableTrabajo').innerHTML = db.people.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+      $('responsableTrabajo').innerHTML = db.people.map(p => `<option value="${esc(p)}">${esc(nombreSinCargo(p))}</option>`).join('');
       
       const peopleOptsRev = `<option value="">-- Sin Asignar (Dejar en Blanco) --</option>` + 
-        db.people.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+        db.people.map(p => `<option value="${esc(p)}">${esc(nombreSinCargo(p))}</option>`).join('');
       $('responsableRevision').innerHTML = peopleOptsRev;
     }
 
@@ -9775,7 +9792,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         const filas = opsArea.length
           ? opsArea.map(o => {
               const cls = getDeadlineClass(o.entrega, String(o.estadoOp || 'EN CURSO').trim().toUpperCase());
-              const responsables = Array.isArray(o.responsableTrabajo) ? o.responsableTrabajo.join(', ') : '';
+              const responsables = Array.isArray(o.responsableTrabajo) ? o.responsableTrabajo.map(nombreSinCargo).join(', ') : '';
               const trabajo = (o.instrucciones || '').trim();
               return `
                 <div class="planta-op-row ${cls}">
@@ -9951,7 +9968,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const trabajadores = [...new Set((db.people || []).map(p => String(p || '').trim()).filter(Boolean))]
         .sort((a, b) => a.localeCompare(b, 'es'));
       select.innerHTML = `<option value="">Todos los trabajadores</option>` +
-        trabajadores.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+        trabajadores.map(p => `<option value="${esc(p)}">${esc(nombreSinCargo(p))}</option>`).join('');
       if (trabajadores.includes(valorActual)) select.value = valorActual;
     }
 
@@ -10163,7 +10180,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const trabajadores = [...new Set((db.people || []).map(p => String(p || '').trim()).filter(Boolean))]
         .sort((a, b) => a.localeCompare(b, 'es'));
       select.innerHTML = `<option value="">Todos los trabajadores</option>` +
-        trabajadores.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+        trabajadores.map(p => `<option value="${esc(p)}">${esc(nombreSinCargo(p))}</option>`).join('');
       if (trabajadores.includes(valorActual)) select.value = valorActual;
     }
 
@@ -10252,7 +10269,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         return;
       }
       const registros = getHorasExtraByDate(heSelectedDate);
-      const opcionesTrabajadores = (db.people || []).map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+      const opcionesTrabajadores = (db.people || []).map(p => `<option value="${esc(p)}">${esc(nombreSinCargo(p))}</option>`).join('');
       const opcionesOP = (db.ots || [])
         .filter(o => o.numero)
         .map(o => `<option value="${esc(o.numero)}">`).join('');
@@ -10656,7 +10673,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       { key: 'area',          label: 'Área',                   shortLabel: 'Área',        align: 'left',   weight: 11, get: o => esc(o.area || '-') },
       { key: 'maquina',       label: 'Máquina',                shortLabel: 'Máquina',     align: 'left',   weight: 9,  get: o => esc(o.maquina || '-') },
       { key: 'fechaTermino',  label: 'Fecha de término',       shortLabel: 'Término',     align: 'left',   weight: 9,  get: o => o.fechaTermino ? formatDateWithDayUpper(String(o.fechaTermino).slice(0,10)) : '-' },
-      { key: 'responsables',  label: 'Trabajador(es)',         shortLabel: 'Trabajador',  align: 'left',   weight: 14, get: o => esc((Array.isArray(o.responsableTrabajo) ? o.responsableTrabajo.join(', ') : (o.responsableTrabajo || '')) || '-') },
+      { key: 'responsables',  label: 'Trabajador(es)',         shortLabel: 'Trabajador',  align: 'left',   weight: 14, get: o => esc((Array.isArray(o.responsableTrabajo) ? o.responsableTrabajo.map(nombreSinCargo).join(', ') : nombreSinCargo(o.responsableTrabajo || '')) || '-') },
       { key: 'estadoOp',      label: 'Estado',                 shortLabel: 'Estado',      align: 'center', weight: 8,  get: (o, ctx) => getStatusBadge(o.estadoOp) + getReportEstadoSoldaduraNota(o, ctx) },
       { key: 'prioridad',     label: 'Prioridad',              shortLabel: 'Prioridad',   align: 'center', weight: 11, get: o => getPriorityBadge(o.prioridad) },
       { key: 'planificador',  label: 'Planificador',           shortLabel: 'Planif.',     align: 'left',   weight: 7,  get: o => esc(o.planificador || 'GCC') },
@@ -11918,11 +11935,11 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 
       let respTrabajoTextBombeado = '';
       if (Array.isArray(o.responsableTrabajo) && o.responsableTrabajo.length > 0) {
-        respTrabajoTextBombeado = o.responsableTrabajo.map(r => esc(r)).join(' &bull; ');
+        respTrabajoTextBombeado = o.responsableTrabajo.map(r => esc(nombreSinCargo(r))).join(' &bull; ');
       } else if (typeof o.responsableTrabajo === 'string' && o.responsableTrabajo) {
-        respTrabajoTextBombeado = esc(o.responsableTrabajo);
+        respTrabajoTextBombeado = esc(nombreSinCargo(o.responsableTrabajo));
       }
-      const respRevisionBombeado = o.responsableRevision ? esc(o.responsableRevision) : '';
+      const respRevisionBombeado = o.responsableRevision ? esc(nombreSinCargo(o.responsableRevision)) : '';
 
       // Mismo logo por área que usa la ficha estándar, para mantener la
       // misma identidad visual entre ambos formatos de impresión.
@@ -12218,12 +12235,12 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 
       let respTrabajoText = '';
       if (Array.isArray(o.responsableTrabajo) && o.responsableTrabajo.length > 0) {
-        respTrabajoText = o.responsableTrabajo.map(r => esc(r)).join(' &bull; ');
+        respTrabajoText = o.responsableTrabajo.map(r => esc(nombreSinCargo(r))).join(' &bull; ');
       } else if (typeof o.responsableTrabajo === 'string' && o.responsableTrabajo) {
-        respTrabajoText = esc(o.responsableTrabajo);
+        respTrabajoText = esc(nombreSinCargo(o.responsableTrabajo));
       }
 
-      const respRevision = o.responsableRevision ? esc(o.responsableRevision) : '';
+      const respRevision = o.responsableRevision ? esc(nombreSinCargo(o.responsableRevision)) : '';
       const prio = (o.prioridad || 'NORMAL').toUpperCase();
       
       // Mismos colores del Semáforo de prioridad del dashboard (versión opaca para imprimir)
