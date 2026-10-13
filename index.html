@@ -11900,6 +11900,12 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:6px;">${documentacionBombeado.map(d => `<span style="display:inline-block;padding:4px 8px;border:1px solid #a5b4fc;border-radius:5px;background:#fff;color:#263581;font-size:10px;font-weight:800;">✓ ${esc(d)}</span>`).join('')}</div>
         </div>` : '';
 
+      const prio = (o.prioridad || 'NORMAL').toUpperCase();
+      // Mismos colores del Semáforo de prioridad del dashboard (versión opaca para imprimir)
+      let prioBg = '#f0fbf4', prioColor = '#166534', prioBorder = '#d3f3df', prioDot = '#22c55e';
+      if(prio === 'ALTA') { prioBg = '#fef7eb'; prioColor = '#92400e'; prioBorder = '#fdeac9'; prioDot = '#f59e0b'; }
+      else if(prio === 'URGENTE') { prioBg = '#fdf2f2'; prioColor = '#991b1b'; prioBorder = '#f9d8d8'; prioDot = '#dc2626'; }
+
       const parteBlockHtmlBombeado = o.parteOp ? `<div style="font-size: 12px; font-weight: 700; color: #c7d2fe; letter-spacing: 0.3px; margin-top: 3px;">${esc(o.parteOp)}</div>` : '';
       const imagenDiagrama = BOMBEADO_DIAGRAM_IMAGES[o.tipoPerfilBombeado] || BOMBEADO_DIAGRAM_IMAGES.BOMBEADO_PESTANADO;
       const tipoLabel = BOMBEADO_TIPO_LABELS[o.tipoPerfilBombeado] || BOMBEADO_TIPO_LABELS.BOMBEADO_PESTANADO;
@@ -11942,6 +11948,11 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             <div style="background: #263581; color: #fff; border-radius: 8px; padding: 9px 12px; text-align: center; box-shadow: 0 3px 8px rgba(38, 53, 129, 0.28); display: flex; flex-direction: column; justify-content: center; width: 170px; box-sizing: border-box;">
               <span style="font-size: 8px; line-height: 1.1; letter-spacing: 0.15px; color: #eef2ff; font-weight: 700; text-transform: uppercase; display: block; margin: 0 auto 5px; max-width: 100%; white-space: normal;">ORDEN PRODUCCIÓN N°:</span>
               <strong style="font-size: 26px; line-height: 1.05; display: block; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; font-family: 'Inter', sans-serif; white-space: normal; overflow-wrap: break-word; word-break: normal; max-width: 100%;">${o.numero ? esc(o.numero) : ''}</strong>${parteBlockHtmlBombeado}
+            </div>
+
+            <div style="background: ${prioBg}; border: 1px solid ${prioBorder}; color: ${prioColor}; border-radius: 8px; padding: 9px 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; width: 150px; box-sizing: border-box;">
+              <span style="font-size: 9px; letter-spacing: 0.8px; font-weight: 700; text-transform: uppercase; opacity: 0.9; display: block; margin-bottom: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${prioDot}; margin-right: 5px; vertical-align: middle;"></span>PRIORIDAD</span>
+              <strong style="font-size: 15px; display: block; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; font-family: 'Inter', sans-serif;">${prio}</strong>
             </div>
 
             <div style="background: #ef4444; color: #fff; border-radius: 8px; padding: 9px 20px; text-align: center; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2); display: flex; flex-direction: column; justify-content: center; width: 150px; box-sizing: border-box;">
@@ -12215,9 +12226,10 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const respRevision = o.responsableRevision ? esc(o.responsableRevision) : '';
       const prio = (o.prioridad || 'NORMAL').toUpperCase();
       
-      let prioBg = '#fff7ed', prioColor = '#e75d0d', prioBorder = '#ffedd5';
-      if(prio === 'ALTA') { prioBg = '#fef2f2'; prioColor = '#991b1b'; prioBorder = '#fecaca'; } 
-      else if(prio === 'URGENTE') { prioBg = '#7f1d1d'; prioColor = '#ffffff'; prioBorder = '#991b1b'; }
+      // Mismos colores del Semáforo de prioridad del dashboard (versión opaca para imprimir)
+      let prioBg = '#f0fbf4', prioColor = '#166534', prioBorder = '#d3f3df', prioDot = '#22c55e';
+      if(prio === 'ALTA') { prioBg = '#fef7eb'; prioColor = '#92400e'; prioBorder = '#fdeac9'; prioDot = '#f59e0b'; }
+      else if(prio === 'URGENTE') { prioBg = '#fdf2f2'; prioColor = '#991b1b'; prioBorder = '#f9d8d8'; prioDot = '#dc2626'; }
 
       const parteBlockHtml = o.parteOp ? `<div style="font-size: 12px; font-weight: 700; color: #c7d2fe; letter-spacing: 0.3px; margin-top: 3px;">${esc(o.parteOp)}</div>` : '';
       const fechaGuiaStr = o.fechaGuiaMat ? formatDateStandard(o.fechaGuiaMat) : 'S/F';
@@ -12265,7 +12277,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             </div>
 
             <div style="background: ${prioBg}; border: 1px solid ${prioBorder}; color: ${prioColor}; border-radius: 8px; padding: 9px 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; width: 150px; box-sizing: border-box;">
-              <span style="font-size: 9px; letter-spacing: 0.8px; font-weight: 700; text-transform: uppercase; opacity: 0.9; display: block; margin-bottom: 4px;">PRIORIDAD</span>
+              <span style="font-size: 9px; letter-spacing: 0.8px; font-weight: 700; text-transform: uppercase; opacity: 0.9; display: block; margin-bottom: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${prioDot}; margin-right: 5px; vertical-align: middle;"></span>PRIORIDAD</span>
               <strong style="font-size: 15px; display: block; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; font-family: 'Inter', sans-serif;">${prio}</strong>
             </div>
             
