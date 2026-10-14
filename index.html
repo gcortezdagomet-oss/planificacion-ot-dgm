@@ -6644,7 +6644,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           // saveOP reconstruye la OP desde el formulario: se conserva la marca de aviso de término.
           // También los datos y fotos de liberación (QR del trabajador y manuales).
           const prevOP = db.ots[idx] || {};
-          ['avisoTermino', 'liberadoPor', 'liberadoEn', 'fotosLiberacionPaths', 'fotoLiberacionPath', 'fotosLiberacionManual']
+          ['avisoTermino', 'liberadoPor', 'liberadoEn', 'fotosLiberacionPaths', 'fotoLiberacionPath', 'fotosLiberacionManual', 'entregaOriginal', 'historialEntrega']
             .forEach(k => { if (prevOP[k] !== undefined) opData[k] = prevOP[k]; });
           db.ots[idx] = opData;
         }
@@ -9689,6 +9689,101 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     function getOPsByDate(dateStr) { return db.ots.filter(o => o.entrega === dateStr); }
 
     // =====================================================================
+    // CORRER OP AL DÍA SIGUIENTE (SOLO ADMINISTRADOR)
+    // Si una OP no se terminó el día en que estaba programada, el admin la
+    // corre en el calendario al próximo día hábil (lun-vie, sin feriados).
+    // Queda control: se guarda la fecha original (entregaOriginal), cada
+    // corrimiento (historialEntrega) y una línea en la auditoría.
+    // =====================================================================
+    function esAdminCalendario() { return window.dagometCurrentProfile?.rol === 'admin'; }
+    function opSinTerminar(o) { return !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()); }
+
+    function proximoDiaHabilDesde(dateStr) {
+      const [y, m, d] = String(dateStr).split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      for (let i = 0; i < 20; i++) {
+        dt.setDate(dt.getDate() + 1);
+        const k = dateKey(dt.getFullYear(), dt.getMonth(), dt.getDate());
+        const dow = dt.getDay();
+        if (dow !== 0 && dow !== 6 && !getFeriadoCL(k)) return k;
+      }
+      return dateKey(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    }
+
+    // Si la entrega ya quedó en el pasado, el "día siguiente" se cuenta desde hoy
+    // (correrla a otro día pasado no la sacaría de "vencida").
+    function destinoCorrimiento(entregaActual) {
+      const hoy = todayKey();
+      const base = (entregaActual && entregaActual >= hoy) ? entregaActual : hoy;
+      return proximoDiaHabilDesde(base);
+    }
+
+    function aplicarCorrimientoEntrega(o, destino) {
+      const origen = o.entrega;
+      if (!o.entregaOriginal) o.entregaOriginal = origen;
+      if (!Array.isArray(o.historialEntrega)) o.historialEntrega = [];
+      o.historialEntrega.push({
+        de: origen,
+        a: destino,
+        por: window.dagometCurrentProfile?.nombre || window.dagometCurrentUser?.email || '-',
+        fecha: new Date().toISOString()
+      });
+      o.entrega = destino;
+      o.entregaAuto = false; // para que el cálculo automático no pise la fecha corrida
+    }
+
+    async function guardarCorrimientoYRefrescar() {
+      const ok = await saveDBAndWait();
+      if (!ok) alert('⚠️ El cambio quedó guardado en este dispositivo, pero NO se confirmó en la nube. No cierres ni recargues la página y revisa tu conexión.');
+      renderCalendarToday();
+      renderCalendarGrid();
+      renderCalendarSelectedDetail();
+    }
+
+    async function correrOPAlSiguienteDia(id) {
+      if (!esAdminCalendario()) { alert('Solo el administrador puede correr una OP en el calendario.'); return; }
+      const o = db.ots.find(x => x.id === id);
+      if (!o || !o.entrega) return;
+      if (!opSinTerminar(o)) { alert('Esta OP ya está cerrada (terminada, despachada o anulada); no corresponde correrla.'); return; }
+      const destino = destinoCorrimiento(o.entrega);
+      const msg = `¿Correr la OP ${o.numero || 'S/N'} (${o.cliente || 'sin cliente'})?\n\n` +
+        `De: ${formatDateWithDayUpper(o.entrega)}\nA:  ${formatDateWithDayUpper(destino)}\n\n` +
+        `(Se salta fines de semana y feriados. Queda registro del cambio.)`;
+      if (!confirm(msg)) return;
+      const origen = o.entrega;
+      aplicarCorrimientoEntrega(o, destino);
+      registrarAuditoria('Corrida de OP en calendario', `OP ${o.numero || 'S/N'}: ${origen} → ${destino}`, o.id);
+      calSelectedDate = destino;
+      const [yy, mm] = destino.split('-').map(Number);
+      calYear = yy; calMonth = mm - 1;
+      await guardarCorrimientoYRefrescar();
+    }
+
+    async function correrPendientesDelDia(dateStr) {
+      if (!esAdminCalendario()) { alert('Solo el administrador puede correr OP en el calendario.'); return; }
+      const pendientes = getOPsByDate(dateStr).filter(opSinTerminar);
+      if (!pendientes.length) { alert('No hay OP sin terminar en este día.'); return; }
+      const destino = destinoCorrimiento(dateStr);
+      const lista = pendientes.map(o => `• OP ${o.numero || 'S/N'} — ${o.cliente || 'sin cliente'}`).join('\n');
+      const msg = `¿Correr ${pendientes.length} OP sin terminar?\n\nDe: ${formatDateWithDayUpper(dateStr)}\nA:  ${formatDateWithDayUpper(destino)}\n\n${lista}\n\n(Se salta fines de semana y feriados. Queda registro de cada cambio.)`;
+      if (!confirm(msg)) return;
+      pendientes.forEach(o => aplicarCorrimientoEntrega(o, destino));
+      registrarAuditoria('Corrida de OP en calendario', `${pendientes.length} OP (${pendientes.map(o => o.numero || 'S/N').join(', ')}): ${dateStr} → ${destino}`);
+      calSelectedDate = destino;
+      const [yy, mm] = destino.split('-').map(Number);
+      calYear = yy; calMonth = mm - 1;
+      await guardarCorrimientoYRefrescar();
+    }
+
+    // Etiqueta que muestra cuántas veces se corrió una OP y cuál era su fecha original.
+    function badgeCorrimientoOP(o) {
+      const h = Array.isArray(o.historialEntrega) ? o.historialEntrega : [];
+      if (!h.length) return '';
+      const detalle = h.map(x => `${x.de} → ${x.a} (${x.por || '-'}, ${new Date(x.fecha).toLocaleDateString('es-CL')})`).join('\n');
+      return `<div title="${esc(detalle)}" style="margin-top:3px; font-size:.7rem; font-weight:700; color:#b45309;">↪ Corrida ${h.length} ${h.length === 1 ? 'vez' : 'veces'} · entrega original: ${esc(formatDateCL(o.entregaOriginal || h[0].de))}</div>`;
+    }
+
+    // =====================================================================
     // VISTA DE PLANTA / MODO TV
     // Pantalla de solo lectura pensada para un monitor en el taller: muestra
     // las OPs con entrega hoy o esta semana, agrupadas por área. Se auto-
@@ -10059,7 +10154,10 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       `).join('');
       card.innerHTML = `
         ${avisoFeriadoHoy}
-        <div style="font-weight:800; color:var(--primary); margin-bottom:8px;">📦 Entregas de Hoy (${formatDateWithDayUpper(hoy)}) — <b>${opsHoy.length}</b> OP(s)</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+          <div style="font-weight:800; color:var(--primary);">📦 Entregas de Hoy (${formatDateWithDayUpper(hoy)}) — <b>${opsHoy.length}</b> OP(s)</div>
+          ${(esAdminCalendario() && opsHoy.some(opSinTerminar)) ? `<button class="btn btn-warning btn-sm" onclick="correrPendientesDelDia('${hoy}')">➡️ Correr pendientes de hoy al día siguiente (${opsHoy.filter(opSinTerminar).length})</button>` : ''}
+        </div>
         ${rows}
       `;
     }
@@ -10127,7 +10225,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       }
       const rows = opsDia.map(o => `
         <tr>
-          <td><b>OP ${esc(o.numero || 'S/N')}</b></td>
+          <td><b>OP ${esc(o.numero || 'S/N')}</b>${badgeCorrimientoOP(o)}</td>
           <td>${esc(o.cliente || '-')}</td>
           <td>${esc(o.area || '-')}</td>
           <td>${getStatusBadge(o.estadoOp)}</td>
@@ -10135,13 +10233,17 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           <td style="white-space:nowrap;">
             <button class="btn btn-info btn-sm" onclick="previewPDF('${o.id}')">👁️ Ver</button>
             <button class="btn btn-warning btn-sm" onclick="editOP('${o.id}')">✏️ Editar</button>
+            ${(esAdminCalendario() && opSinTerminar(o)) ? `<button class="btn btn-secondary btn-sm" style="border-color:#b45309; color:#b45309;" onclick="correrOPAlSiguienteDia('${o.id}')" title="Correr esta OP al próximo día hábil">➡️ Correr al día siguiente</button>` : ''}
           </td>
         </tr>
       `).join('');
       container.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
           <h3 style="margin:0;">Entregas del ${formatDateWithDayUpper(calSelectedDate)} (${opsDia.length})</h3>
-          <button class="btn btn-secondary btn-sm" onclick="imprimirReporteDia('${calSelectedDate}')">🖨️ Imprimir este día</button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            ${(esAdminCalendario() && opsDia.some(opSinTerminar)) ? `<button class="btn btn-warning btn-sm" onclick="correrPendientesDelDia('${calSelectedDate}')" title="Correr al próximo día hábil todas las OP de este día que no se terminaron">➡️ Correr pendientes al día siguiente (${opsDia.filter(opSinTerminar).length})</button>` : ''}
+            <button class="btn btn-secondary btn-sm" onclick="imprimirReporteDia('${calSelectedDate}')">🖨️ Imprimir este día</button>
+          </div>
         </div>
         ${avisoFeriado}
         <table>
