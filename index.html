@@ -7791,7 +7791,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-bottom:14px;">
             <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#f8fafc;">
               <div style="font-weight:800;color:var(--primary);margin-bottom:5px;">📄 1. Escanear OP terminada</div>
-              <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:10px;">Fotografía cada hoja completa, de preferencia sobre una superficie oscura. La app la recorta, la endereza, quita sombras y la deja como escaneo en un solo PDF.</div>
+              <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:10px;">Fotografía cada hoja completa, de preferencia sobre una superficie oscura. La app conserva las proporciones originales de la foto y la ajusta a la hoja del PDF sin estirarla.</div>
               <button type="button" class="btn btn-primary btn-sm" onclick="capturarPaginaEvidencia()">📷 ${st.paginas.length ? 'Agregar página' : 'Tomar primera página'}</button>
               <input id="evidencia-pagina-input" type="file" accept="image/*" capture="environment" style="display:none;">
               <span style="font-size:.72rem;color:var(--text-muted);margin-left:8px;">${totalPaginas} página${totalPaginas===1?'':'s'}</span>
@@ -8211,25 +8211,47 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       return { out, OW, OH };
     }
 
+    // Preparación de página sin deformar la fotografía.
+    // No se aplica detección automática de esquinas, homografía ni estiramiento:
+    // esos filtros podían detectar mal el borde de una hoja y alterar proporciones.
+    // Solo se reduce el tamaño si la cámara genera archivos excesivamente grandes;
+    // se conserva exactamente la relación ancho/alto de la imagen original.
     async function escanearDocumento(file) {
-      const url = URL.createObjectURL(file);
+      let url = '';
       try {
-        const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
-        const k = Math.min(1, 2400/Math.max(img.naturalWidth, img.naturalHeight));
-        const W = Math.round(img.naturalWidth*k), H = Math.round(img.naturalHeight*k);
-        const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-        const cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(img, 0, 0, W, H);
-        const px = cx.getImageData(0, 0, W, H).data;
-        const { out, OW, OH } = procesarEscaneoColor(px, W, H);
-        const c2 = document.createElement('canvas'); c2.width = OW; c2.height = OH;
-        c2.getContext('2d').putImageData(new ImageData(out, OW, OH), 0, 0);
-        const blob = await new Promise(res => c2.toBlob(res, 'image/jpeg', 0.85));
-        if (!blob) throw new Error('sin imagen');
+        url = URL.createObjectURL(file);
+        const img = await new Promise((res, rej) => {
+          const im = new Image();
+          im.onload = () => res(im);
+          im.onerror = () => rej(new Error('No se pudo leer la fotografía.'));
+          im.src = url;
+        });
+        const naturalW = img.naturalWidth;
+        const naturalH = img.naturalHeight;
+        if (!naturalW || !naturalH) throw new Error('La fotografía no tiene dimensiones válidas.');
+
+        const maxSide = 3000;
+        const scale = Math.min(1, maxSide / Math.max(naturalW, naturalH));
+        const W = Math.max(1, Math.round(naturalW * scale));
+        const H = Math.max(1, Math.round(naturalH * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = W;
+        canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('No se pudo preparar la fotografía.');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, W, H);
+        ctx.drawImage(img, 0, 0, W, H);
+
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.94));
+        if (!blob || !blob.size) throw new Error('No se pudo generar la imagen de la página.');
         return new File([blob], 'escaneo_' + Date.now() + '.jpg', { type: 'image/jpeg' });
       } catch (err) {
-        console.warn('Escaneo automático falló, se usa la foto original:', err);
-        return reducirImagenParaSubir(file);
-      } finally { URL.revokeObjectURL(url); }
+        console.warn('No se pudo optimizar la página; se conserva la fotografía original.', err);
+        return file;
+      } finally {
+        if (url) URL.revokeObjectURL(url);
+      }
     }
 
     function quitarPaginaEvidencia(i) {
