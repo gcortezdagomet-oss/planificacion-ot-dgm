@@ -201,6 +201,13 @@
       line-height: 1.25;
     }
 
+    .instr-table { width:100%; border-collapse:collapse; }
+    .instr-table th { background: var(--primary-light); color: var(--primary); font-size:.7rem; padding:8px 10px; text-align:left; border-bottom:1px solid var(--border-strong); text-transform:uppercase; letter-spacing:.4px; }
+    .instr-table td { padding:6px 8px; border-bottom:1px solid var(--border); vertical-align:middle; }
+    .instr-table textarea.i-desc { width:100%; min-height:44px; resize:vertical; box-sizing:border-box; font-family:inherit; font-size:.85rem; padding:8px; }
+    .instr-table input.i-cant { width:100%; box-sizing:border-box; text-align:center; font-size:.85rem; padding:8px; }
+    .instr-table tfoot td { font-weight:800; border-bottom:none; background:var(--primary-light); color:var(--primary); }
+    .instr-wrap { border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); overflow:hidden; margin-top:4px; }
     .materials-table-wrapper { overflow-x: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-top: 10px; background: var(--surface); }
     .materials-table { width: 100%; border-collapse: collapse; margin-top: 0; }
     .materials-table th { background: var(--primary-light); color: var(--primary); font-size: 0.7rem; padding: 10px; text-align: left; border-bottom: 1px solid var(--border-strong); text-transform: uppercase; letter-spacing: 0.4px; }
@@ -2968,7 +2975,18 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         <div class="grid">
           <div class="field" style="grid-column: span 2;">
             <label>Instrucciones de Trabajo</label>
-            <textarea id="instrucciones" rows="3"></textarea>
+            <textarea id="instrucciones" rows="3" style="display:none"></textarea>
+            <div class="instr-wrap">
+              <table class="instr-table">
+                <thead><tr><th>Descripción</th><th style="width:96px; text-align:center;">Cantidad</th><th style="width:48px;"></th></tr></thead>
+                <tbody id="instrucciones-container"></tbody>
+                <tfoot><tr><td style="text-align:right;">TOTAL</td><td id="instr-total" style="text-align:center;">—</td><td></td></tr></tfoot>
+              </table>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="addInstruccionRow({}, null, true)">+ Agregar instrucción</button>
+              <span style="font-size:.72rem; color:var(--text-muted);">La suma de las cantidades se coloca sola en el campo <b>Cantidad</b> de la OP (lo puedes corregir a mano).</span>
+            </div>
           </div>
           <div class="field" style="grid-column: span 2;">
             <label>Documentación de Fabricación</label>
@@ -5524,7 +5542,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         if (ancho) ancho.placeholder = 'Ej: 1000';
       } else if (unidad === 'm') {
         input.placeholder = 'Ej: 6000';
-        if (ancho) ancho.placeholder = '—';
+        if (ancho) ancho.placeholder = 'Opcional';
       } else {
         input.placeholder = 'Ej: 6000';
         if (ancho) ancho.placeholder = 'Ej: 1000';
@@ -5638,22 +5656,92 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       return salida;
     }
 
+    // Descripción COMPLETA del material. Usa TODO lo que esté llenado en la
+    // fila (nombre, medida, espesor, ancho, largo, calidad y, si es ducto,
+    // su diámetro), sin depender de que exista un calce exacto en el catálogo.
+    // Lo que esté vacío simplemente no se escribe. Ej:
+    //   PLANCHA 1000X2000X6MM A36
+    //   PLANCHA 30MM X 2782MM DE LARGO A36
+    //   ANGULO 20X20X3MM X 6000MM DE LARGO A36
+    //   PLANCHA 405X2600X32MM DUCTO Ø EXTERIOR 828MM A36
+    function descripcionMaterialCompleta({ material, medida, espesor, calidad, largo, ancho, unidad, esDucto, tipoDucto, diametroDucto }) {
+      const nombre = valorDescripcion(material);
+      if (!nombre) return '';
+      const unidadLower = String(unidad || '').toLowerCase();
+      const esPlancha = unidadLower === 'm2' || normalizeStr(nombre) === normalizeStr('PLANCHA');
+
+      const dimTxt = (v) => {
+        const raw = String(v ?? '').trim();
+        if (!raw) return '';
+        const n = parseLargoLinealMM(raw);
+        return n ? String(Number(n.toFixed(2))) : cleanDimText(raw);
+      };
+      const largoTxt = dimTxt(largo);
+      const anchoTxt = dimTxt(ancho);
+      const espNum = Number(String(espesor ?? '').replace(',', '.'));
+      const espTxt = (Number.isFinite(espNum) && espNum > 0) ? String(espNum) : valorDescripcion(espesor);
+      const medidaCat = valorDescripcion(medida);
+
+      let medidaTexto = '';
+      if (esPlancha) {
+        if (anchoTxt && largoTxt) {
+          medidaTexto = `${anchoTxt}X${largoTxt}${espTxt ? 'X' + espTxt : ''}MM`;
+        } else if (largoTxt) {
+          medidaTexto = `${espTxt ? espTxt + 'MM X ' : ''}${largoTxt}MM DE LARGO`;
+        } else if (anchoTxt) {
+          medidaTexto = `${espTxt ? espTxt + 'MM X ' : ''}${anchoTxt}MM DE ANCHO`;
+        } else if (medidaCat) {
+          medidaTexto = `${medidaCat}${espTxt ? 'X' + espTxt : ''}${espTxt ? 'MM' : ''}`;
+        } else if (espTxt) {
+          medidaTexto = `${espTxt}MM`;
+        }
+      } else {
+        // PERFILES / TUBOS / CAÑERÍAS...: medida de catálogo + espesor, luego ancho y largo.
+        if (medidaCat && espTxt) medidaTexto = `${medidaCat}X${espTxt}MM`;
+        else if (medidaCat) medidaTexto = medidaCat;
+        else if (espTxt) medidaTexto = `${espTxt}MM`;
+        if (anchoTxt) medidaTexto += `${medidaTexto ? ' X ' : ''}${anchoTxt}MM DE ANCHO`;
+        if (largoTxt) medidaTexto += `${medidaTexto ? ' X ' : ''}${largoTxt}MM DE LARGO`;
+      }
+
+      const partes = [nombre, medidaTexto];
+      if (esDucto && esPlancha) {
+        const diam = diametroDucto ? String(diametroDucto).replace(',', '.') : '';
+        partes.push(`DUCTO ${String(tipoDucto || 'EXTERIOR').toUpperCase() === 'INTERIOR' ? 'Ø INTERIOR' : 'Ø EXTERIOR'}${diam ? ` ${diam}MM` : ''}`);
+      }
+      const cal = calidadParaDescripcion(valorDescripcion(calidad));
+      if (cal) partes.push(cal);
+      return partes.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim().toUpperCase();
+    }
+
     function buildMaterialDescription(row) {
       const r = getSelectedCatalogRow(row);
-      if (!r) return '';
-      const dims = dimsParaDescripcion(
-        row.querySelector('.m-largo')?.value || '',
-        row.querySelector('.m-ancho')?.value || '',
-        r.unidad,
-        !!row.querySelector('.m-es-ducto')?.checked
-      );
-      return formarDescripcionSimple({
-        material: r.material,
-        medida: r.medida,
-        espesor: r.espesor,
-        dims,
-        unidad: r.unidad
-      }).toUpperCase();
+      const val = (sel) => {
+        const v = rawCatalogValue(row.querySelector(sel)?.value || '');
+        return v === '__EDITAR_CALIDAD__' ? '' : v;
+      };
+      return descripcionMaterialCompleta({
+        material: row.querySelector('.m-material')?.value || r?.material || '',
+        medida: val('.m-medida') || r?.medida || '',
+        espesor: row.querySelector('.m-espesor')?.value || r?.espesor || '',
+        calidad: val('.m-calidad') || r?.calidad || '',
+        largo: row.querySelector('.m-largo')?.value || '',
+        ancho: row.querySelector('.m-ancho')?.value || '',
+        unidad: r?.unidad || '',
+        esDucto: !!row.querySelector('.m-es-ducto')?.checked,
+        tipoDucto: row.querySelector('.m-tipo-ducto')?.value || 'EXTERIOR',
+        diametroDucto: row.querySelector('.m-diametro-ducto')?.value || ''
+      });
+    }
+
+    // Si la descripción venía guardada (editar OP) y el usuario cambia una
+    // medida, deja de estar "protegida" para que se complete con los datos nuevos.
+    function liberarDescripcionProtegida(row) {
+      const d = row.querySelector('.m-descripcion');
+      if (d && d.dataset.protegidaGuardada === 'true') {
+        d.dataset.protegidaGuardada = 'false';
+        d.dataset.manual = 'false';
+      }
     }
 
     function parseDimensions(value) {
@@ -5769,8 +5857,8 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       // El Ancho solo se usa en planchas normales (no ductos ni perfilería).
       if (anchoInput) {
         const usaAncho = esPlancha && !ductoCheck?.checked;
-        anchoInput.disabled = !usaAncho;
-        anchoInput.title = usaAncho ? '' : 'El ancho no interviene en el cálculo de este material';
+        anchoInput.disabled = false; // siempre editable: también va en la descripción
+        anchoInput.title = usaAncho ? '' : 'No interviene en el cálculo del peso; solo se agrega a la descripción';
       }
 
       if (!registro) {
@@ -5855,6 +5943,96 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const options = row.querySelector('.m-ducto-options');
       if (options) options.classList.toggle('active', !!check?.checked && !check.disabled);
       calculateMaterialRowWeight(row, opts);
+    }
+
+    // ---------- Instrucciones de trabajo: Descripción + Cantidad ----------
+    // El textarea oculto #instrucciones sigue siendo el "texto" de la OP (lo usan
+    // planta, reportes, soldadura, etc.) y se genera solo a partir de la tabla:
+    // "DESCRIPCIÓN | 4 UND". Además se guarda la lista estructurada
+    // (instruccionesItems) para poder editarla en dos columnas.
+    function parsearInstruccionesTexto(texto) {
+      return String(texto || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
+        const m = l.match(/^(.*?)\s*\|\s*(\d+(?:[.,]\d+)?)\s*(?:UND|UNID|UNIDADES?|UN|PZAS?|PIEZAS?)?\.?\s*$/i);
+        return m ? { desc: m[1].trim(), cant: m[2].replace(',', '.') } : { desc: l, cant: '' };
+      });
+    }
+
+    function getInstruccionesItems() {
+      return [...document.querySelectorAll('#instrucciones-container tr')].map(r => ({
+        desc: (r.querySelector('.i-desc')?.value || '').trim(),
+        cant: (r.querySelector('.i-cant')?.value || '').trim()
+      })).filter(i => i.desc || i.cant);
+    }
+
+    function totalInstrucciones(items) {
+      return (items || []).reduce((acc, i) => {
+        const n = Number(String(i.cant ?? '').replace(',', '.'));
+        return acc + (Number.isFinite(n) && n > 0 ? n : 0);
+      }, 0);
+    }
+
+    function sincronizarInstrucciones(porUsuario) {
+      const items = getInstruccionesItems();
+      const ta = $('instrucciones');
+      if (ta) ta.value = items.map(i => i.desc + (i.cant ? `${i.desc ? ' ' : ''}| ${i.cant} UND` : '')).join('\n\n');
+      const total = totalInstrucciones(items);
+      const totalTxt = String(Number(total.toFixed(3)));
+      const el = $('instr-total');
+      if (el) el.textContent = total > 0 ? totalTxt : '—';
+      if (porUsuario) {
+        // Solo cuando el usuario toca la tabla (no al abrir una OP guardada).
+        if (total > 0 && $('cantidadTotalManual')) $('cantidadTotalManual').value = totalTxt;
+        markFormDirty();
+      }
+    }
+
+    function addInstruccionRow(data = {}, afterRow = null, enfocar = false) {
+      const cont = $('instrucciones-container');
+      if (!cont) return;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><textarea class="i-desc" rows="2" aria-label="Descripción de la instrucción" placeholder="Ej: ANILLO DIAMETRO EXTERIOR:880MM | LARGO:75MM | ESPESOR:30MM | CALIDAD:A36 | SE ENTREGA PINCHADO CON BISEL EN V A 30º">${esc(data.desc || '')}</textarea></td>
+        <td><input type="text" inputmode="decimal" class="i-cant" aria-label="Cantidad" placeholder="Cant." value="${esc(data.cant || '')}"></td>
+        <td style="text-align:center;"><button type="button" class="btn btn-danger btn-sm" title="Quitar esta instrucción">✕</button></td>`;
+      tr.querySelector('.i-desc').addEventListener('input', () => sincronizarInstrucciones(true));
+      tr.querySelector('.i-cant').addEventListener('input', () => sincronizarInstrucciones(true));
+      tr.querySelector('button').addEventListener('click', () => {
+        tr.remove();
+        if (!cont.children.length) addInstruccionRow();
+        sincronizarInstrucciones(true);
+      });
+      if (afterRow && afterRow.parentNode === cont) afterRow.after(tr); else cont.appendChild(tr);
+      if (enfocar) tr.querySelector('.i-desc').focus();
+    }
+
+    // Carga la tabla desde una OP guardada (items) o, si es una OP antigua con
+    // texto libre, separando una instrucción por línea (y leyendo "| 4 UND").
+    function cargarInstruccionesForm(texto, items) {
+      const cont = $('instrucciones-container');
+      if (!cont) { if ($('instrucciones')) $('instrucciones').value = texto || ''; return; }
+      cont.innerHTML = '';
+      let lista = (Array.isArray(items) && items.length) ? items : parsearInstruccionesTexto(texto);
+      if (!lista.length) lista = [{}];
+      lista.forEach(i => addInstruccionRow(i));
+      sincronizarInstrucciones(false);
+    }
+
+    // HTML de las instrucciones para la ficha/PDF: tabla Descripción + Cantidad
+    // cuando hay cantidades; si no, el texto de siempre.
+    function instruccionesDocHtml(o, vacio) {
+      const items = (Array.isArray(o.instruccionesItems) ? o.instruccionesItems : [])
+        .filter(i => String(i.desc || '').trim() || String(i.cant ?? '').trim());
+      if (items.some(i => String(i.cant ?? '').trim())) {
+        const total = totalInstrucciones(items);
+        const celda = 'padding:4px 8px; border-bottom:1px solid #fed7aa;';
+        const filas = items.map(i => `<tr><td style="${celda} text-align:left;">${esc(i.desc || '').replace(/\n/g,'<br>')}</td><td style="${celda} text-align:center; font-weight:800; white-space:nowrap;">${esc(i.cant ?? '')}</td></tr>`).join('');
+        return `<table style="width:100%; border-collapse:collapse; font-size:13px; color:#9a3412; line-height:1.4;">
+          <thead><tr><th style="padding:3px 8px; text-align:left; font-size:9px; letter-spacing:.8px; border-bottom:1px solid #fdba74;">DESCRIPCIÓN</th><th style="padding:3px 8px; width:70px; text-align:center; font-size:9px; letter-spacing:.8px; border-bottom:1px solid #fdba74;">CANT.</th></tr></thead>
+          <tbody>${filas}</tbody>
+          ${total > 0 ? `<tfoot><tr><td style="padding:5px 8px; text-align:right; font-weight:800;">TOTAL</td><td style="padding:5px 8px; text-align:center; font-weight:800;">${esc(String(Number(total.toFixed(3))))}</td></tr></tfoot>` : ''}
+        </table>`;
+      }
+      return esc(o.instrucciones || '').replace(/\n/g,'<br>') || vacio || '';
     }
 
     function addMaterialRow(data = {}, afterRow = null) {
@@ -5989,6 +6167,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         });
       }
       ['.m-largo', '.m-ancho'].forEach(sel => row.querySelector(sel).addEventListener('input', () => {
+        liberarDescripcionProtegida(row);
         if (pesoFinalInput) { pesoFinalInput.dataset.manual = 'false'; pesoFinalInput.classList.remove('peso-manual'); }
         calculateMaterialRowWeight(row);
       }));
@@ -5996,9 +6175,9 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         if (pesoFinalInput) { pesoFinalInput.dataset.manual = 'false'; pesoFinalInput.classList.remove('peso-manual'); }
         calculateMaterialRowWeight(row);
       });
-      row.querySelector('.m-es-ducto').addEventListener('change', () => syncDuctoControls(row));
-      row.querySelector('.m-tipo-ducto').addEventListener('change', () => calculateMaterialRowWeight(row));
-      row.querySelector('.m-diametro-ducto').addEventListener('input', () => calculateMaterialRowWeight(row));
+      row.querySelector('.m-es-ducto').addEventListener('change', () => { liberarDescripcionProtegida(row); syncDuctoControls(row); });
+      row.querySelector('.m-tipo-ducto').addEventListener('change', () => { liberarDescripcionProtegida(row); calculateMaterialRowWeight(row); });
+      row.querySelector('.m-diametro-ducto').addEventListener('input', () => { liberarDescripcionProtegida(row); calculateMaterialRowWeight(row); });
 
       if (afterRow && afterRow.parentNode === container) afterRow.after(row);
       else container.appendChild(row);
@@ -6464,7 +6643,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       $('cantidadTotalManual').value = datos.cantidad;
       $('materiales-container').innerHTML = '';
       if (materialesOrigen.length) materialesOrigen.forEach(m => addMaterialRow(m)); else addMaterialRow();
-      $('instrucciones').value = datos.instrucciones;
+      cargarInstruccionesForm(datos.instrucciones);
       $('comentarios').value = '';
       $('soldadura').value = 'NO';
       toggleSoldaduraSeguimiento();
@@ -6508,7 +6687,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       $('contactoOP').value = '';
       $('fechaGuiaMat').value = '';
       $('folio').value = '';
-      $('instrucciones').value = '';
+      cargarInstruccionesForm('');
       setDocumentacionFabricacion([]);
       setDocumentosAdjuntos({});
       $('comentarios').value = '';
@@ -6618,6 +6797,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         soldadura: $('soldadura').value || 'NO',
         soldaduraSeguimiento: ($('soldadura').value || 'NO').toUpperCase() === 'SI' ? getSoldaduraSeguimiento() : (ensayoHeredadoOP ? { ...ensayoHeredadoOP } : null),
         instrucciones: $('instrucciones').value,
+        instruccionesItems: getInstruccionesItems(),
         documentacionFabricacion: getDocumentacionFabricacion(),
         documentosAdjuntos: getDocumentosAdjuntos(),
         comentarios: $('comentarios').value,
@@ -6753,8 +6933,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       setUnidadMedidaForm(o);
       $('piezasTotal').value = o.piezas || '';
       $('curvas').value = o.curvas || '';
-      $('instrucciones').value = o.instrucciones || '';
-      $('instrucciones').value = o.instrucciones || '';
+      cargarInstruccionesForm(o.instrucciones || '', o.instruccionesItems);
       setDocumentacionFabricacion(o.documentacionFabricacion || []);
       setDocumentosAdjuntos(o.documentosAdjuntos || {});
       $('comentarios').value = o.comentarios || '';
@@ -6828,7 +7007,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       setUnidadMedidaForm(o);
       $('piezasTotal').value = o.piezas || '';
       $('curvas').value = o.curvas || '';
-      $('instrucciones').value = o.instrucciones || '';
+      cargarInstruccionesForm(o.instrucciones || '', o.instruccionesItems);
       setDocumentacionFabricacion(o.documentacionFabricacion || []);
       setDocumentosAdjuntos({}); // La OP duplicada no hereda los archivos de la original.
       $('comentarios').value = o.comentarios || '';
@@ -8773,7 +8952,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       $('folio').value = g.cd;
       $('fechaGuiaMat').value = g.fecha;
       recalcularEntregaAutomatica();
-      if (g.notas) $('instrucciones').value = g.notas;
+      if (g.notas) cargarInstruccionesForm(g.notas);
       guiaVinculadaId = g.id;
 
       switchTab('tab-form');
@@ -11969,22 +12148,16 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     // cuando el usuario ya los incluyó en el campo de medidas. No modifica
     // los datos guardados, solo el texto que se muestra en el documento/PDF.
     function construirDescripcionCompleta(m) {
-      const dims = (m.ancho !== undefined)
-        ? dimsParaDescripcion(m.largo, m.ancho, m.unidad, m.esDucto)
-        : cleanDimText(m.largo || ''); // OP antigua: largo y ancho juntos
-      let desc = formarDescripcionSimple({
-        material: m.material,
-        medida: m.medida,
-        espesor: m.espesor,
-        dims,
-        unidad: m.unidad
-      });
-      if (m.esDucto) {
-        const tipoD = String(m.tipoDucto || 'EXTERIOR').toUpperCase();
-        const diamD = m.diametroDucto ? String(m.diametroDucto).replace(',', '.') : '';
-        desc += ` DUCTO ${tipoD === 'INTERIOR' ? 'Ø INTERIOR' : 'Ø EXTERIOR'}${diamD ? ` ${diamD}MM` : ''}`;
+      let largo = m.largo, ancho = m.ancho;
+      if (ancho === undefined || ancho === '') {
+        const sep = separarLargoAnchoLegacy(largo); // OP antigua: largo y ancho juntos
+        if (sep) { largo = sep.largo; ancho = sep.ancho; }
       }
-      return desc.toUpperCase();
+      return descripcionMaterialCompleta({
+        material: m.material, medida: m.medida, espesor: m.espesor, calidad: m.calidad,
+        largo, ancho, unidad: m.unidad,
+        esDucto: m.esDucto, tipoDucto: m.tipoDucto, diametroDucto: m.diametroDucto
+      });
     }
 
     // ---------- Diagrama técnico para la ficha de Bombeado / Pestañado ----------
@@ -12162,7 +12335,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         ${o.instrucciones ? `
         <div style="background: #fff7ed; border: 1px solid #ffedd5; border-radius: 8px; padding: 10px 16px; text-align: center;">
           <div style="font-size: 9px; letter-spacing: 0.8px; color: #c2410c; font-weight: 800; margin-bottom: 4px; text-transform: uppercase;">Instrucciones de Trabajo</div>
-          <div style="font-size: 13px; color: #9a3412; line-height: 1.4;">${esc(o.instrucciones).replace(/\n/g,'<br>')}</div>
+          <div style="font-size: 13px; color: #9a3412; line-height: 1.4;">${instruccionesDocHtml(o)}</div>
         </div>` : ''}
 
         ${documentacionHtmlBombeado}
@@ -12458,7 +12631,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 
         <div style="background: #fff7ed; border: 1px solid #ffedd5; border-radius: 8px; padding: 13px 16px; position: relative; text-align: center;">
           <div style="font-size: 9px; letter-spacing: 0.8px; color: #c2410c; font-weight: 800; margin-bottom: 5px; text-transform: uppercase;">Instrucciones de Trabajo</div>
-          <div style="font-size: 13px; color: #9a3412; line-height: 1.4;">${esc(o.instrucciones).replace(/\n/g,'<br>') || 'Sin instrucciones adicionales.'}</div>
+          <div style="font-size: 13px; color: #9a3412; line-height: 1.4;">${instruccionesDocHtml(o, 'Sin instrucciones adicionales.')}</div>
         </div>
 
         ${documentacionHtmlStandard}
@@ -12788,6 +12961,7 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
         materialDe: $('materialDe').value,
         soldadura: $('soldadura').value || 'NO',
         instrucciones: $('instrucciones').value,
+        instruccionesItems: getInstruccionesItems(),
         documentacionFabricacion: getDocumentacionFabricacion(),
         comentarios: $('comentarios').value,
         responsableTrabajo: selectedResponsables,
