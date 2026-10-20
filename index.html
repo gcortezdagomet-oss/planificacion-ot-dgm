@@ -2978,14 +2978,14 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
             <textarea id="instrucciones" rows="3" style="display:none"></textarea>
             <div class="instr-wrap">
               <table class="instr-table">
-                <thead><tr><th>Descripción</th><th style="width:96px; text-align:center;">Cantidad</th><th style="width:48px;"></th></tr></thead>
+                <thead><tr><th>Descripción</th><th style="width:190px; text-align:center;">Cantidad y unidad</th><th style="width:48px;"></th></tr></thead>
                 <tbody id="instrucciones-container"></tbody>
                 <tfoot><tr><td style="text-align:right;">TOTAL</td><td id="instr-total" style="text-align:center;">—</td><td></td></tr></tfoot>
               </table>
             </div>
             <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
               <button type="button" class="btn btn-secondary btn-sm" onclick="addInstruccionRow({}, null, true)">+ Agregar instrucción</button>
-              <span style="font-size:.72rem; color:var(--text-muted);">La suma de las cantidades se coloca sola en el campo <b>Cantidad</b> de la OP (lo puedes corregir a mano).</span>
+              <span style="font-size:.72rem; color:var(--text-muted);">Cada cantidad lleva su unidad. La suma se coloca sola en el campo <b>Cantidad</b> de la OP, con su unidad (lo puedes corregir a mano).</span>
             </div>
           </div>
           <div class="field" style="grid-column: span 2;">
@@ -5945,43 +5945,99 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       calculateMaterialRowWeight(row, opts);
     }
 
-    // ---------- Instrucciones de trabajo: Descripción + Cantidad ----------
+    // ---------- Instrucciones de trabajo: Descripción + Cantidad (con unidad) ----------
     // El textarea oculto #instrucciones sigue siendo el "texto" de la OP (lo usan
     // planta, reportes, soldadura, etc.) y se genera solo a partir de la tabla:
     // "DESCRIPCIÓN | 4 UND". Además se guarda la lista estructurada
-    // (instruccionesItems) para poder editarla en dos columnas.
+    // (instruccionesItems: desc, cant, unidad) para editarla en columnas.
+    const UNIDADES_INSTR = ['UND', 'PIEZAS', 'KIT', 'JUEGO', 'MTS', 'KG'];
+
+    function normalizarUnidadInstr(u) {
+      const v = String(u || '').trim().toUpperCase().replace(/\.$/, '');
+      if (!v) return 'UND';
+      if (['UN', 'UND', 'UNID', 'UNIDAD', 'UNIDADES'].includes(v)) return 'UND';
+      if (['PZ', 'PZA', 'PZAS', 'PIEZA', 'PIEZAS'].includes(v)) return 'PIEZAS';
+      if (['M', 'MT', 'MTS', 'METRO', 'METROS'].includes(v)) return 'MTS';
+      if (['KG', 'KGS', 'KILO', 'KILOS'].includes(v)) return 'KG';
+      if (['JGO', 'JGOS', 'JUEGO', 'JUEGOS'].includes(v)) return 'JUEGO';
+      return v;
+    }
+
     function parsearInstruccionesTexto(texto) {
       return String(texto || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
-        const m = l.match(/^(.*?)\s*\|\s*(\d+(?:[.,]\d+)?)\s*(?:UND|UNID|UNIDADES?|UN|PZAS?|PIEZAS?)?\.?\s*$/i);
-        return m ? { desc: m[1].trim(), cant: m[2].replace(',', '.') } : { desc: l, cant: '' };
+        const m = l.match(/^(.*?)\s*\|\s*(\d+(?:[.,]\d+)?)\s*([A-ZÁÉÍÓÚÑa-záéíóúñ]+)?\.?\s*$/);
+        return m ? { desc: m[1].trim(), cant: m[2].replace(',', '.'), unidad: normalizarUnidadInstr(m[3]) }
+                 : { desc: l, cant: '', unidad: 'UND' };
       });
     }
 
     function getInstruccionesItems() {
-      return [...document.querySelectorAll('#instrucciones-container tr')].map(r => ({
-        desc: (r.querySelector('.i-desc')?.value || '').trim(),
-        cant: (r.querySelector('.i-cant')?.value || '').trim()
-      })).filter(i => i.desc || i.cant);
+      return [...document.querySelectorAll('#instrucciones-container tr')].map(r => {
+        const cant = (r.querySelector('.i-cant')?.value || '').trim();
+        return {
+          desc: (r.querySelector('.i-desc')?.value || '').trim(),
+          cant,
+          unidad: normalizarUnidadInstr(r.querySelector('.i-unidad')?.value)
+        };
+      }).filter(i => i.desc || i.cant);
     }
 
-    function totalInstrucciones(items) {
-      return (items || []).reduce((acc, i) => {
-        const n = Number(String(i.cant ?? '').replace(',', '.'));
-        return acc + (Number.isFinite(n) && n > 0 ? n : 0);
-      }, 0);
+    function numCantInstr(c) {
+      const n = Number(String(c ?? '').replace(',', '.'));
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    }
+
+    // Totales agrupados por unidad: { UND: 8, PIEZAS: 2 }
+    function totalesInstrucciones(items) {
+      const t = {};
+      (items || []).forEach(i => {
+        const n = numCantInstr(i.cant);
+        if (n > 0) { const u = normalizarUnidadInstr(i.unidad); t[u] = (t[u] || 0) + n; }
+      });
+      return t;
+    }
+    const fmtNumInstr = n => String(Number(n.toFixed(3)));
+
+    function ponerUnidadInstrSelect(sel, unidad) {
+      const u = normalizarUnidadInstr(unidad);
+      if (![...sel.options].some(o => o.value === u)) {
+        const opt = document.createElement('option');
+        opt.value = u; opt.textContent = u;
+        sel.insertBefore(opt, sel.querySelector('option[value="__OTRA__"]'));
+      }
+      sel.value = u;
+    }
+
+    // Lleva la unidad del total a la casilla "Cantidad" de la OP.
+    function aplicarUnidadACantidadTotal(unidad) {
+      const sel = $('unidadMedidaSelect');
+      if (!sel) return;
+      const mapa = { UND: 'unidad', PIEZAS: 'pieza', KIT: 'kit', JUEGO: 'juego' };
+      if (mapa[unidad]) {
+        sel.value = mapa[unidad];
+      } else {
+        sel.value = 'otra';
+        if ($('unidadMedidaOtra')) $('unidadMedidaOtra').value = unidad;
+      }
+      if (typeof toggleUnidadMedidaOtra === 'function') toggleUnidadMedidaOtra();
     }
 
     function sincronizarInstrucciones(porUsuario) {
       const items = getInstruccionesItems();
       const ta = $('instrucciones');
-      if (ta) ta.value = items.map(i => i.desc + (i.cant ? `${i.desc ? ' ' : ''}| ${i.cant} UND` : '')).join('\n\n');
-      const total = totalInstrucciones(items);
-      const totalTxt = String(Number(total.toFixed(3)));
+      if (ta) ta.value = items.map(i => i.desc + (i.cant ? `${i.desc ? ' ' : ''}| ${i.cant} ${i.unidad}` : '')).join('\n\n');
+      const tot = totalesInstrucciones(items);
+      const unidades = Object.keys(tot);
       const el = $('instr-total');
-      if (el) el.textContent = total > 0 ? totalTxt : '—';
+      if (el) el.textContent = unidades.length ? unidades.map(u => `${fmtNumInstr(tot[u])} ${u}`).join(' + ') : '—';
       if (porUsuario) {
         // Solo cuando el usuario toca la tabla (no al abrir una OP guardada).
-        if (total > 0 && $('cantidadTotalManual')) $('cantidadTotalManual').value = totalTxt;
+        // Con una sola unidad se completa Cantidad + unidad; con unidades
+        // mezcladas no se suma (no tiene sentido) y se deja lo que había.
+        if (unidades.length === 1 && $('cantidadTotalManual')) {
+          $('cantidadTotalManual').value = fmtNumInstr(tot[unidades[0]]);
+          aplicarUnidadACantidadTotal(unidades[0]);
+        }
         markFormDirty();
       }
     }
@@ -5992,8 +6048,27 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><textarea class="i-desc" rows="2" aria-label="Descripción de la instrucción" placeholder="Ej: ANILLO DIAMETRO EXTERIOR:880MM | LARGO:75MM | ESPESOR:30MM | CALIDAD:A36 | SE ENTREGA PINCHADO CON BISEL EN V A 30º">${esc(data.desc || '')}</textarea></td>
-        <td><input type="text" inputmode="decimal" class="i-cant" aria-label="Cantidad" placeholder="Cant." value="${esc(data.cant || '')}"></td>
+        <td>
+          <div style="display:flex; gap:6px;">
+            <input type="text" inputmode="decimal" class="i-cant" aria-label="Cantidad" placeholder="Cant." value="${esc(data.cant || '')}" style="flex:1; min-width:0;">
+            <select class="i-unidad" aria-label="Unidad de medida" style="flex:1.2; min-width:0;">
+              ${UNIDADES_INSTR.map(u => `<option value="${u}">${u}</option>`).join('')}
+              <option value="__OTRA__">OTRA…</option>
+            </select>
+          </div>
+        </td>
         <td style="text-align:center;"><button type="button" class="btn btn-danger btn-sm" title="Quitar esta instrucción">✕</button></td>`;
+      const selU = tr.querySelector('.i-unidad');
+      ponerUnidadInstrSelect(selU, data.unidad);
+      let unidadPrevia = selU.value;
+      selU.addEventListener('change', () => {
+        if (selU.value === '__OTRA__') {
+          const txt = (prompt('Escriba la unidad de medida (ej: ROLLOS, PLANCHAS, TRAMOS):', '') || '').trim();
+          if (txt) ponerUnidadInstrSelect(selU, txt); else selU.value = unidadPrevia;
+        }
+        unidadPrevia = selU.value;
+        sincronizarInstrucciones(true);
+      });
       tr.querySelector('.i-desc').addEventListener('input', () => sincronizarInstrucciones(true));
       tr.querySelector('.i-cant').addEventListener('input', () => sincronizarInstrucciones(true));
       tr.querySelector('button').addEventListener('click', () => {
@@ -6018,18 +6093,20 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
     }
 
     // HTML de las instrucciones para la ficha/PDF: tabla Descripción + Cantidad
-    // cuando hay cantidades; si no, el texto de siempre.
+    // (con su unidad) cuando hay cantidades; si no, el texto de siempre.
+    // El total va solo abajo, en "CANTIDAD TOTAL".
     function instruccionesDocHtml(o, vacio) {
       const items = (Array.isArray(o.instruccionesItems) ? o.instruccionesItems : [])
         .filter(i => String(i.desc || '').trim() || String(i.cant ?? '').trim());
       if (items.some(i => String(i.cant ?? '').trim())) {
-        const total = totalInstrucciones(items);
         const celda = 'padding:4px 8px; border-bottom:1px solid #fed7aa;';
-        const filas = items.map(i => `<tr><td style="${celda} text-align:left;">${esc(i.desc || '').replace(/\n/g,'<br>')}</td><td style="${celda} text-align:center; font-weight:800; white-space:nowrap;">${esc(i.cant ?? '')}</td></tr>`).join('');
+        const filas = items.map(i => {
+          const c = String(i.cant ?? '').trim();
+          return `<tr><td style="${celda} text-align:left;">${esc(i.desc || '').replace(/\n/g,'<br>')}</td><td style="${celda} text-align:center; font-weight:800; white-space:nowrap;">${c ? esc(c + ' ' + normalizarUnidadInstr(i.unidad)) : ''}</td></tr>`;
+        }).join('');
         return `<table style="width:100%; border-collapse:collapse; font-size:13px; color:#9a3412; line-height:1.4;">
-          <thead><tr><th style="padding:3px 8px; text-align:left; font-size:9px; letter-spacing:.8px; border-bottom:1px solid #fdba74;">DESCRIPCIÓN</th><th style="padding:3px 8px; width:70px; text-align:center; font-size:9px; letter-spacing:.8px; border-bottom:1px solid #fdba74;">CANT.</th></tr></thead>
+          <thead><tr><th style="padding:3px 8px; text-align:left; font-size:9px; letter-spacing:.8px; border-bottom:1px solid #fdba74;">DESCRIPCIÓN</th><th style="padding:3px 8px; width:90px; text-align:center; font-size:9px; letter-spacing:.8px; border-bottom:1px solid #fdba74;">CANT.</th></tr></thead>
           <tbody>${filas}</tbody>
-          ${total > 0 ? `<tfoot><tr><td style="padding:5px 8px; text-align:right; font-weight:800;">TOTAL</td><td style="padding:5px 8px; text-align:center; font-weight:800;">${esc(String(Number(total.toFixed(3))))}</td></tr></tfoot>` : ''}
         </table>`;
       }
       return esc(o.instrucciones || '').replace(/\n/g,'<br>') || vacio || '';
