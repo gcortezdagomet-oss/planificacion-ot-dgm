@@ -2682,6 +2682,100 @@ body.tv-mode #app-root.container,body.tv-mode #user-session-bar{margin-left:0 !i
   #user-session-bar{padding:8px 12px;justify-content:flex-start;}
 }
 </style>
+  <style id="dagomet-rediseno-2">
+/* ===== REDISEÑO v2: estructura por secciones, barra superior única, usuario en el menú ===== */
+/* --- Menú lateral: logo arriba, usuario abajo --- */
+#main-nav-tabs{padding:84px 12px 210px;}
+#main-nav-tabs::before{content:"";height:68px;border-left:0;border-bottom:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.14);}
+#app-root header .header-logo{
+  position:fixed;left:16px;top:10px;z-index:60;height:48px;width:auto;
+  padding:5px 10px;background:#fff;border-radius:9px;box-shadow:0 2px 8px rgba(0,0,0,.25);
+}
+#user-session-bar{
+  position:fixed;left:0;bottom:0;width:var(--sidebar-w);z-index:55;margin:0 !important;
+  padding:12px;flex-wrap:wrap;gap:6px;justify-content:flex-start;align-items:center;
+  background:#0e1542;border:0;border-top:1px solid rgba(255,255,255,.12);
+}
+#user-session-bar .user-badge{flex:1 1 100%;background:transparent;border:0;padding:2px 4px 6px;color:#cfd6f5;font-size:.78rem;border-radius:0;}
+#user-session-bar .role-badge{color:#ffb27a;}
+#user-session-bar .btn{
+  flex:1 1 calc(50% - 6px);min-width:0;min-height:32px;padding:6px 8px;font-size:.72rem;
+  background:rgba(255,255,255,.08);color:#e5e9fb;border:1px solid rgba(255,255,255,.16);box-shadow:none;
+}
+#user-session-bar .btn:hover{background:rgba(255,255,255,.16);}
+#user-session-bar #users-btn{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+/* --- Barra superior única (título + búsqueda + acción), fija al hacer scroll --- */
+#app-root.container{padding:0 32px 56px;}
+#app-root header{
+  position:sticky;top:0;z-index:40;overflow:visible;gap:24px;
+  margin:0 -32px 24px;padding:14px 32px;border:0;border-bottom:1px solid var(--border);
+  border-radius:0;background:var(--surface);box-shadow:0 2px 12px rgba(22,32,90,.06);
+}
+#app-root header::after{height:2px;}
+#app-root header .header-brand{flex:0 1 auto;min-width:0;}
+#app-root header .header-titles{gap:1px;}
+#app-root header h1{font-size:1.08rem;}
+#app-root header .global-search-row{flex:1 1 380px;max-width:600px;margin:0 !important;}
+#app-root header .global-search-wrap input{min-height:42px;background:var(--bg);box-shadow:none;}
+#app-root header .global-search-results{z-index:80;}
+#new-op-btn{flex:none;white-space:nowrap;}
+
+/* --- Formulario de OP: secciones numeradas --- */
+#tab-form > .card{background:transparent;border:0;box-shadow:none;padding:0;margin:0;counter-reset:op;}
+#tab-form > .card > h2#form-title{
+  border:0 !important;padding:0 !important;margin:0 0 6px !important;
+  font-size:1.5rem;font-weight:800;letter-spacing:-.3px;color:var(--text);
+}
+#tab-form > .card > h2#form-title::after{
+  content:"Complete las secciones en orden. Los campos con * son obligatorios.";
+  display:block;margin-top:4px;font-size:.84rem;font-weight:500;letter-spacing:0;color:var(--text-muted);
+}
+.op-sec{
+  counter-increment:op;position:relative;margin:18px 0;padding:22px 26px 26px;
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm);
+}
+.op-sec::before{
+  content:counter(op);position:absolute;left:24px;top:22px;width:28px;height:28px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;background:var(--primary);color:#fff;
+  font-size:.8rem;font-weight:700;box-shadow:0 0 0 4px var(--primary-light);
+}
+.op-sec-head,.op-sec > h3.op-t{
+  min-height:28px;margin:0 0 20px !important;padding:0 0 16px 44px;border-bottom:1px solid var(--border);
+}
+.op-t,.op-sec h3.op-t{font-size:1.02rem;font-weight:700;color:var(--text);margin:0;line-height:1.3;}
+.op-sub,.op-sec h3.op-t span{display:block;margin-top:2px;font-size:.78rem !important;font-weight:500 !important;color:var(--text-muted) !important;}
+.op-sec .grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:20px 22px;margin:0;}
+.op-sec .field > label{text-transform:uppercase;font-size:.7rem;letter-spacing:.5px;}
+.op-sec input:not([type=checkbox]):not([type=radio]),.op-sec select{min-height:42px;}
+.field:has(#contactoOP) > label:first-child{display:none;}
+#soldadura-seguimiento-section{border-radius:14px !important;margin:18px 0 !important;}
+.op-sec .table-container,.op-sec .table-wrapper{border:1px solid var(--border);border-radius:10px;}
+.op-actions{
+  position:sticky;bottom:0;z-index:30;justify-content:flex-end;align-items:center;gap:10px;
+  margin:24px -32px -56px !important;padding:14px 32px;
+  background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -6px 18px rgba(22,32,90,.08);
+}
+.op-actions .btn{padding:11px 20px;}
+.op-actions #guardar-op-btn{order:3;padding:11px 30px;}
+.op-actions .btn-info{order:2;}
+.op-actions .btn-secondary{order:1;margin-right:auto;}
+
+@media (max-width:1024px){
+  #main-nav-tabs{padding:8px;}
+  #app-root header .header-logo{position:static;height:40px;padding:0;box-shadow:none;background:transparent;}
+  #user-session-bar{position:static;width:auto;margin:0 !important;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border);}
+  #user-session-bar .user-badge{flex:0 1 auto;color:var(--text-muted);padding:0 6px;}
+  #user-session-bar .role-badge{color:var(--primary);}
+  #user-session-bar .btn{flex:0 0 auto;background:var(--surface);color:var(--primary);border-color:var(--border-strong);}
+  #user-session-bar #users-btn{background:var(--accent);color:#fff;}
+  #app-root.container{padding:0 12px 40px;}
+  #app-root header{position:static;margin:0 -12px 14px;padding:12px;flex-wrap:wrap;}
+  #app-root header .global-search-row{flex:1 1 100%;max-width:none;order:3;}
+  .op-sec{padding:18px 16px 20px;}
+  .op-actions{margin:20px -12px -40px !important;padding:12px;flex-wrap:wrap;}
+}
+</style>
 </head>
 <body>
   <script>
@@ -2818,9 +2912,6 @@ body.tv-mode #app-root.container,body.tv-mode #user-session-bar{margin-left:0 !i
           <span class="header-subtitle">Sistema interno de órdenes de producción</span>
         </div>
       </div>
-      <button id="new-op-btn" class="btn btn-primary" onclick="newOP()">+ Nueva OP</button>
-    </header>
-
     <div class="global-search-row">
       <div class="global-search-wrap" id="global-search-wrap">
         <span class="global-search-icon">🔎</span>
@@ -2829,6 +2920,9 @@ body.tv-mode #app-root.container,body.tv-mode #user-session-bar{margin-left:0 !i
         <div id="global-search-results" class="global-search-results"></div>
       </div>
     </div>
+      <button id="new-op-btn" class="btn btn-primary" onclick="newOP()">+ Nueva OP</button>
+    </header>
+
 
     <div class="nav-tabs" id="main-nav-tabs">
       <button class="tab-btn" data-tab-id="tab-form" onclick="switchTab('tab-form')">Formulario OP</button>
@@ -2846,7 +2940,7 @@ body.tv-mode #app-root.container,body.tv-mode #user-session-bar{margin-left:0 !i
       <div class="card">
         <h2 id="form-title">Datos Principales de la Orden de Producción</h2>
         <input type="hidden" id="edit-id">
-        <div class="grid">
+        <div class="op-sec"><div class="op-sec-head"><div class="op-t">Identificación de la orden</div><div class="op-sub">N° de OP, estado y responsable de planificación</div></div><div class="grid">
           <div class="field">
             <label class="label-revisar">N° OP *</label>
             <input type="text" id="numero" class="campo-revisar" placeholder="Ej: 15181 o INTERNA" required autocomplete="off">
@@ -2888,6 +2982,8 @@ body.tv-mode #app-root.container,body.tv-mode #user-session-bar{margin-left:0 !i
             <label>Planificador(a)</label>
             <input type="text" id="planificador" value="GCC" placeholder="Ej: GCC">
           </div>
+</div></div>
+<div class="op-sec"><div class="op-sec-head"><div class="op-t">Cliente y contacto</div><div class="op-sub">Datos del cliente, orden de compra y contacto</div></div><div class="grid">
           <div class="field">
             <label class="label-revisar">Cliente (RUT - Nombre) *</label>
             <div class="autocomplete-container">
@@ -2904,6 +3000,8 @@ body.tv-mode #app-root.container,body.tv-mode #user-session-bar{margin-left:0 !i
             <label>Contacto</label>
             <input type="text" id="contactoOP" placeholder="Nombre y/o teléfono de contacto (solo visible en la tabla de OP, no se imprime)">
           </div>
+</div></div>
+<div class="op-sec"><div class="op-sec-head"><div class="op-t">Plazos, área y asignación</div><div class="op-sub">Fechas comprometidas, área de trabajo, máquina y prioridad</div></div><div class="grid">
           <div class="field">
             <label>Fecha Guía de Material</label>
             <input type="date" id="fechaGuiaMat">
@@ -2942,6 +3040,8 @@ body.tv-mode #app-root.container,body.tv-mode #user-session-bar{margin-left:0 !i
               <option value="URGENTE">URGENTE</option>
             </select>
           </div>
+</div></div>
+<div class="op-sec"><div class="op-sec-head"><div class="op-t">Producción</div><div class="op-sub">Origen del material, soldadura, cantidades y piezas</div></div><div class="grid">
           <div class="field">
             <label>Material De</label>
             <select id="materialDe">
@@ -2978,7 +3078,7 @@ body.tv-mode #app-root.container,body.tv-mode #user-session-bar{margin-left:0 !i
             <label id="curvas-label">Curvas</label>
             <input type="text" id="curvas" placeholder="Solo para PERFILERÍA">
           </div>
-        </div>
+        </div></div>
 
         <div id="soldadura-seguimiento-section" style="display:none; margin-top:15px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:14px 16px;">
           <div style="font-weight:800; color:#991b1b; font-size:0.9rem; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
@@ -3030,8 +3130,8 @@ body.tv-mode #app-root.container,body.tv-mode #user-session-bar{margin-left:0 !i
           </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
-          <h3 style="margin: 0;">Detalle de Materiales * <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">(Selecciona el material y sus características. Ingresa las medidas y la cantidad; el peso se calcula automáticamente y sigue siendo editable.)</span></h3>
+        <div class="op-sec"><div class="op-sec-head">
+          <h3 class="op-t" style="margin: 0;">Detalle de Materiales * <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">(Selecciona el material y sus características. Ingresa las medidas y la cantidad; el peso se calcula automáticamente y sigue siendo editable.)</span></h3>
         </div>
         
         <datalist id="calidades-datalist">
@@ -3069,8 +3169,9 @@ body.tv-mode #app-root.container,body.tv-mode #user-session-bar{margin-left:0 !i
           <b style="color:var(--primary);">Cálculo automático:</b> PLANCHA = Largo × Ancho × Espesor × Cantidad × Peso ÷ 1.000.000 (usa las casillas Largo y Ancho) &nbsp;|&nbsp; CANALES, TUBOS, CAÑERÍAS, PERFILES, PLETINAS, VIGAS, etc. = Peso (kg/m) × Largo (mm) × Cantidad ÷ 1.000. &nbsp;|&nbsp; <b>DUCTO:</b> si se activa, se calcula por diámetro y <b>Largo</b> (el Ancho no se usa).
         </div>
 
-        <div id="bombeado-section" style="display: none;">
-          <h3 style="margin-top: 25px;">Medidas de Bombeado / Pestañado <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">(Se muestra porque el área es de Bombeado/Pestañado — al imprimir se usará la ficha técnica de bombeado en vez del formato estándar)</span></h3>
+        </div>
+        <div id="bombeado-section" class="op-sec" style="display: none;">
+          <h3 class="op-t" style="margin-top: 25px;">Medidas de Bombeado / Pestañado <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">(Se muestra porque el área es de Bombeado/Pestañado — al imprimir se usará la ficha técnica de bombeado en vez del formato estándar)</span></h3>
 
           <div class="grid" style="margin-bottom: 4px;">
             <div class="field">
@@ -3109,7 +3210,7 @@ body.tv-mode #app-root.container,body.tv-mode #user-session-bar{margin-left:0 !i
           <button class="btn btn-secondary btn-sm" style="margin-top: 10px;" onclick="addBombeadoRow()">+ Agregar Medida</button>
         </div>
 
-        <h3 style="margin-top: 25px;">Instrucciones y Responsables de Planta</h3>
+        <div class="op-sec"><h3 class="op-t" style="margin-top: 25px;">Instrucciones y Responsables de Planta</h3>
         <div class="grid">
           <div class="field" style="grid-column: span 2;">
             <label>Instrucciones de Trabajo</label>
@@ -3199,9 +3300,9 @@ body.tv-mode #app-root.container,body.tv-mode #user-session-bar{margin-left:0 !i
             <label>Nota Importante</label>
             <input type="text" id="notaImportante" placeholder="Nota automática según área (si aplica)">
           </div>
-        </div>
+        </div></div>
 
-        <div style="margin-top: 20px; display: flex; gap: 10px;">
+        <div class="op-actions" style="margin-top: 20px; display: flex; gap: 10px;">
           <button class="btn btn-primary" id="guardar-op-btn" onclick="saveOP()">Guardar OP</button>
           <button class="btn btn-info" onclick="previewCurrentOP()">👁️ Previsualizar / Imprimir</button>
           <button class="btn btn-secondary" onclick="resetForm()">Limpiar Formulario</button>
