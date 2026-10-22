@@ -1187,8 +1187,11 @@
 /* ===== PERMISOS DE SOLO LECTURA ===== */
 body.read-only-mode #new-op-btn { display:none !important; }
 body.read-only-mode .tab-btn[data-tab-id="tab-form"],
-body.read-only-mode .tab-btn[data-tab-id="tab-guias"],
 body.read-only-mode .tab-btn[data-tab-id="tab-db"] { display:none !important; }
+
+/* Guías: los lectores solo pueden ver (sin formulario de registro ni Generar OP). */
+body.read-only-mode #tab-guias > .card:first-child { display:none !important; }
+body.read-only-mode button[onclick*="generarOPDesdeGuia("] { display:none !important; }
 
 /* En calendario, solo se permite visualizar; no editar OPs. */
 body.read-only-mode button[onclick*="editOP("],
@@ -5579,7 +5582,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         }
       } else if(isReadOnly){
         document.querySelectorAll('.tab-btn[data-tab-id]').forEach(btn=>{
-          const allowed=['tab-list','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(btn.dataset.tabId);
+          const allowed=['tab-list','tab-guias','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(btn.dataset.tabId);
           btn.style.display=allowed?'':'none';
         });
         // Los usuarios de solo lectura parten siempre en Historial.
@@ -6823,7 +6826,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
 
     function switchTab(tabId) {
       if (window.dagometCurrentProfile?.rol === 'read_only' &&
-          !['tab-list','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(tabId)) {
+          !['tab-list','tab-guias','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(tabId)) {
         tabId = 'tab-list';
       }
       if (tabId === 'tab-horas-extra' && window.dagometCurrentProfile?.rol !== 'admin' && window.dagometCurrentProfile?.rol !== 'read_only') {
