@@ -4037,7 +4037,51 @@ html.dagomet-dark .badge-status.status-despachada { border-color: #1b5b55; backg
 @media screen and (min-width: 1500px) {
   #tab-list .ops-scroll tbody, #tab-guias .guias-scroll tbody { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-  </style>
+  
+/* ===== Formulario OP: recuadros alineados y cuadrados (arriba y abajo) ===== */
+#tab-form .form-main-grid > .field > label:first-child,
+#tab-form .form-bottom-grid > .field > label:first-child {
+  min-height: 32px; margin: 0; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 0 6px; line-height: 1.25;
+}
+#tab-form .field-hint { font-size: .7rem; color: var(--text-muted); line-height: 1.3; }
+
+/* Misma altura para todos los campos de una línea */
+#tab-form .form-main-grid .field input:not([type=checkbox]):not([type=hidden]),
+#tab-form .form-main-grid .field select,
+#tab-form .form-bottom-grid > .field > input:not([type=checkbox]):not([type=hidden]),
+#tab-form .form-bottom-grid > .field > select:not([multiple]),
+#tab-form .form-bottom-grid > .field > div > input:not([type=checkbox]):not([type=hidden]) {
+  box-sizing: border-box; height: 42px; min-height: 42px; min-width: 0;
+}
+#tab-form .form-main-grid .field input[type=checkbox] { width: auto; height: auto; min-height: 0; }
+
+/* Contacto: ocupa 2 columnas para que select + botones quepan en una línea */
+#contactoOP-multiple .contacto-action { height: 42px; min-height: 42px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; }
+@media (min-width: 1100px) { #contactoOP-field { grid-column: span 2; } }
+
+/* Parte inferior: 4 columnas x 2 filas, todas del mismo tamaño */
+#tab-form .form-bottom-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; align-items: stretch; }
+#tab-form .form-bottom-grid > .field { grid-column: auto !important; min-width: 0; }
+@media (max-width: 1200px) { #tab-form .form-bottom-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px)  { #tab-form .form-bottom-grid { grid-template-columns: 1fr; } }
+#tab-form #comentarios { flex: 1 1 auto; min-height: 170px; box-sizing: border-box; }
+#tab-form #responsableTrabajo { flex: 1 1 auto; height: auto !important; min-height: 150px; box-sizing: border-box; }
+#tab-form .form-bottom-grid > .field > div[style*="grid-template-columns: 1fr 1fr"] { gap: 8px !important; }
+
+/* Documentación de fabricación: botones alineados en dos columnas iguales */
+#tab-form .doc-attach-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; }
+#tab-form .doc-attach-row > label { display: block; margin: 0; min-width: 0; text-transform: none; }
+#tab-form .doc-attach-row .doc-selector { display: flex; width: 100%; box-sizing: border-box; min-height: 36px; text-align: center; }
+#tab-form .doc-attach-row > .btn { width: 100%; min-height: 36px; justify-content: center; box-sizing: border-box; }
+#tab-form .doc-attach-chips { grid-column: 1 / -1; }
+#tab-form .doc-attach-chips:empty { display: none; }
+#tab-form .doc-attach-row[data-doc-id="docSinDocumentacion"] { grid-template-columns: minmax(0, 1fr); }
+#tab-form .instr-table { table-layout: auto; }
+
+/* Botones de acción */
+#tab-form .form-actions { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 10px; }
+#tab-form .form-actions .btn { height: 42px; min-height: 42px; box-sizing: border-box; justify-content: center; }
+</style>
 </head>
 <body>
   <script>
@@ -4654,7 +4698,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           <div class="field">
             <label>Fecha de Entrega *</label>
             <input type="date" id="entrega">
-            <label style="display:flex;align-items:center;gap:7px;margin-top:6px;font-size:12px;font-weight:500;color:#64748b;cursor:pointer;">
+            <label style="display:flex;align-items:center;gap:7px;margin-top:6px;font-size:12px;font-weight:500;color:#64748b;cursor:pointer;text-transform:none;letter-spacing:0;">
               <input type="checkbox" id="entregaAuto" checked style="width:auto;margin:0;">
               Calcular automáticamente desde la guía
             </label>
@@ -4849,7 +4893,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         </div>
 
         <h3 style="margin-top: 25px;">Instrucciones y Responsables de Planta</h3>
-        <div class="grid">
+        <div class="grid form-bottom-grid">
           <div class="field" style="grid-column: span 2;">
             <label>Instrucciones de Trabajo</label>
             <textarea id="instrucciones" rows="3" style="display:none"></textarea>
@@ -4909,10 +4953,11 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           </div>
           <div class="field" style="grid-column: span 2;">
             <label style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
-              <span>Responsables del Trabajo (Mantén Ctrl/Cmd presionado para seleccionar varios)</span>
+              <span>Responsables del Trabajo</span>
               <button type="button" class="btn btn-secondary btn-sm" onclick="limpiarResponsablesTrabajo()" title="Dejar sin responsables">✖ Dejar vacío</button>
             </label>
             <select id="responsableTrabajo" multiple style="height: 100px;"></select>
+            <small class="field-hint">Mantén Ctrl/Cmd presionado para seleccionar varios.</small>
           </div>
           <div class="field" style="grid-column: span 2;">
             <label>Responsable de Revisión</label>
@@ -4940,7 +4985,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           </div>
         </div>
 
-        <div style="margin-top: 20px; display: flex; gap: 10px;">
+        <div class="form-actions">
           <button class="btn btn-primary" id="guardar-op-btn" onclick="saveOP()">Guardar OP</button>
           <button class="btn btn-info" onclick="previewCurrentOP()">👁️ Previsualizar / Imprimir</button>
           <button class="btn btn-secondary" onclick="resetForm()">Limpiar Formulario</button>
@@ -15606,8 +15651,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     const wrap=document.createElement('div');
     wrap.id='contactoOP-multiple';
     wrap.innerHTML=`
-      <label style="display:block; margin-bottom:6px; font-weight:700;">Contacto</label>
-      <div style="display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:7px; align-items:center;">
+      <div class="contacto-row" style="display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:7px; align-items:center;">
         <select id="contactoOP-select" style="min-width:0; width:100%;">
           <option value="">Sin contacto seleccionado</option>
         </select>
