@@ -3858,7 +3858,7 @@ html.dagomet-dark .badge-status.status-despachada { border-color: #1b5b55; backg
 .ops-scroll th:last-child, .ops-scroll td:last-child { position: static; z-index: auto; box-shadow: none; }
 .ops-scroll thead th:first-child { border-top-left-radius: 10px; }
 .ops-scroll thead th:last-child { border-top-right-radius: 10px; }
-@media screen and (max-width: 1320px) {
+@media screen {
   #tab-list .ops-scroll { border: 0; background: transparent; }
   #tab-list .ops-scroll > table.tabla-historial { display: block; width: 100%; min-width: 0 !important; }
   #tab-list .ops-scroll thead { display: none; }
@@ -3900,6 +3900,49 @@ html.dagomet-dark .badge-status.status-despachada { border-color: #1b5b55; backg
   #tab-list .ops-scroll td.col-acciones .row-actions { display: flex !important; width: 100% !important; max-width: none; flex-wrap: nowrap !important; justify-content: flex-start; gap: 8px; }
   #tab-list .ops-scroll td.col-acciones .row-actions > .row-btn { flex: 1 1 auto; justify-content: center; min-height: 34px; }
 }
+
+@media screen and (min-width: 1180px) {
+  #tab-list .ops-scroll tbody { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.sort-entrega-btn { font-size: .78rem; }
+
+/* ---------- Guias: tarjetas (mismo criterio que el Historial) ---------- */
+.guias-scroll { overflow: visible; border: 0; background: transparent; }
+.guias-scroll th:last-child, .guias-scroll td:last-child { position: static; z-index: auto; box-shadow: none; }
+#tab-guias .guias-scroll > table.tabla-guias { display: block; width: 100%; min-width: 0 !important; }
+#tab-guias .guias-scroll thead { display: none; }
+#tab-guias .guias-scroll tbody { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media screen and (min-width: 1180px) {
+  #tab-guias .guias-scroll tbody { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+#tab-guias .guias-scroll tbody tr {
+  display: grid !important; grid-template-columns: 1fr 1fr 1fr; align-items: center; gap: 9px 10px;
+  grid-template-areas: "cliente cliente estado" "cd fecha fecha" "notas notas notas" "acc acc acc";
+  padding: 14px; border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 12px;
+  background: var(--surface) !important; box-shadow: var(--shadow-sm);
+}
+#tab-guias .guias-scroll tbody tr:hover { box-shadow: var(--shadow-md); }
+#tab-guias .guias-scroll tbody tr:has(> td[colspan]) { display: block !important; grid-column: 1 / -1; padding: 0; border: 0; background: transparent !important; box-shadow: none; }
+#tab-guias .guias-scroll tbody td {
+  display: block !important; width: auto !important; min-width: 0 !important; max-width: none !important; height: auto !important;
+  padding: 0 !important; border: 0 !important; background: transparent !important; white-space: normal !important;
+  text-align: left !important; position: static; box-shadow: none;
+}
+#tab-guias .guias-scroll tbody td[colspan] { grid-area: auto; }
+#tab-guias .guias-scroll tbody td:nth-child(1) { grid-area: cliente; font-weight: 600; }
+#tab-guias .guias-scroll tbody td:nth-child(2) { grid-area: cd; }
+#tab-guias .guias-scroll tbody td:nth-child(3) { grid-area: fecha; }
+#tab-guias .guias-scroll tbody td:nth-child(4) { grid-area: notas; }
+#tab-guias .guias-scroll tbody td:nth-child(5) { grid-area: estado; justify-self: end; }
+#tab-guias .guias-scroll tbody td:nth-child(6) { grid-area: acc; padding-top: 8px !important; border-top: 1px solid var(--border) !important; }
+#tab-guias .guias-scroll tbody td:nth-child(2)::before, #tab-guias .guias-scroll tbody td:nth-child(3)::before, #tab-guias .guias-scroll tbody td:nth-child(4)::before {
+  display: block; margin-bottom: 2px; font-size: .6rem; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--text-faint); font-weight: 800;
+}
+#tab-guias .guias-scroll tbody td:nth-child(2)::before { content: "REV. / CD"; }
+#tab-guias .guias-scroll tbody td:nth-child(3)::before { content: "Llegada"; }
+#tab-guias .guias-scroll tbody td:nth-child(4)::before { content: "Notas"; }
+#tab-guias .guias-scroll .guia-actions { justify-content: flex-start; }
+#tab-guias .guias-scroll .guia-actions > .btn-primary { flex: 1 1 auto; justify-content: center; min-height: 34px; }
   </style>
 </head>
 <body>
@@ -4831,6 +4874,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <button type="button" class="deadline-filter-btn" data-filtro="encurso" onclick="setFiltroPlazo('encurso')"><svg class="ui-icon" aria-hidden="true"><use href="#ico-play"/></svg> En curso <span id="count-encurso" class="deadline-filter-count">0</span></button>
             <button type="button" class="deadline-filter-btn soldadura-filter-btn" data-filtro-soldadura="si" onclick="setFiltroSoldadura('si')"><svg class="ui-icon" aria-hidden="true"><use href="#ico-zap"/></svg> Soldadura <span id="count-soldadura" class="deadline-filter-count">0</span></button>
           </div>
+          <button type="button" class="btn btn-secondary btn-sm sort-entrega-btn" onclick="toggleSortEntrega()" title="Ordenar por fecha de entrega (clic de nuevo para invertir)"><svg class="ui-icon" aria-hidden="true"><use href="#ico-calendar"/></svg> Ordenar por entrega</button>
           <span id="sort-entrega-indicator" style="display:none; font-size:.78rem; font-weight:700; color:var(--primary); align-items:center; gap:6px;">
             <svg class="ui-icon" aria-hidden="true"><use href="#ico-calendar"/></svg> Ordenado por fecha de entrega
             <button type="button" class="btn btn-secondary btn-sm" style="padding:3px 8px;" onclick="clearSortEntrega()">✕ Quitar orden</button>
@@ -4900,7 +4944,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <button type="button" class="deadline-filter-btn" data-filtro="hecha" onclick="setFiltroGuia('hecha')">✅ Hechas <span id="count-guia-hecha" class="deadline-filter-count">0</span></button>
           </div>
         </div>
-        <div class="table-scroll"><table class="tabla-guias">
+        <div class="table-scroll guias-scroll"><table class="tabla-guias">
           <thead>
             <tr>
               <th id="th-guia-cliente" onclick="toggleSortGuia('cliente')" title="Clic para ordenar por Cliente" style="cursor:pointer;">Cliente <span id="th-guia-cliente-arrow">↕</span></th>
