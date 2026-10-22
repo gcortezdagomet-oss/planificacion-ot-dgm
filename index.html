@@ -3852,6 +3852,54 @@ html.dagomet-dark .badge-status.status-despachada { border-color: #1b5b55; backg
 @media (min-width: 701px) and (min-aspect-ratio: 4/5) {
   html:root body #auth-overlay#auth-overlay > #auth-card { left: calc(var(--ox) + 972*var(--u) + var(--oxv) / 2); top: 50%; }
 }
+
+/* ---------- Historial: sin recorte del menu "⋯" y vista de tarjetas en ventanas angostas ---------- */
+.ops-scroll { overflow: visible; }
+.ops-scroll th:last-child, .ops-scroll td:last-child { position: static; z-index: auto; box-shadow: none; }
+.ops-scroll thead th:first-child { border-top-left-radius: 10px; }
+.ops-scroll thead th:last-child { border-top-right-radius: 10px; }
+@media screen and (max-width: 1320px) {
+  #tab-list .ops-scroll { border: 0; background: transparent; }
+  #tab-list .ops-scroll > table.tabla-historial { display: block; width: 100%; min-width: 0 !important; }
+  #tab-list .ops-scroll thead { display: none; }
+  #tab-list .ops-scroll tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 12px; }
+  #tab-list .ops-scroll tbody tr {
+    display: grid !important; grid-template-columns: 1fr 1fr 1fr; align-items: center; gap: 9px 10px;
+    grid-template-areas: "op op prio" "estado estado estado" "cliente cliente cliente" "area area area" "entrega parte plan" "acc acc acc";
+    padding: 14px; border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 12px;
+    background: var(--surface) !important; box-shadow: var(--shadow-sm);
+  }
+  #tab-list .ops-scroll tbody tr:hover { box-shadow: var(--shadow-md); }
+  #tab-list .ops-scroll tbody tr.deadline-vencido { border-left-color: #dc2626; }
+  #tab-list .ops-scroll tbody tr.deadline-proximo { border-left-color: #f59e0b; }
+  #tab-list .ops-scroll tbody tr:has(> td[colspan]) { display: block !important; grid-column: 1 / -1; padding: 0; border: 0; background: transparent !important; box-shadow: none; }
+  #tab-list .ops-scroll tbody td {
+    display: block !important; width: auto !important; min-width: 0 !important; max-width: none !important; height: auto !important;
+    padding: 0 !important; border: 0 !important; background: transparent !important; white-space: normal !important;
+    text-align: left !important; position: static; box-shadow: none; overflow: visible !important; text-overflow: clip !important;
+  }
+  #tab-list .ops-scroll tbody td[colspan] { grid-area: auto; }
+  #tab-list .ops-scroll tbody td:nth-child(1) { grid-area: op; font-size: 1rem; }
+  #tab-list .ops-scroll tbody td:nth-child(2) { grid-area: parte; }
+  #tab-list .ops-scroll tbody td:nth-child(3) { grid-area: estado; }
+  #tab-list .ops-scroll tbody td:nth-child(4) { grid-area: plan; }
+  #tab-list .ops-scroll tbody td:nth-child(5) { grid-area: cliente; font-weight: 600; }
+  #tab-list .ops-scroll tbody td:nth-child(6) { grid-area: area; }
+  #tab-list .ops-scroll tbody td:nth-child(7) { grid-area: entrega; }
+  #tab-list .ops-scroll tbody td:nth-child(8) { grid-area: prio; justify-self: end; }
+  #tab-list .ops-scroll tbody td:nth-child(9) { display: none !important; }
+  #tab-list .ops-scroll tbody td:nth-child(10) { grid-area: acc; padding-top: 4px !important; border-top: 1px solid var(--border) !important; }
+  #tab-list .ops-scroll tbody td:nth-child(2)::before, #tab-list .ops-scroll tbody td:nth-child(4)::before,
+  #tab-list .ops-scroll tbody td:nth-child(6)::before, #tab-list .ops-scroll tbody td:nth-child(7)::before {
+    display: block; margin-bottom: 2px; font-size: .6rem; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--text-faint);
+  }
+  #tab-list .ops-scroll tbody td:nth-child(2)::before { content: "Parte"; }
+  #tab-list .ops-scroll tbody td:nth-child(4)::before { content: "Planif."; }
+  #tab-list .ops-scroll tbody td:nth-child(6)::before { content: "Área"; }
+  #tab-list .ops-scroll tbody td:nth-child(7)::before { content: "Entrega"; }
+  #tab-list .ops-scroll td.col-acciones .row-actions { display: flex !important; width: 100% !important; max-width: none; flex-wrap: nowrap !important; justify-content: flex-start; gap: 8px; }
+  #tab-list .ops-scroll td.col-acciones .row-actions > .row-btn { flex: 1 1 auto; justify-content: center; min-height: 34px; }
+}
   </style>
 </head>
 <body>
@@ -4788,7 +4836,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <button type="button" class="btn btn-secondary btn-sm" style="padding:3px 8px;" onclick="clearSortEntrega()">✕ Quitar orden</button>
           </span>
         </div>
-        <div class="table-scroll"><table class="tabla-historial">
+        <div class="table-scroll ops-scroll"><table class="tabla-historial">
           <thead>
             <tr>
               <th>OP</th>
