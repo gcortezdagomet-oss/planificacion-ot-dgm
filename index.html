@@ -3827,6 +3827,31 @@ html.dagomet-dark .badge-status.status-en-pausa { border-color: #5b4313; backgro
 html.dagomet-dark .badge-status.status-por-inspeccionar { border-color: #46338a; background: #241c3d; color: #c4b5fd; }
 html.dagomet-dark .badge-status.status-terminada { border-color: #1f5a3a; background: #113322; color: #6ee7b7; }
 html.dagomet-dark .badge-status.status-despachada { border-color: #1b5b55; background: #0f2b29; color: #5eead4; }
+
+/* ---------- Tablas: scroll propio y acciones siempre visibles ---------- */
+.table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); -webkit-overflow-scrolling: touch; }
+.table-scroll > table { margin: 0; width: 100%; border-collapse: separate; border-spacing: 0; }
+.table-scroll > table.tabla-historial { min-width: 980px; }
+.table-scroll > table.tabla-guias { min-width: 760px; }
+.table-scroll thead th { background: var(--bg); color: var(--text-muted); font-size: .68rem; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.table-scroll tbody td { border-bottom: 1px solid var(--border); }
+.table-scroll tbody tr:last-child td { border-bottom: 0; }
+.table-scroll tbody tr:hover > td { background: var(--primary-light); }
+.table-scroll th:last-child, .table-scroll td:last-child { position: sticky; right: 0; z-index: 1; background: var(--surface); box-shadow: -10px 0 10px -10px rgba(15,23,42,.22); }
+.table-scroll thead th:last-child { background: var(--bg); }
+.table-scroll tbody tr:hover > td:last-child { background: var(--primary-light); }
+.tabla-guias td { vertical-align: middle; }
+.tabla-guias td:nth-child(1) { min-width: 220px; white-space: normal; }
+.tabla-guias td:nth-child(2), .tabla-guias td:nth-child(3), .tabla-guias td:nth-child(5) { white-space: nowrap; }
+.tabla-guias td:nth-child(4) { min-width: 120px; }
+.guia-actions { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.guia-actions .btn { white-space: nowrap; margin: 0; }
+.guia-actions .btn-icon { width: 32px; min-height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+
+/* ---------- Login: tarjeta centrada en el area clara (pantalla completa) ---------- */
+@media (min-width: 701px) and (min-aspect-ratio: 4/5) {
+  html:root body #auth-overlay#auth-overlay > #auth-card { left: calc(var(--ox) + 972*var(--u) + var(--oxv) / 2); top: 50%; }
+}
   </style>
 </head>
 <body>
@@ -4763,7 +4788,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <button type="button" class="btn btn-secondary btn-sm" style="padding:3px 8px;" onclick="clearSortEntrega()">✕ Quitar orden</button>
           </span>
         </div>
-        <table class="tabla-historial">
+        <div class="table-scroll"><table class="tabla-historial">
           <thead>
             <tr>
               <th>OP</th>
@@ -4779,7 +4804,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             </tr>
           </thead>
           <tbody id="ops-table-body"></tbody>
-        </table>
+        </table></div>
       </div>
     </div>
 
@@ -4827,7 +4852,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <button type="button" class="deadline-filter-btn" data-filtro="hecha" onclick="setFiltroGuia('hecha')">✅ Hechas <span id="count-guia-hecha" class="deadline-filter-count">0</span></button>
           </div>
         </div>
-        <table>
+        <div class="table-scroll"><table class="tabla-guias">
           <thead>
             <tr>
               <th id="th-guia-cliente" onclick="toggleSortGuia('cliente')" title="Clic para ordenar por Cliente" style="cursor:pointer;">Cliente <span id="th-guia-cliente-arrow">↕</span></th>
@@ -4839,7 +4864,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             </tr>
           </thead>
           <tbody id="guias-table-body"></tbody>
-        </table>
+        </table></div>
       </div>
     </div>
     <div id="tab-calendar" class="tab-content">
@@ -10857,13 +10882,13 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
               ? `<span class="badge-status status-terminada">HECHA${g.opNumero ? ' · OP ' + esc(g.opNumero) : ''}</span>`
               : `<span class="badge-status status-en-pausa">PENDIENTE</span>`}
             </td>
-            <td>
+            <td class="col-acciones-guia"><div class="guia-actions">
               ${!esHecha ? `<button class="btn btn-primary btn-sm" onclick="generarOPDesdeGuia('${g.id}')">🏭 Generar OP</button>` : ''}
-              ${g.opId ? `<button class="btn btn-info btn-sm" onclick="editOP('${g.opId}')" title="Ver/editar la OP generada">👁️ Ver OP</button>` : ''}
-              <button class="btn btn-secondary btn-sm" onclick="toggleEstadoGuia('${g.id}')">${esHecha ? '↩️ Marcar Pendiente' : '✅ Marcar Hecha'}</button>
-              <button class="btn btn-warning btn-sm" onclick="editarGuia('${g.id}')">✏️ Editar</button>
-              <button class="btn btn-danger btn-sm" onclick="eliminarGuia('${g.id}')">🗑️ Eliminar</button>
-            </td>
+              ${g.opId ? `<button class="btn btn-info btn-sm btn-icon" onclick="editOP('${g.opId}')" title="Ver/editar la OP generada" aria-label="Ver OP">👁️</button>` : ''}
+              <button class="btn btn-secondary btn-sm btn-icon" onclick="toggleEstadoGuia('${g.id}')" title="${esHecha ? 'Marcar pendiente' : 'Marcar hecha'}" aria-label="${esHecha ? 'Marcar pendiente' : 'Marcar hecha'}">${esHecha ? '↩️' : '✅'}</button>
+              <button class="btn btn-warning btn-sm btn-icon" onclick="editarGuia('${g.id}')" title="Editar" aria-label="Editar">✏️</button>
+              <button class="btn btn-danger btn-sm btn-icon" onclick="eliminarGuia('${g.id}')" title="Eliminar" aria-label="Eliminar">🗑️</button>
+            </div></td>
           </tr>
         `;
       }).join('');
