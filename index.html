@@ -298,6 +298,86 @@
       .materials-table-bombeado tbody td:nth-child(12) .btn { margin-right:4px; }
     }
 
+    /* ===== Detalle de Materiales: cada material es una ficha ordenada en 2 filas =====
+       Fila 1: Material · Tipo · Calidad · Medida · Espesor · Largo · Ancho
+       Fila 2: Descripción · Ducto · Cantidad · Peso final · Acciones
+       Se aplica en pantalla completa; en pantallas angostas (<1001px) se mantiene el diseño compacto. */
+    .materials-table-generic { display:block; width:100%; }
+    .materials-table-generic thead { display:none; }
+    .materials-table-generic tbody { display:block; width:100%; }
+    .materials-table-generic tbody tr {
+      display:grid;
+      gap:12px 14px;
+      align-items:start;
+      padding:14px 16px;
+      background:#fff;
+      border-bottom:1px solid var(--border);
+    }
+    .materials-table-generic tbody tr:nth-child(even) { background:#fafbfe; }
+    .materials-table-generic tbody tr:last-child { border-bottom:0; }
+    .materials-table-generic tbody td {
+      display:flex;
+      flex-direction:column;
+      justify-content:flex-start;
+      min-width:0 !important;
+      width:auto !important;
+      padding:0;
+      border:0;
+    }
+    .materials-table-generic tbody td::before {
+      display:block;
+      margin-bottom:4px;
+      color:var(--primary);
+      font-size:.67rem;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.35px;
+      white-space:nowrap;
+    }
+    .materials-table-generic tbody td:nth-child(1)::before  { content:'Material'; }
+    .materials-table-generic tbody td:nth-child(2)::before  { content:'Tipo'; }
+    .materials-table-generic tbody td:nth-child(3)::before  { content:'Calidad'; }
+    .materials-table-generic tbody td:nth-child(4)::before  { content:'Medida'; }
+    .materials-table-generic tbody td:nth-child(5)::before  { content:'Espesor (mm)'; }
+    .materials-table-generic tbody td:nth-child(6)::before  { content:'Largo (mm)'; }
+    .materials-table-generic tbody td:nth-child(7)::before  { content:'Ancho (mm)'; }
+    .materials-table-generic tbody td:nth-child(8)::before  { content:'Descripción'; }
+    .materials-table-generic tbody td:nth-child(9)::before  { content:'¿Es ducto?'; }
+    .materials-table-generic tbody td:nth-child(10)::before { content:'Cantidad'; }
+    .materials-table-generic tbody td:nth-child(11)::before { content:'Peso final (kg)'; }
+    .materials-table-generic tbody td:nth-child(12)::before { content:'Acción'; }
+    .materials-table-generic tbody td > select,
+    .materials-table-generic tbody td > input { width:100%; min-width:0; box-sizing:border-box; }
+    .materials-table-generic .m-descripcion { width:100%; }
+    .materials-table-generic .m-ducto-cell { text-align:left; }
+    .materials-table-generic .m-ducto-wrap { align-items:flex-start; width:100%; }
+    .materials-table-generic .m-ducto-check { justify-content:flex-start; min-height:38px; }
+    .materials-table-generic .m-ducto-options { justify-content:flex-start; }
+    .materials-table-generic .m-tipo-ducto { width:110px; }
+    .materials-table-generic .m-diametro-ducto { width:90px; }
+    .materials-table-generic .m-ducto-hint { display:none; }
+    .materials-table-generic .m-ducto-options.active ~ .m-ducto-hint { display:block; }
+    .materials-table-generic tbody td:nth-child(12) { justify-content:flex-start; align-items:flex-start; }
+    .materials-table-generic .m-acciones { display:flex; align-items:center; gap:6px; min-height:38px; }
+    .materials-table-generic tbody td:nth-child(12) .btn { margin-right:0; }
+    @media (min-width: 1001px) {
+      .materials-table-generic tbody tr { grid-template-columns:repeat(24, minmax(0,1fr)); }
+      /* Fila 1 (24) */
+      .materials-table-generic tbody td:nth-child(1)  { grid-column:span 5; }
+      .materials-table-generic tbody td:nth-child(2)  { grid-column:span 3; }
+      .materials-table-generic tbody td:nth-child(3)  { grid-column:span 3; }
+      .materials-table-generic tbody td:nth-child(4)  { grid-column:span 4; }
+      .materials-table-generic tbody td:nth-child(5)  { grid-column:span 3; }
+      .materials-table-generic tbody td:nth-child(6)  { grid-column:span 3; }
+      .materials-table-generic tbody td:nth-child(7)  { grid-column:span 3; }
+      /* Fila 2 (24) */
+      .materials-table-generic tbody td:nth-child(8)  { grid-column:span 9; }
+      .materials-table-generic tbody td:nth-child(9)  { grid-column:span 5; }
+      .materials-table-generic tbody td:nth-child(10) { grid-column:span 3; }
+      .materials-table-generic tbody td:nth-child(11) { grid-column:span 4; }
+      .materials-table-generic tbody td:nth-child(12) { grid-column:span 3; }
+    }
+
     @media (max-width: 900px) {
       .materials-table tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .materials-table-generic tbody td:nth-child(8),
@@ -7952,7 +8032,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           <div class="m-ducto-wrap">
             <label class="m-ducto-check">
               <input type="checkbox" class="m-es-ducto" ${esDuctoInicial ? 'checked' : ''}>
-              <span>¿ES DUCTO?</span>
+              <span>Sí, es ducto</span>
             </label>
             <div class="m-ducto-options ${esDuctoInicial ? 'active' : ''}">
               <select class="m-tipo-ducto" title="Tipo de diámetro del ducto">
@@ -7972,9 +8052,11 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           </div>
           <div class="peso-hint">Automático · editable</div>
         </td>
-        <td style="text-align:center;white-space:nowrap;">
-          <button type="button" class="btn btn-secondary btn-sm" title="Duplicar este material" onclick="duplicateMaterialRow(this)">⧉</button>
-          <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); marcarDuplicadosMateriales();">✕</button>
+        <td style="white-space:nowrap;">
+          <div class="m-acciones">
+            <button type="button" class="btn btn-secondary btn-sm" title="Duplicar este material" onclick="duplicateMaterialRow(this)">⧉</button>
+            <button type="button" class="btn btn-danger btn-sm" title="Eliminar este material" onclick="this.closest('tr').remove(); marcarDuplicadosMateriales();">✕</button>
+          </div>
         </td>`;
 
       // IMPORTANTE: el flag "manual" de la descripción se marca ANTES de
