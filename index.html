@@ -4030,7 +4030,7 @@ html.dagomet-dark .badge-status.status-despachada { border-color: #1b5b55; backg
 #tab-guias .guias-scroll tbody td.g-emision::before, #tab-guias .guias-scroll tbody td.g-cot::before, #tab-guias .guias-scroll tbody td.g-cotest::before {
   display: block; margin-bottom: 2px; font-size: .6rem; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--text-faint);
 }
-#tab-guias .guias-scroll tbody td.g-emision::before { content: "Emisión OT"; }
+#tab-guias .guias-scroll tbody td.g-emision::before { content: "Emisión OP"; }
 #tab-guias .guias-scroll tbody td.g-cot::before { content: "Cotización N°"; }
 #tab-guias .guias-scroll tbody td.g-cotest::before { content: "Estado cotización"; }
 .guia-cot-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: .68rem; font-weight: 800; line-height: 1.25; }
@@ -5073,10 +5073,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <input type="date" id="guia-fecha">
           </div>
           <div class="field">
-            <label>Fecha de Emisión de la OT</label>
-            <input type="date" id="guia-emision">
-          </div>
-          <div class="field">
             <label>Cotización relacionada (N°)</label>
             <input type="text" id="guia-cotizacion" placeholder="Ej: COT-2026-0123" autocomplete="off" style="text-transform: uppercase;">
           </div>
@@ -5102,6 +5098,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h2 style="margin: 0;">Guías Registradas</h2>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="imprimirReporteGuiasPendientes()" title="Reporte de las guías pendientes de hacer OP, con el estado de cotización">📄 Reporte de pendientes</button>
         </div>
         <div style="margin-bottom: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
           <input type="text" id="search-guia" placeholder="🔍 Buscar por RUT, Cliente, CD, Cotización o Notas..." oninput="renderGuiasTableDebounced()" style="flex:1; min-width:220px;">
@@ -8888,6 +8885,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         const g = db.guias.find(x => x.id === guiaVinculadaId);
         if (g) {
           g.estado = 'HECHA';
+          g.fechaEmision = todayKey();
           g.opId = opData.id;
           g.opNumero = opData.numero;
         }
@@ -10966,9 +10964,10 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       return (db.guias || []).find(g => g.id !== excluirId && normalizarCD(g.cd) === clave) || null;
     }
 
-    // Fecha de emisión de la OT de la guía. Las guías antiguas no la tienen guardada:
-    // se muestra la fecha en que se registraron.
+    // Fecha de emisión de la OP de la guía: es el día en que se generó la OP
+    // (la guía pasó a HECHA). Mientras la guía está pendiente no hay emisión.
     function fechaEmisionGuia(g) {
+      if (g.estado !== 'HECHA') return '';
       if (g.fechaEmision) return g.fechaEmision;
       const n = Number(g.createdAt);
       if (!n) return '';
@@ -10990,7 +10989,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('guia-cd').value = '';
       sugerirCDGuia({ force: true });
       $('guia-fecha').value = '';
-      $('guia-emision').value = todayKey();
       $('guia-cotizacion').value = '';
       $('guia-cotizacion-estado').value = '';
       $('guia-notas').value = '';
@@ -11010,7 +11008,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       }
 
       const notas = $('guia-notas').value.trim();
-      const fechaEmision = $('guia-emision').value || todayKey();
       const cotizacionNumero = $('guia-cotizacion').value.trim().toUpperCase();
       const cotizacionEstado = $('guia-cotizacion-estado').value || '';
       const editId = $('guia-edit-id').value;
@@ -11035,7 +11032,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           g.cd = cd;
           g.fecha = fecha;
           g.notas = notas;
-          g.fechaEmision = fechaEmision;
           g.cotizacionNumero = cotizacionNumero;
           g.cotizacionEstado = cotizacionEstado;
         }
@@ -11046,7 +11042,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           cd,
           fecha,
           notas,
-          fechaEmision,
+          fechaEmision: '',
           cotizacionNumero,
           cotizacionEstado,
           estado: 'PENDIENTE',
@@ -11069,7 +11065,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('guia-cd').value = g.cd;
       $('guia-cd').dataset.auto = '0';
       $('guia-fecha').value = g.fecha;
-      $('guia-emision').value = fechaEmisionGuia(g) || todayKey();
       $('guia-cotizacion').value = g.cotizacionNumero || '';
       $('guia-cotizacion-estado').value = g.cotizacionEstado || '';
       $('guia-notas').value = g.notas || '';
@@ -11095,6 +11090,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const g = db.guias.find(x => x.id === id);
       if (!g) return;
       g.estado = g.estado === 'HECHA' ? 'PENDIENTE' : 'HECHA';
+      g.fechaEmision = g.estado === 'HECHA' ? todayKey() : '';
       saveDB();
       renderGuiasTable();
     }
@@ -13164,6 +13160,23 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       { key: 'ensayo',        label: 'Ensayo',                 shortLabel: 'Ensayo',      align: 'center', weight: 12, get: o => getReportEnsayoBadge(o) },
       { key: 'trabajo',       label: 'Trabajo / Instrucciones',shortLabel: 'Trabajo',     align: 'left',   weight: 42, get: o => esc(o.instrucciones || '-').replace(/\r?\n/g, '<br>') },
     ];
+    // Columnas exclusivas del reporte de guías pendientes (el objeto del reporte lleva la guía en o._guia).
+    const guiaCotEstadoTexto = g => g.cotizacionEstado === 'COTIZADO' ? 'Cotizado'
+      : (g.cotizacionEstado === 'VENTAS TIENE QUE COTIZAR' ? 'Falta cotizar (Ventas)' : 'Sin definir');
+    const REPORT_COLUMNS_GUIAS = [
+      { key: 'cliente',        label: 'Cliente',          shortLabel: 'Cliente',     align: 'left',   weight: 22, get: o => esc(o.cliente || '-') },
+      { key: 'guiaCd',         label: 'REV. / CD',        shortLabel: 'REV. / CD',   align: 'left',   weight: 12, get: o => `<b>${esc(o._guia.cd || '-')}</b>` },
+      { key: 'guiaLlegada',    label: 'Fecha de llegada', shortLabel: 'Llegada',     align: 'left',   weight: 13, get: o => formatDateWithDayUpper(o._guia.fecha) },
+      { key: 'guiaCot',        label: 'Cotización N°',    shortLabel: 'Cotización',  align: 'left',   weight: 13, get: o => o._guia.cotizacionNumero ? `<b>${esc(o._guia.cotizacionNumero)}</b>` : '-' },
+      { key: 'guiaCotEstado',  label: 'Estado cotización',shortLabel: 'Cotización',  align: 'center', weight: 16, get: o => {
+          const e = o._guia.cotizacionEstado;
+          if (e === 'COTIZADO') return '<span style="font-weight:700; color:#166534;">✓ COTIZADO</span>';
+          if (e === 'VENTAS TIENE QUE COTIZAR') return '<span style="font-weight:700; color:#b45309;">⚠ FALTA COTIZAR<br><span style="font-weight:500; font-size:10px;">(Ventas tiene que cotizar)</span></span>';
+          return '<span style="font-weight:600; color:#64748b;">Sin definir</span>';
+        } },
+      { key: 'guiaNotas',      label: 'Notas',            shortLabel: 'Notas',       align: 'left',   weight: 24, get: o => esc(o._guia.notas || '-').replace(/\r?\n/g, '<br>') },
+    ];
+    const findReportCol = k => REPORT_COLUMNS.find(c => c.key === k) || REPORT_COLUMNS_GUIAS.find(c => c.key === k);
     const REPORT_COLUMNS_DEFAULT = ['numero', 'entrega', 'cliente', 'area', 'estadoOp', 'prioridad', 'planificador'];
     const REPORT_COLUMNS_PRESETS = {
       conCliente: ['numero', 'entrega', 'cliente', 'area', 'estadoOp', 'prioridad', 'planificador'],
@@ -13371,7 +13384,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
 
     function buildReportDOM(list, titulo, subtitulo, columnKeys) {
       const cols = (columnKeys && columnKeys.length ? columnKeys : loadReportColumnsSelection())
-        .map(k => REPORT_COLUMNS.find(c => c.key === k))
+        .map(findReportCol)
         .filter(Boolean);
       const activeCols = cols.length ? cols : REPORT_COLUMNS.filter(c => REPORT_COLUMNS_DEFAULT.includes(c.key));
 
@@ -13396,7 +13409,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       // respetando el rango de fechas seleccionado.
       const esReporteCompleto = String(titulo || '').trim() === 'Reporte Completo de OPs';
       // El Reporte de Soldadura lo ve un externo a la empresa: no se muestra el total de OPs en planta.
-      const esReporteSoldadura = String(titulo || '').trim().startsWith('Reporte de Soldadura');
+      const esReporteSoldadura = String(titulo || '').trim().startsWith('Reporte de Soldadura') || String(titulo || '').trim().startsWith('Reporte de Guías');
+      const esReporteGuias = String(titulo || '').trim().startsWith('Reporte de Guías');
       const opsEnCursoReporte = esReporteCompleto
         ? ordenados.filter(o => String(o.estadoOp || 'EN CURSO').trim().toUpperCase() === 'EN CURSO')
         : [];
@@ -13513,11 +13527,11 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           <thead>
             <tr style="background:#f8fafc; page-break-inside:avoid;">${theadHtml}</tr>
           </thead>
-          <tbody>${rows || `<tr><td colspan="${activeCols.length}" style="padding:20px; text-align:center; color:#94a3b8; font-style:italic;">Sin OPs en este rango.</td></tr>`}</tbody>
+          <tbody>${rows || `<tr><td colspan="${activeCols.length}" style="padding:20px; text-align:center; color:#94a3b8; font-style:italic;">${esReporteGuias ? 'Sin guías pendientes.' : 'Sin OPs en este rango.'}</td></tr>`}</tbody>
         </table>
 
         <div class="report-footer-summary" style="display:flex; justify-content:flex-end; gap:24px; padding-top:10px; border-top:1px solid #f1f5f9; font-size:11px; color:#334155; page-break-inside:avoid; break-inside:avoid;">
-          <div><b>${ordenados.length}</b> OP(s)</div>
+          <div><b>${ordenados.length}</b> ${esReporteGuias ? 'guía(s)' : 'OP(s)'}</div>
           ${mostrarKilosTotal ? `<div><b>${Math.round(kilosTotales).toLocaleString('es-CL')}</b> kg totales</div>` : ''}
         </div>
       `;
@@ -13661,6 +13675,11 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         case 'trabajo': return o.instrucciones || '-';
         case 'ensayo': return getReportEnsayoTexto(o) + (getReportEnsayoFecha(o) ? ` (ensayo realizado: ${getReportEnsayoFecha(o)})` : '');
         case 'soldadura': return getReportSoldaduraEstadoTexto(o);
+        case 'guiaCd': return o._guia ? (o._guia.cd || '-') : '-';
+        case 'guiaLlegada': return o._guia ? formatDateWithDayUpper(o._guia.fecha) : '-';
+        case 'guiaCot': return o._guia ? (o._guia.cotizacionNumero || '-') : '-';
+        case 'guiaCotEstado': return o._guia ? guiaCotEstadoTexto(o._guia) : '-';
+        case 'guiaNotas': return o._guia ? (o._guia.notas || '-') : '-';
         case 'comentarios': return o.comentarios || '-';
         case 'fechaTermino': return o.fechaTermino ? formatDateWithDayUpper(String(o.fechaTermino).slice(0,10)) : '-';
         case 'responsables': return (Array.isArray(o.responsableTrabajo) ? o.responsableTrabajo.join(', ') : (o.responsableTrabajo || '')) || '-';
@@ -13674,7 +13693,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         return;
       }
       const cols = (columnKeys && columnKeys.length ? columnKeys : loadReportColumnsSelection())
-        .map(k => REPORT_COLUMNS.find(c => c.key === k))
+        .map(findReportCol)
         .filter(Boolean);
       const activeCols = cols.length ? cols : REPORT_COLUMNS.filter(c => REPORT_COLUMNS_DEFAULT.includes(c.key));
 
@@ -13872,6 +13891,19 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const cols = cfg.cols.filter(c => conCliente || c !== 'cliente');
       if (conCliente && !cols.includes('cliente')) cols.splice(1, 0, 'cliente');
       previewReport(list, 'Reporte de Soldadura', `${cfg.titulo} · ${list.length} OP`, cols);
+    }
+
+    // ---- Reporte de guías pendientes de hacer OP (con estado de cotización) ----
+    function imprimirReporteGuiasPendientes() {
+      const pend = (db.guias || []).filter(g => g.estado !== 'HECHA');
+      if (!pend.length) { alert('No hay guías pendientes de hacer OP.'); return; }
+      const list = pend.map(g => ({ id: g.id, numero: g.cd || '', entrega: g.fecha || '', cliente: g.cliente || '', _guia: g }));
+      const n = k => pend.filter(g => g.cotizacionEstado === k).length;
+      const cotizadas = n('COTIZADO'), faltan = n('VENTAS TIENE QUE COTIZAR');
+      const sinDef = pend.length - cotizadas - faltan;
+      previewReport(list, 'Reporte de Guías Pendientes',
+        `${pend.length} guía(s) pendiente(s) de OP · ${cotizadas} cotizada(s) · ${faltan} falta(n) cotizar · ${sinDef} sin definir`,
+        ['cliente', 'guiaCd', 'guiaLlegada', 'guiaCot', 'guiaCotEstado', 'guiaNotas']);
     }
 
     function imprimirReporteMes() {
