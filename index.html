@@ -4687,6 +4687,10 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           </div>
           <div class="form-block-title">Plazos</div>
           <div class="field">
+            <label>Fecha de Emisión de la OT</label>
+            <input type="date" id="fechaEmision">
+          </div>
+          <div class="field">
             <label>Fecha Guía de Material</label>
             <input type="date" id="fechaGuiaMat">
           </div>
@@ -4702,6 +4706,20 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
               <input type="checkbox" id="entregaAuto" checked style="width:auto;margin:0;">
               Calcular automáticamente desde la guía
             </label>
+          </div>
+
+          <div class="form-block-title">Cotización</div>
+          <div class="field">
+            <label>Cotización relacionada (N°)</label>
+            <input type="text" id="cotizacionNumero" placeholder="Ej: COT-2026-0123" autocomplete="off" style="text-transform: uppercase;">
+          </div>
+          <div class="field">
+            <label>Estado de la cotización</label>
+            <select id="cotizacionEstado">
+              <option value="">— Sin definir —</option>
+              <option value="COTIZADO">Cotizado</option>
+              <option value="VENTAS DEBE COTIZAR">Ventas tiene que cotizar</option>
+            </select>
           </div>
 
           <div class="form-block-title">Planta</div>
@@ -6940,6 +6958,47 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       return dateStr.toUpperCase();
     }
 
+    // ---------- Fecha de emisión y cotización de la OT ----------
+    function isoDesdeTimestamp(ts) {
+      const n = Number(ts);
+      if (!n) return '';
+      const d = new Date(n);
+      if (isNaN(d.getTime())) return '';
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    // Las OP antiguas no tienen fecha de emisión guardada: se usa la fecha en que se crearon.
+    function fechaEmisionOP(o) {
+      return (o && (o.fechaEmision || isoDesdeTimestamp(o.createdAt))) || '';
+    }
+    function buildEmisionCotizacionHtml(o) {
+      const emision = fechaEmisionOP(o);
+      const num = String(o.cotizacionNumero || '').trim();
+      const est = String(o.cotizacionEstado || '').trim().toUpperCase();
+      let estadoHtml;
+      if (est === 'COTIZADO') {
+        estadoHtml = '<span style="display:inline-block;padding:4px 10px;border-radius:5px;background:#dcfce7;border:1px solid #86efac;color:#166534;font-size:12px;font-weight:800;">✓ COTIZADO</span>';
+      } else if (est === 'VENTAS DEBE COTIZAR') {
+        estadoHtml = '<span style="display:inline-block;padding:4px 10px;border-radius:5px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;font-size:12px;font-weight:800;">⚠ VENTAS DEBE COTIZAR</span>';
+      } else {
+        estadoHtml = '<span style="font-size:11px;font-weight:700;color:#475569;">☐ Cotizado &nbsp;&nbsp; ☐ Ventas debe cotizar</span>';
+      }
+      return `
+        <div style="display: grid; grid-template-columns: 1fr 1.2fr 1.8fr; gap: 12px;">
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center;">
+            <span style="font-size: 9px; color: #64748b; font-weight: 700; text-transform: uppercase;">FECHA DE EMISIÓN OT</span>
+            <span style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">${emision ? formatDateStandard(emision) : 'S/F'}</span>
+          </div>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center;">
+            <span style="font-size: 9px; color: #64748b; font-weight: 700; text-transform: uppercase;">COTIZACIÓN N°</span>
+            <span style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">${num ? esc(num) : '________'}</span>
+          </div>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <span style="font-size: 9px; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 3px;">ESTADO DE COTIZACIÓN</span>
+            ${estadoHtml}
+          </div>
+        </div>`;
+    }
+
     function formatDateStandard(dateStr) {
       if(!dateStr) return '';
       const parts = dateStr.split('-');
@@ -8617,6 +8676,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         contacto: $('contactoOP').value || '',
         fechaGuiaMat: $('fechaGuiaMat').value || '',
         folio: $('folio').value || '',
+        cotizacionNumero: $('cotizacionNumero').value || '',
+        cotizacionEstado: $('cotizacionEstado').value || '',
         prioridad: $('prioridad').value || 'NORMAL',
         materialDe: $('materialDe').value || 'CLIENTE',
         plazo: Number($('plazoProduccion').value) || 8,
@@ -8645,6 +8706,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('contactoOP').value = datos.contacto;
       $('fechaGuiaMat').value = datos.fechaGuiaMat;
       $('folio').value = datos.folio;
+      $('cotizacionNumero').value = datos.cotizacionNumero;
+      $('cotizacionEstado').value = datos.cotizacionEstado;
       $('prioridad').value = datos.prioridad;
       $('materialDe').value = datos.materialDe;
       $('plazoProduccion').value = datos.plazo;
@@ -8701,6 +8764,9 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('ocCliente').value = '';
       $('contactoOP').value = '';
       $('fechaGuiaMat').value = '';
+      $('fechaEmision').value = todayKey();
+      $('cotizacionNumero').value = '';
+      $('cotizacionEstado').value = '';
       $('folio').value = '';
       cargarInstruccionesForm('');
       setDocumentacionFabricacion([]);
@@ -8804,6 +8870,9 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         ocCliente: $('ocCliente').value || '',
         contacto: $('contactoOP').value || '',
         fechaGuiaMat: $('fechaGuiaMat').value || '',
+        fechaEmision: $('fechaEmision').value || todayKey(),
+        cotizacionNumero: String($('cotizacionNumero').value || '').trim().toUpperCase(),
+        cotizacionEstado: $('cotizacionEstado').value || '',
         folio: $('folio').value,
         area: $('area').value,
         maquina: $('maquina').value,
@@ -8935,6 +9004,9 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('ocCliente').value = o.ocCliente || '';
       $('contactoOP').value = o.contacto || '';
       $('fechaGuiaMat').value = o.fechaGuiaMat || '';
+      $('fechaEmision').value = fechaEmisionOP(o) || todayKey();
+      $('cotizacionNumero').value = o.cotizacionNumero || '';
+      $('cotizacionEstado').value = o.cotizacionEstado || '';
       $('folio').value = o.folio || '';
       $('area').value = o.area || db.areas[0];
       $('maquina').value = o.maquina || '';
@@ -9009,6 +9081,10 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('contactoOP').value = o.contacto || '';
       $('fechaGuiaMat').value = o.fechaGuiaMat || '';
       recalcularEntregaAutomatica();
+      // Una OP duplicada es una OT nueva: emisión de hoy y cotización en blanco.
+      $('fechaEmision').value = todayKey();
+      $('cotizacionNumero').value = '';
+      $('cotizacionEstado').value = '';
       $('folio').value = o.folio || '';
       $('area').value = o.area || db.areas[0];
       $('maquina').value = o.maquina || '';
@@ -14174,7 +14250,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         'Fecha_Inicio','Hora_Inicio','Fecha_Termino','Hora_Termino',
         'Responsables_Trabajo','Responsable_Revision','Nota_Importante',
         'Detalle_Materiales','Tipo_Perfil_Bombeado','Medidas_Bombeado',
-        'Instrucciones','Comentarios'
+        'Instrucciones','Comentarios','Fecha_Emision','Cotizacion_N','Estado_Cotizacion'
       ];
       let csv = headers.join(';') + '\n';
 
@@ -14220,7 +14296,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           o.fechaInicio || '', o.horaInicio || '', o.fechaTermino || '', o.horaTermino || '',
           responsables, o.responsableRevision || '', o.notaImportante || '',
           detalleMateriales, o.tipoPerfilBombeado || '', detalleBombeado,
-          o.instrucciones || '', o.comentarios || ''
+          o.instrucciones || '', o.comentarios || '',
+          fechaEmisionOP(o), o.cotizacionNumero || '', o.cotizacionEstado || ''
         ];
 
         csv += row.map(csvField).join(';') + '\n';
@@ -14424,6 +14501,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <span style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">${esc(o.folio) || 'S/C'}</span>
           </div>
         </div>
+
+        ${buildEmisionCotizacionHtml(o)}
 
         ${o.instrucciones ? `
         <div style="background: #fff7ed; border: 1px solid #ffedd5; border-radius: 8px; padding: 10px 16px; text-align: center;">
@@ -14714,6 +14793,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <span style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">${esc(o.folio) || 'S/C'}</span>
           </div>
         </div>
+
+        ${buildEmisionCotizacionHtml(o)}
 
         ${maquinaBlockHtml}
 
@@ -15047,6 +15128,9 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         ocCliente: $('ocCliente').value || '',
         contacto: $('contactoOP').value || '',
         fechaGuiaMat: $('fechaGuiaMat').value || '',
+        fechaEmision: $('fechaEmision').value || todayKey(),
+        cotizacionNumero: String($('cotizacionNumero').value || '').trim().toUpperCase(),
+        cotizacionEstado: $('cotizacionEstado').value || '',
         folio: $('folio').value,
         area: $('area').value,
         maquina: $('maquina').value,
