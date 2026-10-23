@@ -4000,7 +4000,7 @@ html.dagomet-dark .badge-status.status-despachada { border-color: #1b5b55; backg
 }
 #tab-guias .guias-scroll tbody tr {
   display: grid !important; grid-template-columns: 1fr 1fr 1fr; align-items: center; gap: 9px 10px;
-  grid-template-areas: "cliente cliente estado" "cd fecha fecha" "notas notas notas" "acc acc acc";
+  grid-template-areas: "cliente cliente estado" "cd fecha fecha" "emision cot cotest" "notas notas notas" "acc acc acc";
   padding: 14px; border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 12px;
   background: var(--surface) !important; box-shadow: var(--shadow-sm);
 }
@@ -4017,13 +4017,25 @@ html.dagomet-dark .badge-status.status-despachada { border-color: #1b5b55; backg
 #tab-guias .guias-scroll tbody td:nth-child(3) { grid-area: fecha; }
 #tab-guias .guias-scroll tbody td:nth-child(4) { grid-area: notas; }
 #tab-guias .guias-scroll tbody td:nth-child(5) { grid-area: estado; justify-self: end; }
-#tab-guias .guias-scroll tbody td:nth-child(6) { grid-area: acc; padding-top: 8px !important; border-top: 1px solid var(--border) !important; }
+#tab-guias .guias-scroll tbody td.col-acciones-guia { grid-area: acc; padding-top: 8px !important; border-top: 1px solid var(--border) !important; }
 #tab-guias .guias-scroll tbody td:nth-child(2)::before, #tab-guias .guias-scroll tbody td:nth-child(3)::before, #tab-guias .guias-scroll tbody td:nth-child(4)::before {
   display: block; margin-bottom: 2px; font-size: .6rem; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--text-faint); font-weight: 800;
 }
 #tab-guias .guias-scroll tbody td:nth-child(2)::before { content: "REV. / CD"; }
 #tab-guias .guias-scroll tbody td:nth-child(3)::before { content: "Llegada"; }
 #tab-guias .guias-scroll tbody td:nth-child(4)::before { content: "Notas"; }
+#tab-guias .guias-scroll tbody td.g-emision { grid-area: emision; }
+#tab-guias .guias-scroll tbody td.g-cot { grid-area: cot; }
+#tab-guias .guias-scroll tbody td.g-cotest { grid-area: cotest; }
+#tab-guias .guias-scroll tbody td.g-emision::before, #tab-guias .guias-scroll tbody td.g-cot::before, #tab-guias .guias-scroll tbody td.g-cotest::before {
+  display: block; margin-bottom: 2px; font-size: .6rem; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--text-faint);
+}
+#tab-guias .guias-scroll tbody td.g-emision::before { content: "Emisión OT"; }
+#tab-guias .guias-scroll tbody td.g-cot::before { content: "Cotización N°"; }
+#tab-guias .guias-scroll tbody td.g-cotest::before { content: "Estado cotización"; }
+.guia-cot-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: .68rem; font-weight: 800; line-height: 1.25; }
+.guia-cot-badge.ok { background: #dcfce7; border: 1px solid #86efac; color: #166534; }
+.guia-cot-badge.ventas { background: #fef3c7; border: 1px solid #fcd34d; color: #92400e; }
 #tab-guias .guias-scroll .guia-actions { justify-content: flex-start; }
 #tab-guias .guias-scroll .guia-actions > .btn-primary { flex: 1 1 auto; justify-content: center; min-height: 34px; }
 
@@ -4687,10 +4699,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           </div>
           <div class="form-block-title">Plazos</div>
           <div class="field">
-            <label>Fecha de Emisión de la OT</label>
-            <input type="date" id="fechaEmision">
-          </div>
-          <div class="field">
             <label>Fecha Guía de Material</label>
             <input type="date" id="fechaGuiaMat">
           </div>
@@ -4706,20 +4714,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
               <input type="checkbox" id="entregaAuto" checked style="width:auto;margin:0;">
               Calcular automáticamente desde la guía
             </label>
-          </div>
-
-          <div class="form-block-title">Cotización</div>
-          <div class="field">
-            <label>Cotización relacionada (N°)</label>
-            <input type="text" id="cotizacionNumero" placeholder="Ej: COT-2026-0123" autocomplete="off" style="text-transform: uppercase;">
-          </div>
-          <div class="field">
-            <label>Estado de la cotización</label>
-            <select id="cotizacionEstado">
-              <option value="">— Sin definir —</option>
-              <option value="COTIZADO">Cotizado</option>
-              <option value="VENTAS DEBE COTIZAR">Ventas tiene que cotizar</option>
-            </select>
           </div>
 
           <div class="form-block-title">Planta</div>
@@ -5079,6 +5073,22 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <input type="date" id="guia-fecha">
           </div>
           <div class="field">
+            <label>Fecha de Emisión de la OT</label>
+            <input type="date" id="guia-emision">
+          </div>
+          <div class="field">
+            <label>Cotización relacionada (N°)</label>
+            <input type="text" id="guia-cotizacion" placeholder="Ej: COT-2026-0123" autocomplete="off" style="text-transform: uppercase;">
+          </div>
+          <div class="field">
+            <label>Estado de la cotización</label>
+            <select id="guia-cotizacion-estado">
+              <option value="">— Sin definir —</option>
+              <option value="COTIZADO">Cotizado</option>
+              <option value="VENTAS TIENE QUE COTIZAR">Ventas tiene que cotizar</option>
+            </select>
+          </div>
+          <div class="field">
             <label>Notas (Opcional)</label>
             <input type="text" id="guia-notas" placeholder="Ej: N° de guía, detalle del material...">
           </div>
@@ -5094,12 +5104,18 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           <h2 style="margin: 0;">Guías Registradas</h2>
         </div>
         <div style="margin-bottom: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-          <input type="text" id="search-guia" placeholder="🔍 Buscar por RUT, Cliente, CD o Notas..." oninput="renderGuiasTableDebounced()" style="flex:1; min-width:220px;">
+          <input type="text" id="search-guia" placeholder="🔍 Buscar por RUT, Cliente, CD, Cotización o Notas..." oninput="renderGuiasTableDebounced()" style="flex:1; min-width:220px;">
           <div class="deadline-filter-group" id="guia-filter-group">
             <button type="button" class="deadline-filter-btn active" data-filtro="todas" onclick="setFiltroGuia('todas')">Todas</button>
             <button type="button" class="deadline-filter-btn filtro-proxima" data-filtro="pendiente" onclick="setFiltroGuia('pendiente')">🟠 Pendientes <span id="count-guia-pendiente" class="deadline-filter-count">0</span></button>
             <button type="button" class="deadline-filter-btn" data-filtro="hecha" onclick="setFiltroGuia('hecha')">✅ Hechas <span id="count-guia-hecha" class="deadline-filter-count">0</span></button>
           </div>
+          <select id="guia-orden" onchange="setOrdenGuia(this.value)" title="Ordenar las guías por fecha de llegada" aria-label="Ordenar guías" style="width:auto; min-width:200px;">
+            <option value="defecto">Orden: pendientes primero</option>
+            <option value="antigua">Guía más antigua primero</option>
+            <option value="reciente">Guía más reciente primero</option>
+            <option value="otro" hidden>Orden por columna</option>
+          </select>
         </div>
         <div class="table-scroll guias-scroll"><table class="tabla-guias">
           <thead>
@@ -6958,47 +6974,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       return dateStr.toUpperCase();
     }
 
-    // ---------- Fecha de emisión y cotización de la OT ----------
-    function isoDesdeTimestamp(ts) {
-      const n = Number(ts);
-      if (!n) return '';
-      const d = new Date(n);
-      if (isNaN(d.getTime())) return '';
-      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    }
-    // Las OP antiguas no tienen fecha de emisión guardada: se usa la fecha en que se crearon.
-    function fechaEmisionOP(o) {
-      return (o && (o.fechaEmision || isoDesdeTimestamp(o.createdAt))) || '';
-    }
-    function buildEmisionCotizacionHtml(o) {
-      const emision = fechaEmisionOP(o);
-      const num = String(o.cotizacionNumero || '').trim();
-      const est = String(o.cotizacionEstado || '').trim().toUpperCase();
-      let estadoHtml;
-      if (est === 'COTIZADO') {
-        estadoHtml = '<span style="display:inline-block;padding:4px 10px;border-radius:5px;background:#dcfce7;border:1px solid #86efac;color:#166534;font-size:12px;font-weight:800;">✓ COTIZADO</span>';
-      } else if (est === 'VENTAS DEBE COTIZAR') {
-        estadoHtml = '<span style="display:inline-block;padding:4px 10px;border-radius:5px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;font-size:12px;font-weight:800;">⚠ VENTAS DEBE COTIZAR</span>';
-      } else {
-        estadoHtml = '<span style="font-size:11px;font-weight:700;color:#475569;">☐ Cotizado &nbsp;&nbsp; ☐ Ventas debe cotizar</span>';
-      }
-      return `
-        <div style="display: grid; grid-template-columns: 1fr 1.2fr 1.8fr; gap: 12px;">
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center;">
-            <span style="font-size: 9px; color: #64748b; font-weight: 700; text-transform: uppercase;">FECHA DE EMISIÓN OT</span>
-            <span style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">${emision ? formatDateStandard(emision) : 'S/F'}</span>
-          </div>
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center;">
-            <span style="font-size: 9px; color: #64748b; font-weight: 700; text-transform: uppercase;">COTIZACIÓN N°</span>
-            <span style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">${num ? esc(num) : '________'}</span>
-          </div>
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-            <span style="font-size: 9px; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 3px;">ESTADO DE COTIZACIÓN</span>
-            ${estadoHtml}
-          </div>
-        </div>`;
-    }
-
     function formatDateStandard(dateStr) {
       if(!dateStr) return '';
       const parts = dateStr.split('-');
@@ -8676,8 +8651,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         contacto: $('contactoOP').value || '',
         fechaGuiaMat: $('fechaGuiaMat').value || '',
         folio: $('folio').value || '',
-        cotizacionNumero: $('cotizacionNumero').value || '',
-        cotizacionEstado: $('cotizacionEstado').value || '',
         prioridad: $('prioridad').value || 'NORMAL',
         materialDe: $('materialDe').value || 'CLIENTE',
         plazo: Number($('plazoProduccion').value) || 8,
@@ -8706,8 +8679,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('contactoOP').value = datos.contacto;
       $('fechaGuiaMat').value = datos.fechaGuiaMat;
       $('folio').value = datos.folio;
-      $('cotizacionNumero').value = datos.cotizacionNumero;
-      $('cotizacionEstado').value = datos.cotizacionEstado;
       $('prioridad').value = datos.prioridad;
       $('materialDe').value = datos.materialDe;
       $('plazoProduccion').value = datos.plazo;
@@ -8764,9 +8735,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('ocCliente').value = '';
       $('contactoOP').value = '';
       $('fechaGuiaMat').value = '';
-      $('fechaEmision').value = todayKey();
-      $('cotizacionNumero').value = '';
-      $('cotizacionEstado').value = '';
       $('folio').value = '';
       cargarInstruccionesForm('');
       setDocumentacionFabricacion([]);
@@ -8870,9 +8838,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         ocCliente: $('ocCliente').value || '',
         contacto: $('contactoOP').value || '',
         fechaGuiaMat: $('fechaGuiaMat').value || '',
-        fechaEmision: $('fechaEmision').value || todayKey(),
-        cotizacionNumero: String($('cotizacionNumero').value || '').trim().toUpperCase(),
-        cotizacionEstado: $('cotizacionEstado').value || '',
         folio: $('folio').value,
         area: $('area').value,
         maquina: $('maquina').value,
@@ -9004,9 +8969,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('ocCliente').value = o.ocCliente || '';
       $('contactoOP').value = o.contacto || '';
       $('fechaGuiaMat').value = o.fechaGuiaMat || '';
-      $('fechaEmision').value = fechaEmisionOP(o) || todayKey();
-      $('cotizacionNumero').value = o.cotizacionNumero || '';
-      $('cotizacionEstado').value = o.cotizacionEstado || '';
       $('folio').value = o.folio || '';
       $('area').value = o.area || db.areas[0];
       $('maquina').value = o.maquina || '';
@@ -9081,10 +9043,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('contactoOP').value = o.contacto || '';
       $('fechaGuiaMat').value = o.fechaGuiaMat || '';
       recalcularEntregaAutomatica();
-      // Una OP duplicada es una OT nueva: emisión de hoy y cotización en blanco.
-      $('fechaEmision').value = todayKey();
-      $('cotizacionNumero').value = '';
-      $('cotizacionEstado').value = '';
       $('folio').value = o.folio || '';
       $('area').value = o.area || db.areas[0];
       $('maquina').value = o.maquina || '';
@@ -11008,12 +10966,33 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       return (db.guias || []).find(g => g.id !== excluirId && normalizarCD(g.cd) === clave) || null;
     }
 
+    // Fecha de emisión de la OT de la guía. Las guías antiguas no la tienen guardada:
+    // se muestra la fecha en que se registraron.
+    function fechaEmisionGuia(g) {
+      if (g.fechaEmision) return g.fechaEmision;
+      const n = Number(g.createdAt);
+      if (!n) return '';
+      const d = new Date(n);
+      if (isNaN(d.getTime())) return '';
+      return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+    }
+
+    function setOrdenGuia(valor) {
+      if (valor === 'antigua') sortGuia = { col: 'fecha', dir: 1 };
+      else if (valor === 'reciente') sortGuia = { col: 'fecha', dir: -1 };
+      else sortGuia = { col: null, dir: 1 };
+      renderGuiasTable();
+    }
+
     function cancelarEdicionGuia() {
       $('guia-edit-id').value = '';
       $('guia-cliente-input').value = '';
       $('guia-cd').value = '';
       sugerirCDGuia({ force: true });
       $('guia-fecha').value = '';
+      $('guia-emision').value = todayKey();
+      $('guia-cotizacion').value = '';
+      $('guia-cotizacion-estado').value = '';
       $('guia-notas').value = '';
       $('guia-form-title').innerText = 'Registrar Guía de Material';
       $('guia-save-btn').innerText = '＋ Agregar Guía';
@@ -11031,6 +11010,9 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       }
 
       const notas = $('guia-notas').value.trim();
+      const fechaEmision = $('guia-emision').value || todayKey();
+      const cotizacionNumero = $('guia-cotizacion').value.trim().toUpperCase();
+      const cotizacionEstado = $('guia-cotizacion-estado').value || '';
       const editId = $('guia-edit-id').value;
 
       // No permitir el mismo CD dos veces (ignora mayúsculas, tildes y espacios).
@@ -11053,6 +11035,9 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           g.cd = cd;
           g.fecha = fecha;
           g.notas = notas;
+          g.fechaEmision = fechaEmision;
+          g.cotizacionNumero = cotizacionNumero;
+          g.cotizacionEstado = cotizacionEstado;
         }
       } else {
         db.guias.unshift({
@@ -11061,6 +11046,9 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           cd,
           fecha,
           notas,
+          fechaEmision,
+          cotizacionNumero,
+          cotizacionEstado,
           estado: 'PENDIENTE',
           opId: null,
           opNumero: null,
@@ -11081,6 +11069,9 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('guia-cd').value = g.cd;
       $('guia-cd').dataset.auto = '0';
       $('guia-fecha').value = g.fecha;
+      $('guia-emision').value = fechaEmisionGuia(g) || todayKey();
+      $('guia-cotizacion').value = g.cotizacionNumero || '';
+      $('guia-cotizacion-estado').value = g.cotizacionEstado || '';
       $('guia-notas').value = g.notas || '';
       $('guia-form-title').innerText = 'Editando Guía';
       $('guia-save-btn').innerText = '💾 Guardar Cambios';
@@ -11148,7 +11139,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         const cli = normalizeStr(g.cliente);
         const cd = normalizeStr(g.cd);
         const notas = normalizeStr(g.notas);
-        return cli.includes(query) || cd.includes(query) || notas.includes(query);
+        const cot = normalizeStr(g.cotizacionNumero);
+        return cli.includes(query) || cd.includes(query) || notas.includes(query) || cot.includes(query);
       };
 
       const guiasConQuery = db.guias.filter(matchesQuery);
@@ -11168,7 +11160,10 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const ordenadas = [...filtered].sort((a, b) => {
         if (sortGuia.col === 'cliente') return sortGuia.dir * normalizeStr(a.cliente).localeCompare(normalizeStr(b.cliente));
         if (sortGuia.col === 'cd') return sortGuia.dir * normalizeStr(a.cd).localeCompare(normalizeStr(b.cd));
-        if (sortGuia.col === 'fecha') return sortGuia.dir * String(a.fecha || '').localeCompare(String(b.fecha || ''));
+        if (sortGuia.col === 'fecha') {
+          const c = String(a.fecha || '').localeCompare(String(b.fecha || ''));
+          return sortGuia.dir * (c || ((Number(a.createdAt) || 0) - (Number(b.createdAt) || 0)));
+        }
         if (sortGuia.col === 'estado') return sortGuia.dir * normalizeStr(a.estado).localeCompare(normalizeStr(b.estado));
         if (a.estado !== b.estado) return a.estado === 'HECHA' ? 1 : -1;
         return String(a.fecha || '').localeCompare(String(b.fecha || ''));
@@ -11179,6 +11174,9 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         const arrowEl = $(`th-guia-${col}-arrow`);
         if (arrowEl) arrowEl.textContent = sortGuia.col === col ? (sortGuia.dir === 1 ? '▲' : '▼') : '↕';
       });
+
+      const selOrden = $('guia-orden');
+      if (selOrden) selOrden.value = sortGuia.col === null ? 'defecto' : (sortGuia.col === 'fecha' ? (sortGuia.dir === 1 ? 'antigua' : 'reciente') : 'otro');
 
       tbody.innerHTML = ordenadas.length === 0
         ? `<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-faint); font-style:italic;">No hay guías que coincidan con el filtro seleccionado.</td></tr>`
@@ -11194,6 +11192,13 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
               ? `<span class="badge-status status-terminada">HECHA${g.opNumero ? ' · OP ' + esc(g.opNumero) : ''}</span>`
               : `<span class="badge-status status-en-pausa">PENDIENTE</span>`}
             </td>
+            <td class="g-emision">${fechaEmisionGuia(g) ? formatDateStandard(fechaEmisionGuia(g)) : '-'}</td>
+            <td class="g-cot">${g.cotizacionNumero ? `<b>${esc(g.cotizacionNumero)}</b>` : '<span style="color:var(--text-faint);">-</span>'}</td>
+            <td class="g-cotest">${g.cotizacionEstado === 'COTIZADO'
+              ? '<span class="guia-cot-badge ok">✓ COTIZADO</span>'
+              : (g.cotizacionEstado === 'VENTAS TIENE QUE COTIZAR'
+                ? '<span class="guia-cot-badge ventas">⚠ VENTAS TIENE QUE COTIZAR</span>'
+                : '<span style="color:var(--text-faint);">-</span>')}</td>
             <td class="col-acciones-guia"><div class="guia-actions">
               ${!esHecha ? `<button class="btn btn-primary btn-sm" onclick="generarOPDesdeGuia('${g.id}')">🏭 Generar OP</button>` : ''}
               ${g.opId ? `<button class="btn btn-info btn-sm btn-icon" onclick="editOP('${g.opId}')" title="Ver/editar la OP generada" aria-label="Ver OP">👁️</button>` : ''}
@@ -14250,7 +14255,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         'Fecha_Inicio','Hora_Inicio','Fecha_Termino','Hora_Termino',
         'Responsables_Trabajo','Responsable_Revision','Nota_Importante',
         'Detalle_Materiales','Tipo_Perfil_Bombeado','Medidas_Bombeado',
-        'Instrucciones','Comentarios','Fecha_Emision','Cotizacion_N','Estado_Cotizacion'
+        'Instrucciones','Comentarios'
       ];
       let csv = headers.join(';') + '\n';
 
@@ -14296,8 +14301,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           o.fechaInicio || '', o.horaInicio || '', o.fechaTermino || '', o.horaTermino || '',
           responsables, o.responsableRevision || '', o.notaImportante || '',
           detalleMateriales, o.tipoPerfilBombeado || '', detalleBombeado,
-          o.instrucciones || '', o.comentarios || '',
-          fechaEmisionOP(o), o.cotizacionNumero || '', o.cotizacionEstado || ''
+          o.instrucciones || '', o.comentarios || ''
         ];
 
         csv += row.map(csvField).join(';') + '\n';
@@ -14501,8 +14505,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <span style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">${esc(o.folio) || 'S/C'}</span>
           </div>
         </div>
-
-        ${buildEmisionCotizacionHtml(o)}
 
         ${o.instrucciones ? `
         <div style="background: #fff7ed; border: 1px solid #ffedd5; border-radius: 8px; padding: 10px 16px; text-align: center;">
@@ -14793,8 +14795,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <span style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">${esc(o.folio) || 'S/C'}</span>
           </div>
         </div>
-
-        ${buildEmisionCotizacionHtml(o)}
 
         ${maquinaBlockHtml}
 
@@ -15128,9 +15128,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         ocCliente: $('ocCliente').value || '',
         contacto: $('contactoOP').value || '',
         fechaGuiaMat: $('fechaGuiaMat').value || '',
-        fechaEmision: $('fechaEmision').value || todayKey(),
-        cotizacionNumero: String($('cotizacionNumero').value || '').trim().toUpperCase(),
-        cotizacionEstado: $('cotizacionEstado').value || '',
         folio: $('folio').value,
         area: $('area').value,
         maquina: $('maquina').value,
