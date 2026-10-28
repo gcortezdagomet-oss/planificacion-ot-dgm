@@ -4013,7 +4013,7 @@ html.dagomet-dark .badge-status.status-despachada { border-color: #1b5b55; backg
 }
 #tab-guias .guias-scroll tbody tr {
   display: grid !important; grid-template-columns: 1fr 1fr 1fr; align-items: center; gap: 9px 10px;
-  grid-template-areas: "cliente cliente estado" "cd fecha fecha" "emision cot cotest" "notas notas notas" "acc acc acc";
+  grid-template-areas: "cliente cliente estado" "cd fecha fecha" "area area area" "emision cot cotest" "notas notas notas" "acc acc acc";
   padding: 14px; border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 12px;
   background: var(--surface) !important; box-shadow: var(--shadow-sm);
 }
@@ -4037,6 +4037,8 @@ html.dagomet-dark .badge-status.status-despachada { border-color: #1b5b55; backg
 #tab-guias .guias-scroll tbody td:nth-child(2)::before { content: "REV. / CD"; }
 #tab-guias .guias-scroll tbody td:nth-child(3)::before { content: "Llegada"; }
 #tab-guias .guias-scroll tbody td:nth-child(4)::before { content: "Notas"; }
+#tab-guias .guias-scroll tbody td.g-area { grid-area: area; }
+#tab-guias .guias-scroll tbody td.g-area::before { content: "Área de la OP"; display: block; margin-bottom: 2px; font-size: .6rem; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--text-faint); }
 #tab-guias .guias-scroll tbody td.g-emision { grid-area: emision; }
 #tab-guias .guias-scroll tbody td.g-cot { grid-area: cot; }
 #tab-guias .guias-scroll tbody td.g-cotest { grid-area: cotest; }
@@ -5080,6 +5082,10 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           <div class="field">
             <label>REV. / CD *</label>
             <input type="text" id="guia-cd" placeholder="Ej: MAT DAGOMET" oninput="this.dataset.auto='0'" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>Área de la OP (Opcional)</label>
+            <select id="guia-area"></select>
           </div>
           <div class="field">
             <label>Fecha de Llegada del Material *</label>
@@ -7100,6 +7106,15 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         areaElem.innerHTML = '<option value="">-- Seleccione Área --</option>' +
           db.areas.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
         if (currentArea) areaElem.value = currentArea;
+      }
+
+      // Área opcional en el ingreso de guías: se arrastra a la OP al generarla.
+      const guiaAreaElem = $('guia-area');
+      if (guiaAreaElem) {
+        const currentGuiaArea = guiaAreaElem.value;
+        guiaAreaElem.innerHTML = '<option value="">-- Sin definir --</option>' +
+          db.areas.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
+        if (currentGuiaArea) guiaAreaElem.value = currentGuiaArea;
       }
       
       const maquinaElem = $('maquina');
@@ -11021,6 +11036,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('guia-cd').value = '';
       sugerirCDGuia({ force: true });
       $('guia-fecha').value = '';
+      if ($('guia-area')) $('guia-area').value = '';
       $('guia-cotizacion').value = '';
       $('guia-cotizacion-estado').value = '';
       $('guia-notas').value = '';
@@ -11042,6 +11058,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const notas = $('guia-notas').value.trim();
       const cotizacionNumero = $('guia-cotizacion').value.trim().toUpperCase();
       const cotizacionEstado = $('guia-cotizacion-estado').value || '';
+      const areaGuia = $('guia-area') ? ($('guia-area').value || '') : '';
       const editId = $('guia-edit-id').value;
 
       // No permitir el mismo CD dos veces (ignora mayúsculas, tildes y espacios).
@@ -11066,6 +11083,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           g.notas = notas;
           g.cotizacionNumero = cotizacionNumero;
           g.cotizacionEstado = cotizacionEstado;
+          g.area = areaGuia;
         }
       } else {
         db.guias.unshift({
@@ -11077,6 +11095,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           fechaEmision: '',
           cotizacionNumero,
           cotizacionEstado,
+          area: areaGuia,
           estado: 'PENDIENTE',
           opId: null,
           opNumero: null,
@@ -11099,6 +11118,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('guia-fecha').value = g.fecha;
       $('guia-cotizacion').value = g.cotizacionNumero || '';
       $('guia-cotizacion-estado').value = g.cotizacionEstado || '';
+      if ($('guia-area')) $('guia-area').value = g.area || '';
       $('guia-notas').value = g.notas || '';
       $('guia-form-title').innerText = 'Editando Guía';
       $('guia-save-btn').innerText = '💾 Guardar Cambios';
@@ -11140,6 +11160,12 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('folio').value = g.cd;
       $('fechaGuiaMat').value = g.fecha;
       recalcularEntregaAutomatica();
+      // Si la guía trae área, se precarga en la OP y se dispara el mismo
+      // 'change' que al elegirla a mano (nota por defecto, bombeado, curvas).
+      if (g.area && db.areas.includes(g.area)) {
+        $('area').value = g.area;
+        $('area').dispatchEvent(new Event('change'));
+      }
       if (g.notas) cargarInstruccionesForm(g.notas);
       guiaVinculadaId = g.id;
 
@@ -11168,7 +11194,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         const cd = normalizeStr(g.cd);
         const notas = normalizeStr(g.notas);
         const cot = normalizeStr(g.cotizacionNumero);
-        return cli.includes(query) || cd.includes(query) || notas.includes(query) || cot.includes(query);
+        const areaG = normalizeStr(g.area);
+        return cli.includes(query) || cd.includes(query) || notas.includes(query) || cot.includes(query) || areaG.includes(query);
       };
 
       const guiasConQuery = db.guias.filter(matchesQuery);
@@ -11220,6 +11247,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
               ? `<span class="badge-status status-terminada">HECHA${g.opNumero ? ' · OP ' + esc(g.opNumero) : ''}</span>`
               : `<span class="badge-status status-en-pausa">PENDIENTE</span>`}
             </td>
+            <td class="g-area">${g.area ? `<b>${esc(g.area)}</b>` : '<span style="color:var(--text-faint);">-</span>'}</td>
             <td class="g-emision">${fechaEmisionGuia(g) ? formatDateStandard(fechaEmisionGuia(g)) : '-'}</td>
             <td class="g-cot">${g.cotizacionNumero ? `<b>${esc(g.cotizacionNumero)}</b>` : '<span style="color:var(--text-faint);">-</span>'}</td>
             <td class="g-cotest">${g.cotizacionEstado === 'COTIZADO'
@@ -14799,6 +14827,21 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         </div>
       ` : '';
 
+      // Solo para CORTE DE PLANCHAS: recuadro amplio para que el maestro anote
+      // si quedó material sobrante del corte (medidas, cantidad, calidad).
+      const sobranteCorteHtml = areaUpper.includes('CORTE DE PLANCHAS') ? `
+        <div style="border: 2px solid #263581; border-radius: 8px; overflow: hidden; background: #ffffff;">
+          <div style="background: #263581; color: #ffffff; padding: 6px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;">
+            <span>Material sobrante del corte</span>
+            <span style="font-weight: 700; letter-spacing: 0.3px;">&#9744; SIN SOBRANTE &nbsp;&nbsp; &#9744; CON SOBRANTE</span>
+          </div>
+          <div style="padding: 8px 14px 0; font-size: 9px; color: #64748b; font-weight: 600;">
+            Anotar medidas (largo x ancho), espesor, calidad, cantidad de retazos y colada.
+          </div>
+          <div style="height: 120px;"></div>
+        </div>
+      ` : '';
+
       // El contacto ya no se muestra aquí: es información interna que vive en
       // la tabla de OP (ícono 📞 junto al cliente), no en el documento.
 
@@ -14906,6 +14949,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         </div>
 
         ${notaHtml}
+
+        ${sobranteCorteHtml}
 
         <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; padding-top: 4px;">
           ${buildLiberarFooterBlockHtml(o)}
