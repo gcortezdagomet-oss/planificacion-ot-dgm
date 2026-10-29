@@ -6864,6 +6864,17 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
 
     // Construye el bloque (fuera del documento imprimible, marcado no-print)
     // con los adjuntos de la OP para que se puedan ver desde la vista previa.
+    function buildDocAsignacionPreviewBlock(o) {
+      const trab = nombreSinCargo(o.asigTrabajador || '');
+      const por = o.asigPor || '';
+      const wrap = document.createElement('div');
+      wrap.className = 'no-print';
+      wrap.style.cssText = 'width:100%; max-width:900px; margin-bottom:14px; padding:12px 16px; background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; display:flex; flex-wrap:wrap; gap:24px; align-items:center;';
+      const celda = (titulo, valor) => `<div><div style="font-size:.68rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px;">${titulo}</div><div style="font-size:.95rem; font-weight:800; color:${valor ? '#263581' : '#94a3b8'}; margin-top:2px;">${valor ? esc(valor) : 'Sin asignar'}</div></div>`;
+      wrap.innerHTML = `<div style="font-size:.78rem; font-weight:800; color:#263581; text-transform:uppercase; letter-spacing:.3px;">Asignación de OP</div>` + celda('Trabajador asignado', trab) + celda('Pasada por', por);
+      return wrap;
+    }
+
     function buildDocAdjuntosPreviewBlock(o) {
       const adjuntos = o && o.documentosAdjuntos;
       const idsConArchivos = DOC_ATTACH_IDS.filter(id => adjuntos && (adjuntos[id] || []).length);
@@ -15476,6 +15487,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       previewContainer.style.flexDirection = 'column';
       previewContainer.innerHTML = '';
       
+      previewContainer.appendChild(buildDocAsignacionPreviewBlock(o));
       const docElement = buildDocumentDOM(o);
       docElement.style.boxShadow = 'none';
       previewContainer.appendChild(docElement);
