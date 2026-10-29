@@ -4638,7 +4638,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     <div class="nav-tabs" id="main-nav-tabs">
       <button class="tab-btn" data-tab-id="tab-form" onclick="switchTab('tab-form')">Formulario OP</button>
       <button class="tab-btn active" data-tab-id="tab-list" onclick="switchTab('tab-list')">Historial de OPs</button>
-      <button class="tab-btn allow-read-only" data-tab-id="tab-asignaciones" onclick="switchTab('tab-asignaciones')">Asignación de OP</button>
+      <button class="tab-btn" data-tab-id="tab-asignaciones" onclick="switchTab('tab-asignaciones')">Asignación de OP</button>
       <button class="tab-btn" data-tab-id="tab-guias" onclick="switchTab('tab-guias')" title="Guías de Material"><svg class="nav-icon" aria-hidden="true"><use href="#ico-package"/></svg> Guías</button>
       <button class="tab-btn" data-tab-id="tab-calendar" onclick="switchTab('tab-calendar')"><svg class="nav-icon" aria-hidden="true"><use href="#ico-calendar"/></svg> Calendario</button>
       <button class="tab-btn" data-tab-id="tab-planta" onclick="switchTab('tab-planta')" title="Vista de Planta"><svg class="nav-icon" aria-hidden="true"><use href="#ico-monitor"/></svg> Planta</button>
@@ -5784,8 +5784,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       // esa lista manda por sobre las reglas por rol de más abajo (excepto
       // para admin, que siempre ve todo).
       const pestanasPersonalizadas = profile?.rol!=='admin' && Array.isArray(profile?.pestanas_permitidas) && profile.pestanas_permitidas.length>0
-        ? (isReadOnly && !profile.pestanas_permitidas.includes('tab-asignaciones')
-            ? [...profile.pestanas_permitidas, 'tab-asignaciones'] // la hoja de Asignación de OP siempre es visible para lectores
+        ? (isReadOnly ? profile.pestanas_permitidas.filter(t => t !== 'tab-asignaciones') // la hoja de Asignación de OP queda oculta para lectores
             : profile.pestanas_permitidas)
         : null;
 
@@ -5800,7 +5799,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         }
       } else if(isReadOnly){
         document.querySelectorAll('.tab-btn[data-tab-id]').forEach(btn=>{
-          const allowed=['tab-list','tab-asignaciones','tab-guias','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(btn.dataset.tabId);
+          const allowed=['tab-list','tab-guias','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(btn.dataset.tabId);
           btn.style.display=allowed?'':'none';
         });
         // Los usuarios de solo lectura parten siempre en Historial.
@@ -7174,7 +7173,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
 
     function switchTab(tabId) {
       if (window.dagometCurrentProfile?.rol === 'read_only' &&
-          !['tab-list','tab-asignaciones','tab-guias','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(tabId)) {
+          !['tab-list','tab-guias','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(tabId)) {
         tabId = 'tab-list';
       }
       if (tabId === 'tab-horas-extra' && window.dagometCurrentProfile?.rol !== 'admin' && window.dagometCurrentProfile?.rol !== 'read_only') {
