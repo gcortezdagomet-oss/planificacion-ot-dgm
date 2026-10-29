@@ -5776,7 +5776,9 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       // esa lista manda por sobre las reglas por rol de más abajo (excepto
       // para admin, que siempre ve todo).
       const pestanasPersonalizadas = profile?.rol!=='admin' && Array.isArray(profile?.pestanas_permitidas) && profile.pestanas_permitidas.length>0
-        ? profile.pestanas_permitidas
+        ? (isReadOnly && !profile.pestanas_permitidas.includes('tab-asignaciones')
+            ? [...profile.pestanas_permitidas, 'tab-asignaciones'] // la hoja de Asignación de OP siempre es visible para lectores
+            : profile.pestanas_permitidas)
         : null;
 
       if (pestanasPersonalizadas) {
