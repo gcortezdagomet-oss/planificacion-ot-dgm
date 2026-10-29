@@ -5549,6 +5549,15 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             </div>
             <ul id="list-people" style="padding-left: 18px; margin: 0; max-height: 150px; overflow-y: auto; font-size: 0.85rem;"></ul>
           </div>
+
+          <div style="background: var(--bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+            <label>Asignación de OP (Pasada por)</label>
+            <div style="display: flex; gap: 6px; margin: 8px 0;">
+              <input type="text" id="new-pasador" placeholder="Ej: Nombre Apellido">
+              <button class="btn btn-primary btn-sm" onclick="addMasterItem('pasadores', 'new-pasador')">+</button>
+            </div>
+            <ul id="list-pasadores" style="padding-left: 18px; margin: 0; max-height: 150px; overflow-y: auto; font-size: 0.85rem;"></ul>
+          </div>
         </div>
 
         <h3 style="margin-top: 25px;">Respaldo y Restauración</h3>
@@ -5925,6 +5934,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     const DAGOMET_TABS = [
       { id:'tab-form', label:'Formulario OP' },
       { id:'tab-list', label:'Historial de OPs' },
+      { id:'tab-asignaciones', label:'Asignación de OP' },
       { id:'tab-guias', label:'📦 Guías de Material' },
       { id:'tab-calendar', label:'📅 Calendario' },
       { id:'tab-planta', label:'🖥️ Vista de Planta' },
@@ -6147,6 +6157,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         'CARLOS RUIZ (MAESTRO)', 'MARCELO VALDES (MAESTRO)', 'JUAN PARRA (MAESTRO)', 'LUIS ÁVILA (AYUDANTE)', 'RENE MARTINEZ (MAESTRO)',
         'GABRIEL VARGAS (MAESTRO)', 'CRISTIAN ACEVEDO (CONDUCTOR)'
       ],
+      // Lista de "Asignación de OP" (quién pasó la OP): editable en Base de Datos > Otras Listas Maestras.
+      pasadores: ['Genesis Cortez', 'Bastian Zelada', 'Julian Neira'],
       ots: [],
       horasExtra: []
     };
@@ -6180,6 +6192,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     if (!Array.isArray(db.guias)) db.guias = [];
     if (!Array.isArray(db.horasExtra)) db.horasExtra = [];
     if (!Array.isArray(db.auditoria)) db.auditoria = [];
+    // Lista de "Asignación de OP" (quién pasó la OP): se agrega a las bases ya guardadas.
+    if (!Array.isArray(db.pasadores)) db.pasadores = ['Genesis Cortez', 'Bastian Zelada', 'Julian Neira'];
     // Área SOLDADURA: se agrega a las bases ya guardadas para poder crear OP de soldadura.
     if (Array.isArray(db.areas) && !db.areas.includes('SOLDADURA')) { db.areas.push('SOLDADURA'); saveDB(); }
 
@@ -7024,12 +7038,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     }
 
     // ===== Asignación de OP: tabla independiente para permitir edición limitada a lectores =====
-    function listaPersonasAsignacion() { return [...new Set((Array.isArray(db.people) ? db.people : []).map(n => String(n || '').trim()).filter(Boolean))]; }
-    function opcionesPersonasAsignacion(valor='', incluirVacio=true, textoVacio='— Seleccionar —') {
-      const personas = listaPersonasAsignacion();
-      const coincide = n => nombreSinCargo(n).toLocaleLowerCase('es') === nombreSinCargo(valor).toLocaleLowerCase('es');
-      return (incluirVacio ? `<option value="">${esc(textoVacio)}</option>` : '') + personas.map(n => `<option value="${esc(n)}" ${(n===valor || (valor && coincide(n)))?'selected':''}>${esc(nombreSinCargo(n))}</option>`).join('');
-    }
+    const ASIG_PASADORES = ['Genesis Cortez', 'Bastian Zelada', 'Julian Neira'];
     let asignacionesOP = {};
     let asignacionesCargadas = false;
     let asignacionesCargaEnCurso = null;
@@ -7037,9 +7046,26 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const e = String(op?.estadoOp || 'EN CURSO').trim().toUpperCase();
       return !['TERMINADA','DESPACHADA','ANULADA'].includes(e);
     }
+    // Lista "Pasada por": se administra en Base de Datos (db.pasadores), igual que el Personal.
+    function listaPasadores() {
+      if (!Array.isArray(db.pasadores)) db.pasadores = ASIG_PASADORES.slice();
+      return db.pasadores;
+    }
+    // Trabajadores de la hoja: solo nombre y apellido (sin el cargo entre paréntesis).
+    function trabajadoresAsignables() {
+      const lista = Array.isArray(db.people) ? db.people : [];
+      return [...new Set(lista.map(n => nombreSinCargo(n)).filter(Boolean))];
+    }
     function opcionesTrabajadores(valor='') {
-      const trabajadores = Array.isArray(db.people) ? db.people : [];
-      return '<option value="">— Sin asignar —</option>' + trabajadores.map(n => `<option value="${esc(n)}" ${(n===valor || (valor && nombreSinCargo(n).toLocaleLowerCase('es')===nombreSinCargo(valor).toLocaleLowerCase('es'))) ? 'selected' : ''}>${esc(nombreSinCargo(n))}</option>`).join('');
+      const actual = nombreSinCargo(valor);
+      const nombres = trabajadoresAsignables();
+      if (actual && !nombres.includes(actual)) nombres.push(actual); // conserva una asignación antigua aunque ya no esté en la lista
+      return '<option value="">— Sin asignar —</option>' + nombres.map(n => `<option value="${esc(n)}" ${n===actual?'selected':''}>${esc(n)}</option>`).join('');
+    }
+    function opcionesPasadores(valor='') {
+      const nombres = listaPasadores().slice();
+      if (valor && !nombres.includes(valor)) nombres.push(valor);
+      return '<option value="">— Seleccionar —</option>' + nombres.map(n => `<option value="${esc(n)}" ${n===valor?'selected':''}>${esc(n)}</option>`).join('');
     }
     async function cargarAsignacionesOP() {
       if (asignacionesCargaEnCurso) return asignacionesCargaEnCurso;
@@ -7061,37 +7087,38 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     function renderAsignacionesOP() {
       const tbody=$('asig-table-body'); if(!tbody) return;
       const q=normalizeStr($('asig-search')?.value||'');
-      const worker=$('asig-filter-worker')?.value||'';
-      const pasador=$('asig-filter-pasador')?.value||'';
-      const selectPasador=$('asig-filter-pasador');
-      if(selectPasador) {
-        const prevPasador=selectPasador.value;
-        selectPasador.innerHTML='<option value="">Todos</option>'+listaPersonasAsignacion().map(n=>`<option value="${esc(n)}">${esc(nombreSinCargo(n))}</option>`).join('');
-        selectPasador.value=listaPersonasAsignacion().includes(prevPasador)?prevPasador:'';
-      }
       const select=$('asig-filter-worker');
       if(select) {
         const prev=select.value;
-        const names=Array.isArray(db.people)?db.people:[];
-        select.innerHTML='<option value="">Todos</option>'+names.map(n=>`<option value="${esc(n)}">${esc(nombreSinCargo(n))}</option>`).join('');
+        const names=trabajadoresAsignables();
+        select.innerHTML='<option value="">Todos</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
         select.value=names.includes(prev)?prev:'';
       }
+      const selectPas=$('asig-filter-pasador');
+      if(selectPas) {
+        const prevPas=selectPas.value;
+        const pas=listaPasadores();
+        selectPas.innerHTML='<option value="">Todos</option>'+pas.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+        selectPas.value=pas.includes(prevPas)?prevPas:'';
+      }
+      const worker=$('asig-filter-worker')?.value||'';
+      const pasador=$('asig-filter-pasador')?.value||'';
       const ops=(db.ots||[]).filter(estadoOPActiva).filter(o=>{
         const a=asignacionesOP[String(o.id)]||{};
         const haystack=normalizeStr([o.numero,o.parteOp,o.cliente,o.area,o.estadoOp].join(' '));
-        return (!q||haystack.includes(q))&&(!worker||nombreSinCargo(a.trabajador||'').toLocaleLowerCase('es')===nombreSinCargo(worker).toLocaleLowerCase('es'))&&(!pasador||nombreSinCargo(a.asignado_por||'').toLocaleLowerCase('es')===nombreSinCargo(pasador).toLocaleLowerCase('es'));
+        return (!q||haystack.includes(q))&&(!worker||nombreSinCargo(a.trabajador)===worker)&&(!pasador||a.asignado_por===pasador);
       }).sort((a,b)=>String(a.entrega||'').localeCompare(String(b.entrega||'')));
       if(!ops.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px">No hay OP activas que coincidan con los filtros.</td></tr>';return;}
       tbody.innerHTML=ops.map(o=>{const a=asignacionesOP[String(o.id)]||{};return `<tr>
         <td><strong>${esc(o.numero||'—')}</strong></td><td>${esc(o.parteOp||'—')}</td><td>${esc(o.cliente||'—')}</td><td>${esc(o.area||'—')}</td><td>${getStatusBadge(o.estadoOp)}</td><td>${esc(o.entrega||'—')}</td>
         <td><select aria-label="Trabajador para OP ${esc(o.numero||'')}" id="asig-worker-${esc(o.id)}">${opcionesTrabajadores(a.trabajador||'')}</select></td>
-        <td><select aria-label="Quién pasó la OP ${esc(o.numero||'')}" id="asig-pasador-${esc(o.id)}">${opcionesPersonasAsignacion(a.asignado_por||'', true, '— Seleccionar —')}</select></td>
+        <td><select aria-label="Quién pasó la OP ${esc(o.numero||'')}" id="asig-pasador-${esc(o.id)}">${opcionesPasadores(a.asignado_por||'')}</select></td>
         <td><button type="button" class="btn btn-primary btn-sm allow-read-only" onclick="guardarAsignacionOP('${String(o.id).replace(/'/g,"\'")}')">Guardar</button></td></tr>`;}).join('');
       const st=$('asig-status'); if(st) st.textContent=`${ops.length} OP activas · Las asignaciones se guardan separadas del registro principal de OP.`;
     }
     async function guardarAsignacionOP(id) {
       const op=(db.ots||[]).find(o=>String(o.id)===String(id)); if(!op) return;
-      const trabajador=$('asig-worker-'+id)?.value||'';
+      const trabajador=nombreSinCargo($('asig-worker-'+id)?.value||'');
       const pasador=$('asig-pasador-'+id)?.value||'';
       if(!pasador){alert('Selecciona quién pasó la OP.');return;}
       const sb=window.dagometSupabase;
@@ -14351,6 +14378,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       renderList('list-areas', 'areas');
       renderList('list-machines', 'machines');
       renderList('list-people', 'people');
+      listaPasadores();
+      renderList('list-pasadores', 'pasadores');
     }
 
     function addClientItem() {
@@ -14424,11 +14453,13 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     function addMasterItem(key, inputId) {
       const val = $(inputId).value.trim();
       if (!val) return;
+      if (!Array.isArray(db[key])) db[key] = [];
       if (!db[key].includes(val)) {
         db[key].push(val);
         saveDB();
         loadSelects();
         renderMasterLists();
+        if (key === 'people' || key === 'pasadores') renderAsignacionesOP();
       }
       $(inputId).value = '';
     }
@@ -14439,6 +14470,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         saveDB();
         loadSelects();
         renderMasterLists();
+        if (key === 'people' || key === 'pasadores') renderAsignacionesOP();
       }
     }
 
@@ -15559,6 +15591,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             // La antigua lista de 'materiales frecuentes' queda eliminada: el único catálogo válido es catalogoMateriales.
     if (Object.prototype.hasOwnProperty.call(db, 'commonMaterials')) { delete db.commonMaterials; saveDB(); }
             if(!Array.isArray(db.pesosMateriales)) db.pesosMateriales = null;
+            if (!Array.isArray(db.pasadores)) db.pasadores = ['Genesis Cortez', 'Bastian Zelada', 'Julian Neira'];
             if (Array.isArray(db.areas) && !db.areas.includes('SOLDADURA')) db.areas.push('SOLDADURA');
             ensureOPOrder();
             saveDB();
