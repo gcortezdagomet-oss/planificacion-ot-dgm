@@ -7070,23 +7070,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       if (valor && !nombres.includes(valor)) nombres.push(valor);
       return '<option value="">— Seleccionar —</option>' + nombres.map(n => `<option value="${esc(n)}" ${n===valor?'selected':''}>${esc(n)}</option>`).join('');
     }
-    async function cargarAsignacionesOP() {
-      if (asignacionesCargaEnCurso) return asignacionesCargaEnCurso;
-      asignacionesCargaEnCurso = (async () => {
-        const sb = window.dagometSupabase;
-        if (!sb || !window.dagometCurrentUser) { asignacionesCargadas=true; return; }
-        const {data,error} = await sb.from('op_asignaciones').select('op_id,numero_op,trabajador,asignado_por,updated_at');
-        if (error) {
-          console.error('No se pudieron cargar las asignaciones:', error);
-          const st=$('asig-status'); if(st) st.textContent='No se pudo leer la tabla op_asignaciones. Verifica que hayas ejecutado el SQL de configuración en Supabase.';
-          return;
-        }
-        asignacionesOP = {};
-        (data||[]).forEach(a => { asignacionesOP[String(a.op_id)] = a; });
-        asignacionesCargadas=true;
-      })();
-      try { await asignacionesCargaEnCurso; } finally { asignacionesCargaEnCurso=null; }
-    }
+    async function cargarAsignacionesOP() { asignacionesCargadas=true; } // las asignaciones viven dentro de cada OP
     function renderAsignacionesOP() {
       const tbody=$('asig-table-body'); if(!tbody) return;
       const q=normalizeStr($('asig-search')?.value||'');
@@ -7107,13 +7091,13 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const worker=$('asig-filter-worker')?.value||'';
       const pasador=$('asig-filter-pasador')?.value||'';
       const ops=(db.ots||[]).filter(estadoOPActiva).filter(o=>{
-        const a=asignacionesOP[String(o.id)]||{};
+        const a={trabajador:o.asigTrabajador||'',asignado_por:o.asigPor||''};
         const haystack=normalizeStr([o.numero,o.parteOp,o.cliente,o.area,o.estadoOp].join(' '));
         return (!q||haystack.includes(q))&&(!worker||nombreSinCargo(a.trabajador)===worker)&&(!pasador||a.asignado_por===pasador);
       }).sort((a,b)=>String(a.entrega||'').localeCompare(String(b.entrega||'')));
       if(!ops.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px">No hay OP activas que coincidan con los filtros.</td></tr>';return;}
       const puedeEditarAsig = window.dagometCurrentProfile?.rol==='admin';
-      tbody.innerHTML=ops.map(o=>{const a=asignacionesOP[String(o.id)]||{};return `<tr>
+      tbody.innerHTML=ops.map(o=>{const a={trabajador:o.asigTrabajador||'',asignado_por:o.asigPor||''};return `<tr>
         <td><strong>${esc(o.numero||'—')}</strong></td><td>${esc(o.parteOp||'—')}</td><td>${esc(o.cliente||'—')}</td><td>${esc(o.area||'—')}</td><td>${getStatusBadge(o.estadoOp)}</td><td>${esc(o.entrega||'—')}</td>
         <td><select aria-label="Trabajador para OP ${esc(o.numero||'')}" id="asig-worker-${esc(o.id)}" ${puedeEditarAsig?'':'disabled'}>${opcionesTrabajadores(a.trabajador||'')}</select></td>
         <td><select aria-label="Quién pasó la OP ${esc(o.numero||'')}" id="asig-pasador-${esc(o.id)}" ${puedeEditarAsig?'':'disabled'}>${opcionesPasadores(a.asignado_por||'')}</select></td>
@@ -7126,19 +7110,12 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const trabajador=nombreSinCargo($('asig-worker-'+id)?.value||'');
       const pasador=$('asig-pasador-'+id)?.value||'';
       if(!pasador){alert('Selecciona quién pasó la OP.');return;}
-      const sb=window.dagometSupabase;
-      if(!sb||!window.dagometCurrentUser){alert('Debes iniciar sesión para guardar la asignación.');return;}
-      const payload={op_id:String(op.id),numero_op:String(op.numero||''),trabajador:trabajador||null,asignado_por:pasador,updated_at:new Date().toISOString(),updated_by:window.dagometCurrentUser.id};
-      const btn=document.querySelector(`button[onclick="guardarAsignacionOP('${String(id).replace(/'/g,"\'")}')"]`);
-      if(btn){btn.disabled=true;btn.textContent='Guardando…';}
-      try {
-        const {data,error}=await sb.from('op_asignaciones').upsert(payload,{onConflict:'op_id'}).select('op_id,numero_op,trabajador,asignado_por,updated_at').single();
-        if(error) throw error;
-        asignacionesOP[String(op.id)]=data;
-        renderAsignacionesOP();
-        const st=$('asig-status'); if(st) st.textContent=`Asignación de OP ${op.numero||''} guardada correctamente.`;
-      } catch(e) { console.error(e); alert('No se pudo guardar la asignación. Verifica que ejecutaste el SQL y las políticas de acceso en Supabase.'); }
-      finally { if(btn){btn.disabled=false;btn.textContent='Guardar';} }
+      op.asigTrabajador=trabajador||'';
+      op.asigPor=pasador;
+      const ok=await saveDBAndWait();
+      renderAsignacionesOP();
+      const st=$('asig-status');
+      if(st) st.textContent= ok ? `Asignación de OP ${op.numero||''} guardada correctamente.` : 'No se pudo guardar en la nube; quedó en este dispositivo y se reintentará.';
     }
 
     // Actualización en vivo de la hoja "Asignación de OP" para lectores/editores:
@@ -9078,7 +9055,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           // saveOP reconstruye la OP desde el formulario: se conserva la marca de aviso de término.
           // También los datos y fotos de liberación (QR del trabajador y manuales).
           const prevOP = db.ots[idx] || {};
-          ['avisoTermino', 'liberadoPor', 'liberadoEn', 'fotosLiberacionPaths', 'fotoLiberacionPath', 'fotosLiberacionManual', 'entregaOriginal', 'historialEntrega']
+          ['avisoTermino', 'liberadoPor', 'liberadoEn', 'fotosLiberacionPaths', 'fotoLiberacionPath', 'fotosLiberacionManual', 'entregaOriginal', 'historialEntrega', 'asigTrabajador', 'asigPor']
             .forEach(k => { if (prevOP[k] !== undefined) opData[k] = prevOP[k]; });
           db.ots[idx] = opData;
         }
