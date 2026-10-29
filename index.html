@@ -2110,6 +2110,11 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 }
 
 
+  
+    .tabla-asignaciones select { min-width:150px; padding:7px 8px; }
+    .tabla-asignaciones td { vertical-align:middle; }
+    @media(max-width:900px){ .tabla-asignaciones{min-width:980px;} }
+
   </style>
 
     <style>
@@ -4626,6 +4631,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     <div class="nav-tabs" id="main-nav-tabs">
       <button class="tab-btn" data-tab-id="tab-form" onclick="switchTab('tab-form')">Formulario OP</button>
       <button class="tab-btn active" data-tab-id="tab-list" onclick="switchTab('tab-list')">Historial de OPs</button>
+      <button class="tab-btn allow-read-only" data-tab-id="tab-asignaciones" onclick="switchTab('tab-asignaciones')">Asignación de OP</button>
       <button class="tab-btn" data-tab-id="tab-guias" onclick="switchTab('tab-guias')" title="Guías de Material"><svg class="nav-icon" aria-hidden="true"><use href="#ico-package"/></svg> Guías</button>
       <button class="tab-btn" data-tab-id="tab-calendar" onclick="switchTab('tab-calendar')"><svg class="nav-icon" aria-hidden="true"><use href="#ico-calendar"/></svg> Calendario</button>
       <button class="tab-btn" data-tab-id="tab-planta" onclick="switchTab('tab-planta')" title="Vista de Planta"><svg class="nav-icon" aria-hidden="true"><use href="#ico-monitor"/></svg> Planta</button>
@@ -5286,6 +5292,24 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       </div>
     </div>
 
+    <!-- NUEVA HOJA: ASIGNACIÓN DE OP -->
+    <div id="tab-asignaciones" class="tab-content">
+      <div class="card">
+        <h2>Asignación de OP en curso</h2>
+        <p style="color:var(--text-muted);margin-top:-10px">Asigna un trabajador y registra quién entregó/pasó la OP. Los cambios de esta hoja no modifican el resto de la orden.</p>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));align-items:end">
+          <div class="field"><label for="asig-search">Buscar OP</label><input id="asig-search" type="search" placeholder="N° OP, cliente o parte" oninput="renderAsignacionesOP()"></div>
+          <div class="field"><label for="asig-filter-worker">Trabajador asignado</label><select id="asig-filter-worker" onchange="renderAsignacionesOP()"><option value="">Todos</option></select></div>
+          <div class="field"><label for="asig-filter-pasador">Pasada por</label><select id="asig-filter-pasador" onchange="renderAsignacionesOP()"><option value="">Todos</option><option>Genesis Cortez</option><option>Bastian Zelada</option><option>Julian Neira</option></select></div>
+        </div>
+        <div id="asig-status" role="status" style="font-size:.8rem;color:var(--text-muted);margin:8px 0"></div>
+        <div class="table-scroll" style="overflow-x:auto"><table class="tabla-asignaciones">
+          <thead><tr><th>N° OP</th><th>Parte / trabajo</th><th>Cliente</th><th>Área</th><th>Estado</th><th>Entrega</th><th>Trabajador asignado</th><th>Pasada por</th><th>Acción</th></tr></thead>
+          <tbody id="asig-table-body"><tr><td colspan="9">Cargando asignaciones…</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
     <!-- TAB 3: DASHBOARD Y ESTADÍSTICAS -->
     <div id="tab-stats" class="tab-content">
       <div class="card">
@@ -5757,7 +5781,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         }
       } else if(isReadOnly){
         document.querySelectorAll('.tab-btn[data-tab-id]').forEach(btn=>{
-          const allowed=['tab-list','tab-guias','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(btn.dataset.tabId);
+          const allowed=['tab-list','tab-asignaciones','tab-guias','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(btn.dataset.tabId);
           btn.style.display=allowed?'':'none';
         });
         // Los usuarios de solo lectura parten siempre en Historial.
@@ -6999,9 +7023,84 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       return dateStr;
     }
 
+    // ===== Asignación de OP: tabla independiente para permitir edición limitada a lectores =====
+    const ASIG_PASADORES = ['Genesis Cortez', 'Bastian Zelada', 'Julian Neira'];
+    let asignacionesOP = {};
+    let asignacionesCargadas = false;
+    let asignacionesCargaEnCurso = null;
+    function estadoOPActiva(op) {
+      const e = String(op?.estadoOp || 'EN CURSO').trim().toUpperCase();
+      return !['TERMINADA','DESPACHADA','ANULADA'].includes(e);
+    }
+    function opcionesTrabajadores(valor='') {
+      const trabajadores = Array.isArray(db.people) ? db.people : [];
+      return '<option value="">— Sin asignar —</option>' + trabajadores.map(n => `<option value="${esc(n)}" ${n===valor?'selected':''}>${esc(n)}</option>`).join('');
+    }
+    async function cargarAsignacionesOP() {
+      if (asignacionesCargaEnCurso) return asignacionesCargaEnCurso;
+      asignacionesCargaEnCurso = (async () => {
+        const sb = window.dagometSupabase;
+        if (!sb || !window.dagometCurrentUser) { asignacionesCargadas=true; return; }
+        const {data,error} = await sb.from('op_asignaciones').select('op_id,numero_op,trabajador,asignado_por,updated_at');
+        if (error) {
+          console.error('No se pudieron cargar las asignaciones:', error);
+          const st=$('asig-status'); if(st) st.textContent='No se pudo leer la tabla op_asignaciones. Verifica que hayas ejecutado el SQL de configuración en Supabase.';
+          return;
+        }
+        asignacionesOP = {};
+        (data||[]).forEach(a => { asignacionesOP[String(a.op_id)] = a; });
+        asignacionesCargadas=true;
+      })();
+      try { await asignacionesCargaEnCurso; } finally { asignacionesCargaEnCurso=null; }
+    }
+    function renderAsignacionesOP() {
+      const tbody=$('asig-table-body'); if(!tbody) return;
+      const q=normalizeStr($('asig-search')?.value||'');
+      const worker=$('asig-filter-worker')?.value||'';
+      const pasador=$('asig-filter-pasador')?.value||'';
+      const select=$('asig-filter-worker');
+      if(select) {
+        const prev=select.value;
+        const names=Array.isArray(db.people)?db.people:[];
+        select.innerHTML='<option value="">Todos</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+        select.value=names.includes(prev)?prev:'';
+      }
+      const ops=(db.ots||[]).filter(estadoOPActiva).filter(o=>{
+        const a=asignacionesOP[String(o.id)]||{};
+        const haystack=normalizeStr([o.numero,o.parteOp,o.cliente,o.area,o.estadoOp].join(' '));
+        return (!q||haystack.includes(q))&&(!worker||a.trabajador===worker)&&(!pasador||a.asignado_por===pasador);
+      }).sort((a,b)=>String(a.entrega||'').localeCompare(String(b.entrega||'')));
+      if(!ops.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px">No hay OP activas que coincidan con los filtros.</td></tr>';return;}
+      tbody.innerHTML=ops.map(o=>{const a=asignacionesOP[String(o.id)]||{};return `<tr>
+        <td><strong>${esc(o.numero||'—')}</strong></td><td>${esc(o.parteOp||'—')}</td><td>${esc(o.cliente||'—')}</td><td>${esc(o.area||'—')}</td><td>${getStatusBadge(o.estadoOp)}</td><td>${esc(o.entrega||'—')}</td>
+        <td><select aria-label="Trabajador para OP ${esc(o.numero||'')}" id="asig-worker-${esc(o.id)}">${opcionesTrabajadores(a.trabajador||'')}</select></td>
+        <td><select aria-label="Quién pasó la OP ${esc(o.numero||'')}" id="asig-pasador-${esc(o.id)}"><option value="">— Seleccionar —</option>${ASIG_PASADORES.map(n=>`<option value="${n}" ${a.asignado_por===n?'selected':''}>${n}</option>`).join('')}</select></td>
+        <td><button type="button" class="btn btn-primary btn-sm allow-read-only" onclick="guardarAsignacionOP('${String(o.id).replace(/'/g,"\'")}')">Guardar</button></td></tr>`;}).join('');
+      const st=$('asig-status'); if(st) st.textContent=`${ops.length} OP activas · Las asignaciones se guardan separadas del registro principal de OP.`;
+    }
+    async function guardarAsignacionOP(id) {
+      const op=(db.ots||[]).find(o=>String(o.id)===String(id)); if(!op) return;
+      const trabajador=$('asig-worker-'+id)?.value||'';
+      const pasador=$('asig-pasador-'+id)?.value||'';
+      if(!pasador){alert('Selecciona quién pasó la OP (Genesis Cortez, Bastian Zelada o Julian Neira).');return;}
+      const sb=window.dagometSupabase;
+      if(!sb||!window.dagometCurrentUser){alert('Debes iniciar sesión para guardar la asignación.');return;}
+      const payload={op_id:String(op.id),numero_op:String(op.numero||''),trabajador:trabajador||null,asignado_por:pasador,updated_at:new Date().toISOString(),updated_by:window.dagometCurrentUser.id};
+      const btn=document.querySelector(`button[onclick="guardarAsignacionOP('${String(id).replace(/'/g,"\'")}')"]`);
+      if(btn){btn.disabled=true;btn.textContent='Guardando…';}
+      try {
+        const {data,error}=await sb.from('op_asignaciones').upsert(payload,{onConflict:'op_id'}).select('op_id,numero_op,trabajador,asignado_por,updated_at').single();
+        if(error) throw error;
+        asignacionesOP[String(op.id)]=data;
+        renderAsignacionesOP();
+        const st=$('asig-status'); if(st) st.textContent=`Asignación de OP ${op.numero||''} guardada correctamente.`;
+      } catch(e) { console.error(e); alert('No se pudo guardar la asignación. Verifica que ejecutaste el SQL y las políticas de acceso en Supabase.'); }
+      finally { if(btn){btn.disabled=false;btn.textContent='Guardar';} }
+    }
+
     function switchTab(tabId) {
       if (window.dagometCurrentProfile?.rol === 'read_only' &&
-          !['tab-list','tab-guias','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(tabId)) {
+          !['tab-list','tab-asignaciones','tab-guias','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(tabId)) {
         tabId = 'tab-list';
       }
       if (tabId === 'tab-horas-extra' && window.dagometCurrentProfile?.rol !== 'admin' && window.dagometCurrentProfile?.rol !== 'read_only') {
@@ -7020,6 +7119,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       
       $(tabId).classList.add('active');
       if(tabId === 'tab-list') renderOPsTable();
+      if(tabId === 'tab-asignaciones') { cargarAsignacionesOP().then(renderAsignacionesOP); }
       if(tabId === 'tab-guias') renderGuiasTable();
       if(tabId === 'tab-stats') renderStats();
       if(tabId === 'tab-calendar') renderCalendarTab();
@@ -15571,11 +15671,12 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       // Solo lectura: bloquear edición, pero mantener operativos los controles
       // necesarios para consultar y generar/imprimir reportes, y también los
       // filtros de consulta del historial de OP (búsqueda y botones de plazo/soldadura).
-      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas):not(#he-report-from):not(#he-report-to):not(#search-op), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select):not(#trend-periodo):not(#he-report-worker):not(#cal-term-worker)').forEach(el => { el.disabled = true; });
+      document.querySelectorAll('#app-root input:not([type="hidden"]):not(#global-search-input):not(#stats-cliente-solo-activas):not(#he-report-from):not(#he-report-to):not(#search-op), #app-root textarea, #app-root select:not(#stats-periodo):not(#stats-estado):not(#stats-cliente-reporte-select):not(#trend-periodo):not(#he-report-worker):not(#cal-term-worker):not(#asig-search):not(#asig-filter-worker):not(#asig-filter-pasador):not([id^="asig-worker-"]):not([id^="asig-pasador-"])').forEach(el => { el.disabled = true; });
       document.querySelectorAll('#app-root button').forEach(btn => {
         const t=(btn.textContent||'').toLowerCase();
         const allow =
           btn.classList.contains('allow-read-only') ||
+          !!btn.closest('#tab-asignaciones') ||
           btn.classList.contains('tab-btn') ||
           btn.classList.contains('tv-control-btn') ||
           btn.classList.contains('deadline-filter-btn') ||
