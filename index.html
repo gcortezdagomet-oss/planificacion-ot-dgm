@@ -5300,7 +5300,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));align-items:end">
           <div class="field"><label for="asig-search">Buscar OP</label><input id="asig-search" type="search" placeholder="N° OP, cliente o parte" oninput="renderAsignacionesOP()"></div>
           <div class="field"><label for="asig-filter-worker">Trabajador asignado</label><select id="asig-filter-worker" onchange="renderAsignacionesOP()"><option value="">Todos</option></select></div>
-          <div class="field"><label for="asig-filter-pasador">Pasada por</label><select id="asig-filter-pasador" onchange="renderAsignacionesOP()"><option value="">Todos</option><option>Genesis Cortez</option><option>Bastian Zelada</option><option>Julian Neira</option></select></div>
+          <div class="field"><label for="asig-filter-pasador">Pasada por</label><select id="asig-filter-pasador" onchange="renderAsignacionesOP()"><option value="">Todos</option></select></div>
         </div>
         <div id="asig-status" role="status" style="font-size:.8rem;color:var(--text-muted);margin:8px 0"></div>
         <div class="table-scroll" style="overflow-x:auto"><table class="tabla-asignaciones">
@@ -7024,7 +7024,12 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     }
 
     // ===== Asignación de OP: tabla independiente para permitir edición limitada a lectores =====
-    const ASIG_PASADORES = ['Genesis Cortez', 'Bastian Zelada', 'Julian Neira'];
+    function listaPersonasAsignacion() { return [...new Set((Array.isArray(db.people) ? db.people : []).map(n => String(n || '').trim()).filter(Boolean))]; }
+    function opcionesPersonasAsignacion(valor='', incluirVacio=true, textoVacio='— Seleccionar —') {
+      const personas = listaPersonasAsignacion();
+      const coincide = n => nombreSinCargo(n).toLocaleLowerCase('es') === nombreSinCargo(valor).toLocaleLowerCase('es');
+      return (incluirVacio ? `<option value="">${esc(textoVacio)}</option>` : '') + personas.map(n => `<option value="${esc(n)}" ${(n===valor || (valor && coincide(n)))?'selected':''}>${esc(nombreSinCargo(n))}</option>`).join('');
+    }
     let asignacionesOP = {};
     let asignacionesCargadas = false;
     let asignacionesCargaEnCurso = null;
@@ -7034,7 +7039,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     }
     function opcionesTrabajadores(valor='') {
       const trabajadores = Array.isArray(db.people) ? db.people : [];
-      return '<option value="">— Sin asignar —</option>' + trabajadores.map(n => `<option value="${esc(n)}" ${n===valor?'selected':''}>${esc(n)}</option>`).join('');
+      return '<option value="">— Sin asignar —</option>' + trabajadores.map(n => `<option value="${esc(n)}" ${(n===valor || (valor && nombreSinCargo(n).toLocaleLowerCase('es')===nombreSinCargo(valor).toLocaleLowerCase('es'))) ? 'selected' : ''}>${esc(nombreSinCargo(n))}</option>`).join('');
     }
     async function cargarAsignacionesOP() {
       if (asignacionesCargaEnCurso) return asignacionesCargaEnCurso;
@@ -7058,23 +7063,29 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const q=normalizeStr($('asig-search')?.value||'');
       const worker=$('asig-filter-worker')?.value||'';
       const pasador=$('asig-filter-pasador')?.value||'';
+      const selectPasador=$('asig-filter-pasador');
+      if(selectPasador) {
+        const prevPasador=selectPasador.value;
+        selectPasador.innerHTML='<option value="">Todos</option>'+listaPersonasAsignacion().map(n=>`<option value="${esc(n)}">${esc(nombreSinCargo(n))}</option>`).join('');
+        selectPasador.value=listaPersonasAsignacion().includes(prevPasador)?prevPasador:'';
+      }
       const select=$('asig-filter-worker');
       if(select) {
         const prev=select.value;
         const names=Array.isArray(db.people)?db.people:[];
-        select.innerHTML='<option value="">Todos</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+        select.innerHTML='<option value="">Todos</option>'+names.map(n=>`<option value="${esc(n)}">${esc(nombreSinCargo(n))}</option>`).join('');
         select.value=names.includes(prev)?prev:'';
       }
       const ops=(db.ots||[]).filter(estadoOPActiva).filter(o=>{
         const a=asignacionesOP[String(o.id)]||{};
         const haystack=normalizeStr([o.numero,o.parteOp,o.cliente,o.area,o.estadoOp].join(' '));
-        return (!q||haystack.includes(q))&&(!worker||a.trabajador===worker)&&(!pasador||a.asignado_por===pasador);
+        return (!q||haystack.includes(q))&&(!worker||nombreSinCargo(a.trabajador||'').toLocaleLowerCase('es')===nombreSinCargo(worker).toLocaleLowerCase('es'))&&(!pasador||nombreSinCargo(a.asignado_por||'').toLocaleLowerCase('es')===nombreSinCargo(pasador).toLocaleLowerCase('es'));
       }).sort((a,b)=>String(a.entrega||'').localeCompare(String(b.entrega||'')));
       if(!ops.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px">No hay OP activas que coincidan con los filtros.</td></tr>';return;}
       tbody.innerHTML=ops.map(o=>{const a=asignacionesOP[String(o.id)]||{};return `<tr>
         <td><strong>${esc(o.numero||'—')}</strong></td><td>${esc(o.parteOp||'—')}</td><td>${esc(o.cliente||'—')}</td><td>${esc(o.area||'—')}</td><td>${getStatusBadge(o.estadoOp)}</td><td>${esc(o.entrega||'—')}</td>
         <td><select aria-label="Trabajador para OP ${esc(o.numero||'')}" id="asig-worker-${esc(o.id)}">${opcionesTrabajadores(a.trabajador||'')}</select></td>
-        <td><select aria-label="Quién pasó la OP ${esc(o.numero||'')}" id="asig-pasador-${esc(o.id)}"><option value="">— Seleccionar —</option>${ASIG_PASADORES.map(n=>`<option value="${n}" ${a.asignado_por===n?'selected':''}>${n}</option>`).join('')}</select></td>
+        <td><select aria-label="Quién pasó la OP ${esc(o.numero||'')}" id="asig-pasador-${esc(o.id)}">${opcionesPersonasAsignacion(a.asignado_por||'', true, '— Seleccionar —')}</select></td>
         <td><button type="button" class="btn btn-primary btn-sm allow-read-only" onclick="guardarAsignacionOP('${String(o.id).replace(/'/g,"\'")}')">Guardar</button></td></tr>`;}).join('');
       const st=$('asig-status'); if(st) st.textContent=`${ops.length} OP activas · Las asignaciones se guardan separadas del registro principal de OP.`;
     }
@@ -7082,7 +7093,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const op=(db.ots||[]).find(o=>String(o.id)===String(id)); if(!op) return;
       const trabajador=$('asig-worker-'+id)?.value||'';
       const pasador=$('asig-pasador-'+id)?.value||'';
-      if(!pasador){alert('Selecciona quién pasó la OP (Genesis Cortez, Bastian Zelada o Julian Neira).');return;}
+      if(!pasador){alert('Selecciona quién pasó la OP.');return;}
       const sb=window.dagometSupabase;
       if(!sb||!window.dagometCurrentUser){alert('Debes iniciar sesión para guardar la asignación.');return;}
       const payload={op_id:String(op.id),numero_op:String(op.numero||''),trabajador:trabajador||null,asignado_por:pasador,updated_at:new Date().toISOString(),updated_by:window.dagometCurrentUser.id};
