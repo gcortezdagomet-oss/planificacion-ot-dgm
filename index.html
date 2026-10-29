@@ -4005,6 +4005,13 @@ html.dagomet-dark .badge-status.status-despachada { border-color: #1b5b55; backg
 @media screen and (min-width: 1180px) {
   #tab-list .ops-scroll tbody { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.card-asignacion { margin-top:6px; padding:5px 9px; background:#eef2ff; border:1px solid #c7d2fe; border-radius:7px; font-size:.78rem; color:#263581; line-height:1.35; }
+.card-asignacion .card-asig-lbl { font-size:.6rem; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:#64748b; }
+.card-asignacion .card-asig-vacio { color:#94a3b8; font-weight:600; }
+.card-asignacion .card-asig-por { color:#64748b; font-size:.72rem; }
+html.dagomet-dark .card-asignacion { background:#1e2a4a; border-color:#34457a; color:#c7d2fe; }
+html.dagomet-dark .card-asignacion .card-asig-lbl, html.dagomet-dark .card-asignacion .card-asig-por { color:#94a3b8; }
+@media print { .card-asignacion { display:none !important; } }
 .sort-entrega-btn { font-size: .78rem; }
 
 /* ---------- Guias: tarjetas (mismo criterio que el Historial) ---------- */
@@ -9822,7 +9829,11 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <td>${getStatusBadge(o.estadoOp)}${getSoldaduraTrackBadge(o)}${getPauseDetails(o)}</td>
             <td><span class="history-planner">${esc(o.planificador||'GCC')}</span></td>
             <td>${esc(o.cliente)}${getContactoBadge(o)}</td>
-            <td>${o.area ? `<button type="button" class="dashboard-drill-link" onclick="filterHistoryByField('area','${String(o.area).replace(/'/g, "\\'")}')" title="Ver todas las OP de esta área">${esc(o.area)}</button>` : '<span class="area-sin-definir" title="Esta OP fue guardada sin Área. Edítala para asignarla.">Sin área</span>'}</td>
+            <td>${o.area ? `<button type="button" class="dashboard-drill-link" onclick="filterHistoryByField('area','${String(o.area).replace(/'/g, "\\'")}')" title="Ver todas las OP de esta área">${esc(o.area)}</button>` : '<span class="area-sin-definir" title="Esta OP fue guardada sin Área. Edítala para asignarla.">Sin área</span>'}${(() => {
+              const t = nombreSinCargo(o.asigTrabajador || '');
+              const por = o.asigPor || '';
+              return `<div class="card-asignacion" title="Asignación de OP"><span class="card-asig-lbl">Asignado a</span> <strong class="${t ? '' : 'card-asig-vacio'}">${t ? esc(t) : 'Sin asignar'}</strong>${por ? ` <span class="card-asig-por">· pasada por ${esc(por)}</span>` : ''}</div>`;
+            })()}</td>
             <td>${formatHistoryDelivery(o.entrega, o.estadoOp)}</td>
             <td>${getPriorityBadge(o.prioridad)}</td>
             <td class="col-soldadura" aria-hidden="true"></td>
