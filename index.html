@@ -6409,6 +6409,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       renderGuiasTable();
       try { sugerirCDGuia(); } catch (_) {}
       if (typeof renderOPsTable === 'function' && document.getElementById('tab-list')?.classList.contains('active')) renderOPsTable();
+      if (document.getElementById('tab-asignaciones')?.classList.contains('active') && window.dagometCurrentProfile?.rol !== 'admin') renderAsignacionesOP();
       mostrarAvisosLiberacionOP();
     }
 
@@ -7140,6 +7141,24 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       finally { if(btn){btn.disabled=false;btn.textContent='Guardar';} }
     }
 
+    // Actualización en vivo de la hoja "Asignación de OP" para lectores/editores:
+    // cada 15 s vuelve a leer op_asignaciones mientras la hoja está abierta y visible.
+    // El admin no la necesita (es quien escribe) y así no se le pisa lo que está eligiendo.
+    let asigPollTimer = null;
+    function iniciarPollingAsignaciones() {
+      if (asigPollTimer) return;
+      asigPollTimer = setInterval(async () => {
+        if (window.dagometCurrentProfile?.rol === 'admin') return;
+        if (document.visibilityState === 'hidden') return;
+        if (!document.getElementById('tab-asignaciones')?.classList.contains('active')) return;
+        try {
+          const antes = JSON.stringify(asignacionesOP);
+          await cargarAsignacionesOP();
+          if (JSON.stringify(asignacionesOP) !== antes) renderAsignacionesOP();
+        } catch (e) { console.error('Error al actualizar asignaciones:', e); }
+      }, 15000);
+    }
+
     function switchTab(tabId) {
       if (window.dagometCurrentProfile?.rol === 'read_only' &&
           !['tab-list','tab-asignaciones','tab-guias','tab-calendar','tab-planta','tab-stats','tab-horas-extra'].includes(tabId)) {
@@ -7161,7 +7180,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       
       $(tabId).classList.add('active');
       if(tabId === 'tab-list') renderOPsTable();
-      if(tabId === 'tab-asignaciones') { cargarAsignacionesOP().then(renderAsignacionesOP); }
+      if(tabId === 'tab-asignaciones') { cargarAsignacionesOP().then(renderAsignacionesOP); iniciarPollingAsignaciones(); }
       if(tabId === 'tab-guias') renderGuiasTable();
       if(tabId === 'tab-stats') renderStats();
       if(tabId === 'tab-calendar') renderCalendarTab();
