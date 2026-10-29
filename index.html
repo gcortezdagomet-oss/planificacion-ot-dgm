@@ -5301,6 +5301,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           <div class="field"><label for="asig-search">Buscar OP</label><input id="asig-search" type="search" placeholder="N° OP, cliente o parte" oninput="renderAsignacionesOP()"></div>
           <div class="field"><label for="asig-filter-worker">Trabajador asignado</label><select id="asig-filter-worker" onchange="renderAsignacionesOP()"><option value="">Todos</option></select></div>
           <div class="field"><label for="asig-filter-pasador">Pasada por</label><select id="asig-filter-pasador" onchange="renderAsignacionesOP()"><option value="">Todos</option></select></div>
+          <div class="field"><label for="asig-filter-estado">Estado</label><select id="asig-filter-estado" onchange="renderAsignacionesOP()"><option value="">Todos</option><option value="EN CURSO">EN CURSO</option><option value="EN PAUSA">EN PAUSA</option><option value="POR INSPECCIONAR">POR INSPECCIONAR</option></select></div>
         </div>
         <div id="asig-status" role="status" style="font-size:.8rem;color:var(--text-muted);margin:8px 0"></div>
         <div class="table-scroll" style="overflow-x:auto"><table class="tabla-asignaciones">
@@ -7090,10 +7091,11 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       }
       const worker=$('asig-filter-worker')?.value||'';
       const pasador=$('asig-filter-pasador')?.value||'';
+      const estadoSel=$('asig-filter-estado')?.value||'';
       const ops=(db.ots||[]).filter(estadoOPActiva).filter(o=>{
         const a={trabajador:o.asigTrabajador||'',asignado_por:o.asigPor||''};
         const haystack=normalizeStr([o.numero,o.parteOp,o.cliente,o.area,o.estadoOp].join(' '));
-        return (!q||haystack.includes(q))&&(!worker||nombreSinCargo(a.trabajador)===worker)&&(!pasador||a.asignado_por===pasador);
+        return (!q||haystack.includes(q))&&(!worker||nombreSinCargo(a.trabajador)===worker)&&(!pasador||a.asignado_por===pasador)&&(!estadoSel||String(o.estadoOp||'EN CURSO').trim().toUpperCase()===estadoSel);
       }).sort((a,b)=>String(a.entrega||'').localeCompare(String(b.entrega||'')));
       if(!ops.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px">No hay OP activas que coincidan con los filtros.</td></tr>';return;}
       const puedeEditarAsig = window.dagometCurrentProfile?.rol==='admin';
@@ -7101,7 +7103,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         <td><strong>${esc(o.numero||'—')}</strong></td><td>${esc(o.parteOp||'—')}</td><td>${esc(o.cliente||'—')}</td><td>${esc(o.area||'—')}</td><td>${getStatusBadge(o.estadoOp)}</td><td>${esc(o.entrega||'—')}</td>
         <td><select aria-label="Trabajador para OP ${esc(o.numero||'')}" id="asig-worker-${esc(o.id)}" ${puedeEditarAsig?'':'disabled'}>${opcionesTrabajadores(a.trabajador||'')}</select></td>
         <td><select aria-label="Quién pasó la OP ${esc(o.numero||'')}" id="asig-pasador-${esc(o.id)}" ${puedeEditarAsig?'':'disabled'}>${opcionesPasadores(a.asignado_por||'')}</select></td>
-        <td>${puedeEditarAsig?`<button type="button" class="btn btn-primary btn-sm" onclick="guardarAsignacionOP('${String(o.id).replace(/'/g,"\'")}')">Guardar</button>`:'<span style="color:var(--text-muted)">Solo lectura</span>'}</td></tr>`;}).join('');
+        <td>${puedeEditarAsig?`<button type="button" class="btn btn-primary btn-sm" onclick="guardarAsignacionOP('${String(o.id).replace(/'/g,"\'")}')">Guardar</button> <button type="button" class="btn btn-sm" style="background:#15803d;color:#fff;margin-left:4px" onclick="terminarOPDesdeAsignacion('${String(o.id).replace(/'/g,"\\'")}')">Terminar</button>`:'<span style="color:var(--text-muted)">Solo lectura</span>'}</td></tr>`;}).join('');
       const st=$('asig-status'); if(st) st.textContent=`${ops.length} OP activas · Las asignaciones se guardan separadas del registro principal de OP.`;
     }
     async function guardarAsignacionOP(id) {
@@ -7116,6 +7118,22 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       renderAsignacionesOP();
       const st=$('asig-status');
       if(st) st.textContent= ok ? `Asignación de OP ${op.numero||''} guardada correctamente.` : 'No se pudo guardar en la nube; quedó en este dispositivo y se reintentará.';
+    }
+
+    async function terminarOPDesdeAsignacion(id) {
+      if(window.dagometCurrentProfile?.rol!=='admin'){alert('Solo el administrador puede terminar una OP.');return;}
+      const op=(db.ots||[]).find(o=>String(o.id)===String(id)); if(!op) return;
+      if(!confirm(`¿Marcar la OP N° ${op.numero||'-'} (${op.cliente||'Sin cliente'}) como TERMINADA?\n\nSe cerrará en todo el sistema y saldrá de esta hoja.`)) return;
+      const now=new Date();
+      op.estadoOp='TERMINADA';
+      if(!op.fechaTermino) op.fechaTermino=todayKey();
+      if(!op.horaTermino) op.horaTermino=`${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+      try { registrarAuditoria('TERMINAR OP (Asignación)', `OP N° ${op.numero||'-'} · ${op.cliente||'Sin cliente'} marcada como TERMINADA`, op.numero||''); } catch(_) {}
+      const ok=await saveDBAndWait();
+      renderAsignacionesOP();
+      try { if (typeof renderOPsTable==='function') renderOPsTable(); } catch(_) {}
+      const st=$('asig-status');
+      if(st) st.textContent= ok ? `OP ${op.numero||''} marcada como TERMINADA y cerrada en todo el sistema.` : 'No se pudo guardar en la nube; quedó en este dispositivo y se reintentará.';
     }
 
     // Actualización en vivo de la hoja "Asignación de OP" para lectores/editores:
