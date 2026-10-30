@@ -4009,8 +4009,9 @@ html.dagomet-dark .badge-status.status-despachada { border-color: #1b5b55; backg
 .card-asignacion .card-asig-lbl { font-size:.6rem; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:#64748b; }
 .card-asignacion .card-asig-vacio { color:#94a3b8; font-weight:600; }
 .card-asignacion .card-asig-por { color:#64748b; font-size:.72rem; }
+.card-asignacion .card-asig-fecha { color:#64748b; font-size:.72rem; margin-top:2px; }
 html.dagomet-dark .card-asignacion { background:#1e2a4a; border-color:#34457a; color:#c7d2fe; }
-html.dagomet-dark .card-asignacion .card-asig-lbl, html.dagomet-dark .card-asignacion .card-asig-por { color:#94a3b8; }
+html.dagomet-dark .card-asignacion .card-asig-lbl, html.dagomet-dark .card-asignacion .card-asig-por, html.dagomet-dark .card-asignacion .card-asig-fecha { color:#94a3b8; }
 @media print { .card-asignacion { display:none !important; } }
 .sort-entrega-btn { font-size: .78rem; }
 
@@ -6877,7 +6878,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       wrap.className = 'no-print';
       wrap.style.cssText = 'width:100%; max-width:900px; margin-bottom:14px; padding:12px 16px; background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; display:flex; flex-wrap:wrap; gap:24px; align-items:center;';
       const celda = (titulo, valor) => `<div><div style="font-size:.68rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px;">${titulo}</div><div style="font-size:.95rem; font-weight:800; color:${valor ? '#263581' : '#94a3b8'}; margin-top:2px;">${valor ? esc(valor) : 'Sin asignar'}</div></div>`;
-      wrap.innerHTML = `<div style="font-size:.78rem; font-weight:800; color:#263581; text-transform:uppercase; letter-spacing:.3px;">Asignación de OP</div>` + celda('Trabajador asignado', trab) + celda('Pasada por', por);
+      wrap.innerHTML = `<div style="font-size:.78rem; font-weight:800; color:#263581; text-transform:uppercase; letter-spacing:.3px;">Asignación de OP</div>` + celda('Trabajador asignado', trab) + celda('Pasada por', por) + (trab && o.asigFecha ? celda('Fecha y hora de asignación', formatDateCL(o.asigFecha) + (o.asigHora ? ' · ' + o.asigHora + ' h' : '')) : '');
       return wrap;
     }
 
@@ -7129,6 +7130,13 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const trabajador=nombreSinCargo($('asig-worker-'+id)?.value||'');
       const pasador=$('asig-pasador-'+id)?.value||'';
       if(!pasador){alert('Selecciona quién pasó la OP.');return;}
+      // Fecha y hora en que se asignó el trabajador: se registra al asignar o al cambiar de trabajador.
+      if(!trabajador){ op.asigFecha=''; op.asigHora=''; }
+      else if(trabajador!==nombreSinCargo(op.asigTrabajador||'')){
+        const ahora=new Date();
+        op.asigFecha=todayKey();
+        op.asigHora=`${pad2(ahora.getHours())}:${pad2(ahora.getMinutes())}`;
+      }
       op.asigTrabajador=trabajador||'';
       op.asigPor=pasador;
       const ok=await saveDBAndWait();
@@ -9090,7 +9098,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           // saveOP reconstruye la OP desde el formulario: se conserva la marca de aviso de término.
           // También los datos y fotos de liberación (QR del trabajador y manuales).
           const prevOP = db.ots[idx] || {};
-          ['avisoTermino', 'liberadoPor', 'liberadoEn', 'fotosLiberacionPaths', 'fotoLiberacionPath', 'fotosLiberacionManual', 'entregaOriginal', 'historialEntrega', 'asigTrabajador', 'asigPor']
+          ['avisoTermino', 'liberadoPor', 'liberadoEn', 'fotosLiberacionPaths', 'fotoLiberacionPath', 'fotosLiberacionManual', 'entregaOriginal', 'historialEntrega', 'asigTrabajador', 'asigPor', 'asigFecha', 'asigHora']
             .forEach(k => { if (prevOP[k] !== undefined) opData[k] = prevOP[k]; });
           db.ots[idx] = opData;
         }
@@ -9831,7 +9839,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <td>${o.area ? `<button type="button" class="dashboard-drill-link" onclick="filterHistoryByField('area','${String(o.area).replace(/'/g, "\\'")}')" title="Ver todas las OP de esta área">${esc(o.area)}</button>` : '<span class="area-sin-definir" title="Esta OP fue guardada sin Área. Edítala para asignarla.">Sin área</span>'}${(() => {
               const t = nombreSinCargo(o.asigTrabajador || '');
               const por = o.asigPor || '';
-              return `<div class="card-asignacion" title="Asignación de OP"><span class="card-asig-lbl">Asignado a</span> <strong class="${t ? '' : 'card-asig-vacio'}">${t ? esc(t) : 'Sin asignar'}</strong>${por ? ` <span class="card-asig-por">· pasada por ${esc(por)}</span>` : ''}</div>`;
+              return `<div class="card-asignacion" title="Asignación de OP"><span class="card-asig-lbl">Asignado a</span> <strong class="${t ? '' : 'card-asig-vacio'}">${t ? esc(t) : 'Sin asignar'}</strong>${por ? ` <span class="card-asig-por">· pasada por ${esc(por)}</span>` : ''}${(t && o.asigFecha) ? `<div class="card-asig-fecha">🕒 ${esc(formatDateCL(o.asigFecha))}${o.asigHora ? ' · ' + esc(o.asigHora) + ' h' : ''}</div>` : ''}</div>`;
             })()}</td>
             <td>${formatHistoryDelivery(o.entrega, o.estadoOp)}</td>
             <td>${getPriorityBadge(o.prioridad)}</td>
