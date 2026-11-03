@@ -13693,7 +13693,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
 
       const esReporteOPCursoAreas = String(titulo || '').trim().startsWith('Reporte OP en curso:');
       const idxAreaRep = o => { const i = db.areas.findIndex(x => String(x).trim().toUpperCase() === String(o.area || '').trim().toUpperCase()); return i < 0 ? 999 : i; };
-      const ordenados = [...list].sort((a, b) => (esReporteOPCursoAreas ? idxAreaRep(a) - idxAreaRep(b) : 0) || String(a.entrega || '').localeCompare(String(b.entrega || '')) || String(a.numero || '').localeCompare(String(b.numero || '')));
+      const fechaOrdRep = o => String(o.entrega || '').slice(0, 10) || '9999-99-99';
+      const ordenados = [...list].sort((a, b) => fechaOrdRep(a).localeCompare(fechaOrdRep(b)) || (esReporteOPCursoAreas ? idxAreaRep(a) - idxAreaRep(b) : 0) || String(a.numero || '').localeCompare(String(b.numero || ''), undefined, { numeric: true }));
       const kilosTotales = ordenados.reduce((acc, o) => acc + (o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0), 0);
       const mostrarKilosTotal = activeCols.some(c => c.key === 'kilos');
 
