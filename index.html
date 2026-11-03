@@ -5720,7 +5720,19 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         <button class="btn btn-secondary btn-sm" onclick="aplicarPresetAreasOPCurso('todas')">☑️ Todas</button>
         <button class="btn btn-secondary btn-sm" onclick="aplicarPresetAreasOPCurso('ninguna')">✕ Ninguna</button>
       </div>
-      <div id="report-areas-list" style="display:grid; grid-template-columns:1fr; gap:10px; background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; max-height:50vh; overflow:auto;"></div>
+      <div id="report-areas-list" style="display:grid; grid-template-columns:1fr; gap:10px; background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; max-height:30vh; overflow:auto;"></div>
+
+      <h3 style="margin:16px 0 8px 0; color:var(--primary-dark); font-size:0.9rem;">Prioridad a incluir</h3>
+      <div id="report-areas-prio-list" style="display:flex; gap:8px 18px; flex-wrap:wrap; background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 16px;"></div>
+
+      <h3 style="margin:16px 0 8px 0; color:var(--primary-dark); font-size:0.9rem;">Columnas a mostrar</h3>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+        <button class="btn btn-secondary btn-sm" onclick="aplicarPresetColsOPCurso('estandar')">↺ Estándar</button>
+        <button class="btn btn-secondary btn-sm" onclick="aplicarPresetColsOPCurso('todas')">📋 Todas</button>
+        <button class="btn btn-secondary btn-sm" onclick="aplicarPresetColsOPCurso('minimo')">✏️ Mínimo</button>
+      </div>
+      <div id="report-areas-cols-list" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:8px 14px; background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 16px; max-height:26vh; overflow:auto;"></div>
+
       <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
         <button class="btn btn-secondary btn-sm" onclick="cerrarModalOPEnCursoAreas()">Cancelar</button>
         <button class="btn btn-primary btn-sm" onclick="confirmarOPEnCursoAreas()">👁️ Ver reporte</button>
@@ -14090,8 +14102,51 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         </label>`;
       }).join('');
     }
+    // Filtro de prioridad y columnas elegibles para este reporte (se recuerdan entre usos).
+    const REPORT_AREAS_PRIO_KEY = 'dagomet_report_op_curso_prioridades';
+    const REPORT_AREAS_COLS_KEY = 'dagomet_report_op_curso_columnas';
+    const REPORT_AREAS_PRIORIDADES = ['URGENTE', 'ALTA', 'NORMAL'];
+    const prioridadDeOP = o => { const v = String(o.prioridad || 'NORMAL').trim().toUpperCase(); return REPORT_AREAS_PRIORIDADES.includes(v) ? v : 'NORMAL'; };
+    function cargarPrioReporteOPCurso() {
+      try {
+        const arr = JSON.parse(localStorage.getItem(REPORT_AREAS_PRIO_KEY) || 'null');
+        if (Array.isArray(arr)) { const v = arr.filter(x => REPORT_AREAS_PRIORIDADES.includes(x)); if (v.length) return v; }
+      } catch (e) {}
+      return [...REPORT_AREAS_PRIORIDADES];
+    }
+    function cargarColsReporteOPCurso() {
+      try {
+        const arr = JSON.parse(localStorage.getItem(REPORT_AREAS_COLS_KEY) || 'null');
+        if (Array.isArray(arr)) { const v = arr.filter(k => REPORT_COLUMNS.some(c => c.key === k)); if (v.length) return v; }
+      } catch (e) {}
+      return [...REPORT_COLS_OP_CURSO_AREAS];
+    }
+    function renderPrioReporteOPCurso(sel) {
+      const colores = { URGENTE: '#c2410c', ALTA: '#b45309', NORMAL: '#334155' };
+      $('report-areas-prio-list').innerHTML = REPORT_AREAS_PRIORIDADES.map(p => `
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:700; color:${colores[p]}; text-transform:none; letter-spacing:0; cursor:pointer;">
+          <input type="checkbox" class="report-areas-prio-checkbox" value="${p}" ${sel.includes(p) ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--primary); cursor:pointer;">
+          ${p}
+        </label>`).join('');
+    }
+    function renderColsReporteOPCurso(sel) {
+      $('report-areas-cols-list').innerHTML = REPORT_COLUMNS.map(c => `
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; font-weight:600; color:var(--text); text-transform:none; letter-spacing:0; cursor:pointer;">
+          <input type="checkbox" class="report-areas-col-checkbox" value="${c.key}" ${sel.includes(c.key) ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--primary); cursor:pointer;">
+          ${esc(c.label)}
+        </label>`).join('');
+    }
+    function aplicarPresetColsOPCurso(preset) {
+      let sel;
+      if (preset === 'todas') sel = REPORT_COLUMNS.map(c => c.key);
+      else if (preset === 'minimo') sel = ['numero', 'entrega', 'cliente', 'prioridad'];
+      else sel = [...REPORT_COLS_OP_CURSO_AREAS];
+      renderColsReporteOPCurso(sel);
+    }
     function abrirModalOPEnCursoAreas() {
       renderAreasReporteOPCurso(cargarAreasReporteOPCurso());
+      renderPrioReporteOPCurso(cargarPrioReporteOPCurso());
+      renderColsReporteOPCurso(cargarColsReporteOPCurso());
       $('report-areas-modal').style.display = 'flex';
     }
     function cerrarModalOPEnCursoAreas() {
@@ -14107,13 +14162,24 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     function confirmarOPEnCursoAreas() {
       const sel = Array.from(document.querySelectorAll('.report-area-checkbox:checked')).map(el => el.value);
       if (!sel.length) { alert('Selecciona al menos un área.'); return; }
-      try { localStorage.setItem(REPORT_AREAS_STORAGE_KEY, JSON.stringify(sel)); } catch (e) {}
+      const prios = Array.from(document.querySelectorAll('.report-areas-prio-checkbox:checked')).map(el => el.value);
+      if (!prios.length) { alert('Selecciona al menos una prioridad.'); return; }
+      // Mantiene el orden del catálogo de columnas, no el orden de clic.
+      const colsSel = Array.from(document.querySelectorAll('.report-areas-col-checkbox:checked')).map(el => el.value);
+      const cols = REPORT_COLUMNS.map(c => c.key).filter(k => colsSel.includes(k));
+      if (!cols.length) { alert('Selecciona al menos una columna.'); return; }
+      try {
+        localStorage.setItem(REPORT_AREAS_STORAGE_KEY, JSON.stringify(sel));
+        localStorage.setItem(REPORT_AREAS_PRIO_KEY, JSON.stringify(prios));
+        localStorage.setItem(REPORT_AREAS_COLS_KEY, JSON.stringify(cols));
+      } catch (e) {}
       cerrarModalOPEnCursoAreas();
       const selUp = sel.map(a => String(a).trim().toUpperCase());
-      const list = db.ots.filter(o => esOPEnCurso(o) && selUp.includes(areaDeOP(o)));
+      const list = db.ots.filter(o => esOPEnCurso(o) && selUp.includes(areaDeOP(o)) && prios.includes(prioridadDeOP(o)));
       const resumen = sel.map(a => `${a}: ${list.filter(o => areaDeOP(o) === String(a).trim().toUpperCase()).length}`).join(' · ');
+      const filtroPrio = prios.length === REPORT_AREAS_PRIORIDADES.length ? '' : ` · Prioridad: ${prios.join(', ')}`;
       const nombreAreas = sel.length <= 2 ? sel.join(' y ') : `${sel.length} áreas`;
-      previewReport(list, `Reporte OP en curso: ${nombreAreas}`, `${formatDateWithDayUpper(todayKey())} · ${resumen}`, REPORT_COLS_OP_CURSO_AREAS);
+      previewReport(list, `Reporte OP en curso: ${nombreAreas}`, `${formatDateWithDayUpper(todayKey())} · ${resumen}${filtroPrio}`, cols);
     }
 
     // ---- Reporte de soldadura: OP con soldadura o dentro del área SOLDADURA ----
