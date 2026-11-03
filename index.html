@@ -5184,6 +5184,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
             <button class="btn btn-success btn-sm" onclick="imprimirReporteMes()">📊 Imprimir reporte del mes</button>
             <button class="btn btn-warning btn-sm" onclick="imprimirReporteCompleto()">🗂️ Reporte completo</button>
             <button class="btn btn-secondary btn-sm" style="border-color:#b91c1c; color:#b91c1c;" onclick="imprimirReporteSoldadura()" title="Trabajos con soldadura o en el área Soldadura, con filtro por ensayo">🔥 Reporte de soldadura</button>
+            <button class="btn btn-primary btn-sm" onclick="abrirModalOPEnCursoAreas()" title="Elige una o más áreas y proyecta las OP en curso">📽️ OP en curso por área</button>
           </div>
           <div id="cal-term-worker-bar" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; width:100%;">
             <label style="display:flex; align-items:center; gap:5px; font-size:.82rem; font-weight:700; color:var(--text-muted);">
@@ -5303,7 +5304,10 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     <!-- NUEVA HOJA: ASIGNACIÓN DE OP -->
     <div id="tab-asignaciones" class="tab-content">
       <div class="card">
-        <h2>Asignación de OP en curso</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <h2 style="margin:0;">Asignación de OP en curso</h2>
+          <button class="btn btn-primary btn-sm" onclick="abrirModalOPEnCursoAreas()" title="Elige una o más áreas y proyecta las OP en curso">📽️ OP en curso por área</button>
+        </div>
         <p style="color:var(--text-muted);margin-top:-10px">Asigna un trabajador y registra quién entregó/pasó la OP. Los cambios de esta hoja no modifican el resto de la orden.</p>
         <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));align-items:end">
           <div class="field"><label for="asig-search">Buscar OP</label><input id="asig-search" type="search" placeholder="N° OP, cliente o parte" oninput="renderAsignacionesOP()"></div>
@@ -5702,6 +5706,28 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
   </div>
 
   <!-- MODAL: RANGO DE FECHAS (DOS DÍAS) PARA REPORTE COMPLETO -->
+  <!-- MODAL: ELEGIR ÁREAS PARA EL REPORTE RÁPIDO DE OP EN CURSO -->
+  <div id="report-areas-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width:520px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h2 style="margin:0; border:none; padding:0;">📽️ OP en curso por área</h2>
+        <button class="btn btn-secondary btn-sm" onclick="cerrarModalOPEnCursoAreas()">✕ Cerrar</button>
+      </div>
+      <p style="margin:0 0 12px 0; color:var(--text-muted); font-size:0.85rem;">Marca las áreas que quieres ver (el número es la cantidad de OP en curso). Se abre la vista previa lista para proyectar, imprimir o descargar.</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+        <button class="btn btn-info btn-sm" onclick="aplicarPresetAreasOPCurso('corteCilindrado')">✂️ Corte y cilindrado</button>
+        <button class="btn btn-secondary btn-sm" onclick="aplicarPresetAreasOPCurso('perfileria')">📐 Perfilería</button>
+        <button class="btn btn-secondary btn-sm" onclick="aplicarPresetAreasOPCurso('todas')">☑️ Todas</button>
+        <button class="btn btn-secondary btn-sm" onclick="aplicarPresetAreasOPCurso('ninguna')">✕ Ninguna</button>
+      </div>
+      <div id="report-areas-list" style="display:grid; grid-template-columns:1fr; gap:10px; background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; max-height:50vh; overflow:auto;"></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+        <button class="btn btn-secondary btn-sm" onclick="cerrarModalOPEnCursoAreas()">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="confirmarOPEnCursoAreas()">👁️ Ver reporte</button>
+      </div>
+    </div>
+  </div>
+
   <div id="report-soldadura-modal" class="modal-overlay">
     <div class="modal-content" style="max-width:480px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
@@ -13644,7 +13670,9 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const container = document.createElement('div');
       container.style.cssText = 'width: 1000px; margin: 0 auto; padding: 20px 26px; background: #ffffff; color: #1e293b; font-family: "Inter", sans-serif; font-size: 12px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box;';
 
-      const ordenados = [...list].sort((a, b) => String(a.entrega || '').localeCompare(String(b.entrega || '')) || String(a.numero || '').localeCompare(String(b.numero || '')));
+      const esReporteOPCursoAreas = String(titulo || '').trim().startsWith('Reporte OP en curso:');
+      const idxAreaRep = o => { const i = db.areas.findIndex(x => String(x).trim().toUpperCase() === String(o.area || '').trim().toUpperCase()); return i < 0 ? 999 : i; };
+      const ordenados = [...list].sort((a, b) => (esReporteOPCursoAreas ? idxAreaRep(a) - idxAreaRep(b) : 0) || String(a.entrega || '').localeCompare(String(b.entrega || '')) || String(a.numero || '').localeCompare(String(b.numero || '')));
       const kilosTotales = ordenados.reduce((acc, o) => acc + (o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0), 0);
       const mostrarKilosTotal = activeCols.some(c => c.key === 'kilos');
 
@@ -14034,6 +14062,58 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
 
       cerrarModalReporteRango();
       openReportColumnPicker(list, 'Reporte Completo de OPs', rango);
+    }
+
+    // ---- Reporte rápido: OP EN CURSO por área(s) elegida(s) (se proyecta directo, sin selector de columnas) ----
+    const REPORT_AREAS_STORAGE_KEY = 'dagomet_report_op_curso_areas';
+    const REPORT_COLS_OP_CURSO_AREAS = ['numero', 'entrega', 'cliente', 'area', 'maquina', 'responsables', 'prioridad', 'estadoOp'];
+    const REPORT_AREAS_PRESETS = {
+      corteCilindrado: ['CORTE DE PLANCHAS', 'CILINDRADO DE PLANCHAS'],
+      perfileria: ['CURVADO Y CILINDRADO DE PERFILERÍA']
+    };
+    const areaDeOP = o => String(o.area || '').trim().toUpperCase();
+    const esOPEnCurso = o => String(o.estadoOp || 'EN CURSO').trim().toUpperCase() === 'EN CURSO';
+    function cargarAreasReporteOPCurso() {
+      try {
+        const arr = JSON.parse(localStorage.getItem(REPORT_AREAS_STORAGE_KEY) || 'null');
+        if (Array.isArray(arr) && arr.length) return arr;
+      } catch (e) {}
+      return [...REPORT_AREAS_PRESETS.corteCilindrado];
+    }
+    function renderAreasReporteOPCurso(seleccionadas) {
+      const box = $('report-areas-list');
+      box.innerHTML = db.areas.map(a => {
+        const n = db.ots.filter(o => esOPEnCurso(o) && areaDeOP(o) === String(a).trim().toUpperCase()).length;
+        return `<label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; color:var(--text); text-transform:none; letter-spacing:0; cursor:pointer;">
+          <input type="checkbox" class="report-area-checkbox" value="${esc(a)}" ${seleccionadas.includes(a) ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--primary); cursor:pointer;">
+          <span style="flex:1;">${esc(a)}</span><span style="font-weight:800; color:var(--primary);">${n}</span>
+        </label>`;
+      }).join('');
+    }
+    function abrirModalOPEnCursoAreas() {
+      renderAreasReporteOPCurso(cargarAreasReporteOPCurso());
+      $('report-areas-modal').style.display = 'flex';
+    }
+    function cerrarModalOPEnCursoAreas() {
+      $('report-areas-modal').style.display = 'none';
+    }
+    function aplicarPresetAreasOPCurso(preset) {
+      let sel;
+      if (preset === 'todas') sel = [...db.areas];
+      else if (preset === 'ninguna') sel = [];
+      else sel = (REPORT_AREAS_PRESETS[preset] || []).filter(a => db.areas.includes(a));
+      renderAreasReporteOPCurso(sel);
+    }
+    function confirmarOPEnCursoAreas() {
+      const sel = Array.from(document.querySelectorAll('.report-area-checkbox:checked')).map(el => el.value);
+      if (!sel.length) { alert('Selecciona al menos un área.'); return; }
+      try { localStorage.setItem(REPORT_AREAS_STORAGE_KEY, JSON.stringify(sel)); } catch (e) {}
+      cerrarModalOPEnCursoAreas();
+      const selUp = sel.map(a => String(a).trim().toUpperCase());
+      const list = db.ots.filter(o => esOPEnCurso(o) && selUp.includes(areaDeOP(o)));
+      const resumen = sel.map(a => `${a}: ${list.filter(o => areaDeOP(o) === String(a).trim().toUpperCase()).length}`).join(' · ');
+      const nombreAreas = sel.length <= 2 ? sel.join(' y ') : `${sel.length} áreas`;
+      previewReport(list, `Reporte OP en curso: ${nombreAreas}`, `${formatDateWithDayUpper(todayKey())} · ${resumen}`, REPORT_COLS_OP_CURSO_AREAS);
     }
 
     // ---- Reporte de soldadura: OP con soldadura o dentro del área SOLDADURA ----
@@ -14681,10 +14761,17 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const tipoLabel = BOMBEADO_TIPO_LABELS[o.tipoPerfilBombeado] || BOMBEADO_TIPO_LABELS.BOMBEADO_PESTANADO;
       const fechaGuiaStrBombeado = o.fechaGuiaMat ? formatDateStandard(o.fechaGuiaMat) : 'S/F';
       const isSoldaduraSiBombeado = (o.soldadura || 'NO').toUpperCase() === 'SI';
-      const soldaduraBadgeHtmlBombeado = isSoldaduraSiBombeado ? `
+      const badgeSoldaduraHtmlBombeado = isSoldaduraSiBombeado ? `
         <div style="background: #fee2e2; color: #991b1b; padding: 8px 16px; border-radius: 6px; font-weight: 700; font-size: 12px; text-align: center; border: 1px solid #fecaca; display: flex; align-items: center; justify-content: center; gap: 8px;">
           <span>⚠️</span> <b>REQUIERE SOLDADURA</b> <span>⚠️</span>
         </div>` : '';
+      const badgeEnsayoHtmlBombeado = (o.soldaduraSeguimiento && o.soldaduraSeguimiento.llevaEnsayo) ? `
+        <div style="background: #dbeafe; color: #1e3a8a; padding: 8px 16px; border-radius: 6px; font-weight: 700; font-size: 12px; text-align: center; border: 1px solid #93c5fd; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>🧪</span> <b>LLEVA ENSAYO</b> <span>🧪</span>
+        </div>` : '';
+      const soldaduraBadgeHtmlBombeado = (badgeSoldaduraHtmlBombeado && badgeEnsayoHtmlBombeado)
+        ? `<div style="display: flex; flex-direction: column; gap: 6px;">${badgeSoldaduraHtmlBombeado}${badgeEnsayoHtmlBombeado}</div>`
+        : (badgeSoldaduraHtmlBombeado || badgeEnsayoHtmlBombeado);
 
       let respTrabajoTextBombeado = '';
       if (Array.isArray(o.responsableTrabajo) && o.responsableTrabajo.length > 0) {
@@ -15005,11 +15092,21 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const fechaGuiaStr = o.fechaGuiaMat ? formatDateStandard(o.fechaGuiaMat) : 'S/F';
       const isSoldaduraSi = (o.soldadura || 'NO').toUpperCase() === 'SI';
       
-      const soldaduraBadgeHtml = isSoldaduraSi ? `
+      const llevaEnsayoDoc = !!(o.soldaduraSeguimiento && o.soldaduraSeguimiento.llevaEnsayo);
+      const badgeSoldaduraHtml = isSoldaduraSi ? `
         <div style="background: #fee2e2; color: #991b1b; padding: 8px 16px; border-radius: 6px; font-weight: 700; font-size: 12px; text-align: center; border: 1px solid #fecaca; display: flex; align-items: center; justify-content: center; gap: 8px;">
           <span>⚠️</span> <b>REQUIERE SOLDADURA</b> <span>⚠️</span>
         </div>
       ` : '';
+      const badgeEnsayoHtml = llevaEnsayoDoc ? `
+        <div style="background: #dbeafe; color: #1e3a8a; padding: 8px 16px; border-radius: 6px; font-weight: 700; font-size: 12px; text-align: center; border: 1px solid #93c5fd; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>🧪</span> <b>LLEVA ENSAYO</b> <span>🧪</span>
+        </div>
+      ` : '';
+      // Si lleva ambos, van juntos en un solo bloque para no alterar la maquetación de la ficha.
+      const soldaduraBadgeHtml = (badgeSoldaduraHtml && badgeEnsayoHtml)
+        ? `<div style="display: flex; flex-direction: column; gap: 6px;">${badgeSoldaduraHtml}${badgeEnsayoHtml}</div>`
+        : (badgeSoldaduraHtml || badgeEnsayoHtml);
 
       const notaHtml = (o.notaImportante && o.notaImportante.trim() !== '') ? `
         <div style="border-radius: 6px; background: #fffbeb; border: 1px solid #fde68a; color: #b45309; font-size: 12px; font-weight: bold; padding: 8px 13px; text-align: center;">
