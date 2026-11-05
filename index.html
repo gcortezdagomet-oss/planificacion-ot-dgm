@@ -490,6 +490,40 @@
     .cal-legend-item { display: flex; align-items: center; gap: 6px; }
     .cal-legend-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid var(--border-strong); }
 
+    /* ---------- Calendario: filtro por área y vista Carga por área ---------- */
+    .cal-filter-bar { display:flex; flex-direction:column; gap:10px; margin:4px 0 14px 0; padding:12px 14px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); }
+    .cal-filter-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+    .cal-filter-label { font-size:.72rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:.4px; margin-right:4px; }
+    .cal-view-btn, .cal-area-chip { border:1px solid var(--border-strong); background:var(--surface); color:var(--text); font:inherit; font-size:.78rem; font-weight:700; padding:5px 12px; border-radius:999px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+    .cal-view-btn:hover, .cal-area-chip:hover { border-color:var(--primary); }
+    .cal-view-btn.active, .cal-area-chip.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+    .cal-area-chip .cal-area-count { font-size:.68rem; font-weight:800; padding:0 7px; border-radius:999px; background:rgba(0,0,0,.08); }
+    .cal-area-chip.active .cal-area-count { background:rgba(255,255,255,.25); }
+    .cal-carga-opts { display:flex; flex-wrap:wrap; align-items:center; gap:14px; font-size:.78rem; font-weight:600; color:var(--text-muted); }
+    .cal-carga-opts label { display:inline-flex; align-items:center; gap:6px; cursor:pointer; text-transform:none; letter-spacing:0; }
+    .cal-carga-opts select { height:30px; padding:3px 8px; border:1px solid var(--border); border-radius:7px; font:inherit; background:#fff; }
+    .cal-carga-scroll { overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); }
+    table.cal-carga { border-collapse:separate; border-spacing:0; width:max-content; min-width:100%; }
+    table.cal-carga th, table.cal-carga td { padding:6px 8px; vertical-align:top; text-align:center; border-bottom:1px solid var(--border); background:var(--surface); }
+    table.cal-carga thead th { position:sticky; top:0; z-index:2; border-bottom:2px solid #16a34a; font-size:.78rem; cursor:pointer; min-width:78px; }
+    table.cal-carga thead th small { display:block; font-size:.62rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; }
+    table.cal-carga thead th.cal-carga-hoy, table.cal-carga td.cal-carga-hoy { background:var(--primary-light); }
+    table.cal-carga thead th.cal-carga-sel, table.cal-carga td.cal-carga-sel { outline:2px solid var(--accent); outline-offset:-2px; }
+    table.cal-carga thead th.cal-carga-fer small { color:#6d28d9; }
+    table.cal-carga .cal-carga-area { position:sticky; left:0; z-index:3; text-align:left; font-weight:800; font-size:.82rem; min-width:150px; border-right:2px solid #16a34a; white-space:nowrap; cursor:default; }
+    table.cal-carga thead th.cal-carga-area { z-index:4; }
+    table.cal-carga .cal-carga-area span { display:block; font-size:.66rem; font-weight:700; color:var(--text-muted); }
+    table.cal-carga .cal-carga-tot { font-weight:800; color:var(--primary); min-width:56px; cursor:default; }
+    table.cal-carga tfoot td { font-weight:800; border-top:2px solid #16a34a; position:sticky; bottom:0; }
+    .cal-op-list { display:flex; flex-direction:column; gap:3px; align-items:center; }
+    .cal-op-chip { font-size:.8rem; font-weight:800; cursor:pointer; white-space:nowrap; line-height:1.25; }
+    .cal-op-chip:hover { text-decoration:underline; }
+    .cal-op-chip.late { color:#dc2626; }
+    .cal-op-chip.ok { color:#15803d; }
+    .cal-op-chip.cerrada { color:#94a3b8; text-decoration:line-through; }
+    .cal-carga-resumen { display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin:0 0 10px 0; font-size:.82rem; font-weight:700; }
+    .cal-carga-resumen b { font-size:1.05rem; }
+
     /* ---------- KPI cards ---------- */
     .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 22px; }
     .kpi-card { background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--primary); border-radius: var(--radius); padding: 18px 16px; text-align: center; box-shadow: var(--shadow-sm); transition: transform 0.15s, box-shadow 0.15s; }
@@ -5205,7 +5239,29 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           <div class="cal-legend-item"><span class="cal-legend-swatch" style="background:#fff; border-left:3px solid #fca5a5;"></span> Fin de semana</div>
         </div>
 
+        <div id="cal-area-filter-bar" class="cal-filter-bar">
+          <div class="cal-filter-row">
+            <span class="cal-filter-label">Vista</span>
+            <button type="button" id="cal-view-mes" class="cal-view-btn active" onclick="setCalView('mes')">📅 Calendario del mes</button>
+            <button type="button" id="cal-view-carga" class="cal-view-btn" onclick="setCalView('carga')">📊 Carga por área</button>
+          </div>
+          <div class="cal-filter-row">
+            <span class="cal-filter-label">Áreas</span>
+            <div id="cal-area-chips" class="cal-filter-row" style="gap:6px;"></div>
+          </div>
+          <div id="cal-carga-opts" class="cal-carga-opts" style="display:none;">
+            <label>Mostrar
+              <select id="cal-carga-alcance" onchange="setCalCargaOpt()">
+                <option value="mes">Solo el mes visible</option>
+                <option value="pendientes">Todas las pendientes (atrasadas y futuras)</option>
+              </select>
+            </label>
+            <label><input type="checkbox" id="cal-carga-cerradas" onchange="setCalCargaOpt()"> Incluir OP cerradas (terminadas / despachadas / anuladas)</label>
+          </div>
+        </div>
+
         <div id="cal-grid" class="cal-grid"></div>
+        <div id="cal-carga-wrap" style="display:none;"></div>
 
         <div id="cal-day-detail" style="margin-top:24px;"></div>
       </div>
@@ -12766,6 +12822,135 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         ['numero', 'cliente', 'area', 'responsables', 'fechaTermino', 'estadoOp']);
     }
 
+    // ---- Filtro por área y vista "Carga por área" (calendario de entregas) ----
+    const CAL_AREAS_KEY = 'dagomet_cal_areas';
+    const CAL_VIEW_KEY = 'dagomet_cal_view';
+    let calAreaFilter = [];   // áreas en MAYÚSCULAS; vacío = todas
+    let calViewMode = 'mes';  // 'mes' | 'carga'
+    let calCargaAlcance = 'mes';
+    let calCargaCerradas = false;
+    let calAreaList = [];     // [{key,label}] de los chips actuales
+    try {
+      const a = JSON.parse(localStorage.getItem(CAL_AREAS_KEY) || '[]'); if (Array.isArray(a)) calAreaFilter = a;
+      const v = localStorage.getItem(CAL_VIEW_KEY); if (v === 'mes' || v === 'carga') calViewMode = v;
+    } catch (e) {}
+    const CAL_SIN_AREA = 'SIN ÁREA';
+    const calAreaKey = o => String(o.area || '').trim().toUpperCase() || CAL_SIN_AREA;
+    function calPasaFiltroArea(o) { return !calAreaFilter.length || calAreaFilter.includes(calAreaKey(o)); }
+    function getOPsByDateFiltrado(dateStr) { return getOPsByDate(dateStr).filter(calPasaFiltroArea); }
+    function calGuardarPrefs() {
+      try { localStorage.setItem(CAL_AREAS_KEY, JSON.stringify(calAreaFilter)); localStorage.setItem(CAL_VIEW_KEY, calViewMode); } catch (e) {}
+    }
+
+    function renderCalAreaFilter() {
+      const box = $('cal-area-chips');
+      if (!box) return;
+      const prefix = `${calYear}-${pad2(calMonth + 1)}-`;
+      const pendMes = db.ots.filter(o => String(o.entrega || '').startsWith(prefix) && opSinTerminar(o));
+      const lista = (db.areas || []).map(a => ({ key: String(a).trim().toUpperCase(), label: String(a) }));
+      if (pendMes.some(o => calAreaKey(o) === CAL_SIN_AREA) || calAreaFilter.includes(CAL_SIN_AREA)) lista.push({ key: CAL_SIN_AREA, label: CAL_SIN_AREA });
+      calAreaList = lista;
+      const todas = !calAreaFilter.length;
+      box.innerHTML = `<button type="button" class="cal-area-chip${todas ? ' active' : ''}" onclick="limpiarCalAreas()">Todas<span class="cal-area-count">${pendMes.length}</span></button>` +
+        lista.map((a, i) => {
+          const n = pendMes.filter(o => calAreaKey(o) === a.key).length;
+          return `<button type="button" class="cal-area-chip${calAreaFilter.includes(a.key) ? ' active' : ''}" onclick="toggleCalArea(${i})" title="OP pendientes con entrega en el mes visible">${esc(a.label)}<span class="cal-area-count">${n}</span></button>`;
+        }).join('');
+      const vm = $('cal-view-mes'), vc = $('cal-view-carga');
+      if (vm) vm.classList.toggle('active', calViewMode === 'mes');
+      if (vc) vc.classList.toggle('active', calViewMode === 'carga');
+      const opts = $('cal-carga-opts');
+      if (opts) opts.style.display = calViewMode === 'carga' ? 'flex' : 'none';
+      if ($('cal-carga-alcance')) $('cal-carga-alcance').value = calCargaAlcance;
+      if ($('cal-carga-cerradas')) $('cal-carga-cerradas').checked = calCargaCerradas;
+    }
+    function refrescarCalendarioCompleto() { renderCalendarGrid(); renderCalendarSelectedDetail(); }
+    function toggleCalArea(i) {
+      const a = calAreaList[i]; if (!a) return;
+      calAreaFilter = calAreaFilter.includes(a.key) ? calAreaFilter.filter(k => k !== a.key) : [...calAreaFilter, a.key];
+      calGuardarPrefs(); refrescarCalendarioCompleto();
+    }
+    function limpiarCalAreas() { calAreaFilter = []; calGuardarPrefs(); refrescarCalendarioCompleto(); }
+    function setCalView(mode) { calViewMode = mode === 'carga' ? 'carga' : 'mes'; calGuardarPrefs(); refrescarCalendarioCompleto(); }
+    function setCalCargaOpt() {
+      calCargaAlcance = $('cal-carga-alcance').value === 'pendientes' ? 'pendientes' : 'mes';
+      calCargaCerradas = !!$('cal-carga-cerradas').checked;
+      renderCalendarGrid();
+    }
+
+    function renderCalCarga() {
+      const wrap = $('cal-carga-wrap');
+      const hoy = todayKey();
+      const prefix = `${calYear}-${pad2(calMonth + 1)}-`;
+      let ops = db.ots.filter(o => o.entrega && calPasaFiltroArea(o));
+      if (!calCargaCerradas) ops = ops.filter(opSinTerminar);
+      if (calCargaAlcance === 'mes') ops = ops.filter(o => String(o.entrega).startsWith(prefix));
+      const titulo = calCargaAlcance === 'mes' ? `${CAL_MESES[calMonth]} ${calYear}` : 'Todas las pendientes';
+      if (!ops.length) {
+        wrap.innerHTML = `<div class="stat-empty">No hay OP ${calCargaCerradas ? '' : 'pendientes '}con entrega en ${esc(titulo.toLowerCase() === 'todas las pendientes' ? 'el filtro elegido' : titulo)}${calAreaFilter.length ? ' para las áreas seleccionadas' : ''}.</div>`;
+        return;
+      }
+      const dias = [...new Set(ops.map(o => String(o.entrega).slice(0, 10)))].sort();
+      // Filas: orden del catálogo de áreas; las desconocidas al final.
+      const ordenAreas = (db.areas || []).map(a => String(a).trim().toUpperCase());
+      const etiquetas = {}; (db.areas || []).forEach(a => { etiquetas[String(a).trim().toUpperCase()] = String(a); });
+      const keysConOps = [...new Set(ops.map(calAreaKey))].sort((a, b) => {
+        const ia = ordenAreas.indexOf(a), ib = ordenAreas.indexOf(b);
+        return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib) || a.localeCompare(b, 'es');
+      });
+      const esAtrasada = o => opSinTerminar(o) && String(o.entrega).slice(0, 10) < hoy;
+      const simbolo = o => {
+        const st = String(o.estadoOp || 'EN CURSO').trim().toUpperCase();
+        return st === 'EN PAUSA' ? '⏸' : st === 'POR INSPECCIONAR' ? '🔎' : ESTADOS_CERRADOS.includes(st) ? (st === 'ANULADA' ? '✕' : '✓') : '◐';
+      };
+      const chip = o => {
+        const cls = !opSinTerminar(o) ? 'cerrada' : esAtrasada(o) ? 'late' : 'ok';
+        const tip = `OP ${o.numero || 'S/N'} · ${o.cliente || 'sin cliente'} · ${o.estadoOp || 'EN CURSO'}${o.prioridad ? ' · ' + o.prioridad : ''}`;
+        return `<span class="cal-op-chip ${cls}" title="${esc(tip)}" onclick="previewPDF('${o.id}')">${simbolo(o)} ${esc(o.numero || 'S/N')}</span>`;
+      };
+      const ordNum = (a, b) => String(a.numero || '').localeCompare(String(b.numero || ''), 'es', { numeric: true });
+      const diaSem = d => CAL_DIAS_SEMANA[(new Date(d + 'T12:00:00').getDay() + 6) % 7];
+      const verMes = calCargaAlcance !== 'mes';
+      const encab = dias.map(d => {
+        const cls = [d === hoy ? 'cal-carga-hoy' : '', d === calSelectedDate ? 'cal-carga-sel' : '', getFeriadoCL(d) ? 'cal-carga-fer' : ''].join(' ');
+        const num = verMes ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : String(Number(d.slice(8, 10)));
+        return `<th class="${cls}" onclick="selectCalendarDay('${d}')" title="${getFeriadoCL(d) ? 'Feriado: ' + esc(getFeriadoCL(d)) : 'Ver detalle del día'}">${num}<small>${diaSem(d)}${getFeriadoCL(d) ? ' 🇨🇱' : ''}</small></th>`;
+      }).join('');
+      const filas = keysConOps.map(k => {
+        const opsArea = ops.filter(o => calAreaKey(o) === k);
+        const celdas = dias.map(d => {
+          const lst = opsArea.filter(o => String(o.entrega).slice(0, 10) === d).sort(ordNum);
+          const cls = [d === hoy ? 'cal-carga-hoy' : '', d === calSelectedDate ? 'cal-carga-sel' : ''].join(' ');
+          return `<td class="${cls}">${lst.length ? `<div class="cal-op-list">${lst.map(chip).join('')}</div>` : ''}</td>`;
+        }).join('');
+        const atr = opsArea.filter(esAtrasada).length;
+        return `<tr><th class="cal-carga-area">${esc(etiquetas[k] || k)}<span>${opsArea.length} OP${atr ? ` · <b style="color:#dc2626;">${atr} atrasada${atr > 1 ? 's' : ''}</b>` : ''}</span></th>${celdas}<td class="cal-carga-tot">${opsArea.length}</td></tr>`;
+      }).join('');
+      const pie = dias.map(d => `<td class="${d === hoy ? 'cal-carga-hoy' : ''}">${ops.filter(o => String(o.entrega).slice(0, 10) === d).length}</td>`).join('');
+      const nAtr = ops.filter(esAtrasada).length;
+      const nCerr = ops.filter(o => !opSinTerminar(o)).length;
+      const nOk = ops.length - nAtr - nCerr;
+      wrap.innerHTML = `
+        <div class="cal-carga-resumen">
+          <span>Carga · ${esc(titulo)}${calAreaFilter.length ? ' · ' + calAreaFilter.length + ' área(s)' : ''}</span>
+          <span>TOTAL OP <b>${ops.length}</b></span>
+          <span style="color:#dc2626;">Atrasadas <b>${nAtr}</b></span>
+          <span style="color:#15803d;">Dentro del plazo <b>${nOk}</b></span>
+          ${nCerr ? `<span style="color:#94a3b8;">Cerradas <b>${nCerr}</b></span>` : ''}
+        </div>
+        <div class="cal-carga-scroll"><table class="cal-carga">
+          <thead><tr><th class="cal-carga-area" style="cursor:default;">Área</th>${encab}<th class="cal-carga-tot" style="cursor:default;">Total</th></tr></thead>
+          <tbody>${filas}</tbody>
+          <tfoot><tr><td class="cal-carga-area">Total por día</td>${pie}<td class="cal-carga-tot">${ops.length}</td></tr></tfoot>
+        </table></div>
+        <div class="cal-legend" style="margin:12px 0 0 0;">
+          <div class="cal-legend-item"><b style="color:#15803d;">Texto verde</b> = entrega dentro del plazo</div>
+          <div class="cal-legend-item"><b style="color:#dc2626;">Texto rojo</b> = entrega atrasada</div>
+          <div class="cal-legend-item">◐ En curso · ⏸ En pausa · 🔎 Por inspeccionar${calCargaCerradas ? ' · ✓ Cerrada' : ''}</div>
+          <div class="cal-legend-item">Toca un N° de OP para ver su ficha, o un día para ver el detalle abajo.</div>
+        </div>`;
+    }
+
     function renderCalendarTab() {
       renderCalTermWorkerOptions();
       renderCalendarToday();
@@ -12827,6 +13012,13 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
 
     function renderCalendarGrid() {
       $('cal-month-title').innerText = `${CAL_MESES[calMonth]} ${calYear}`;
+      renderCalAreaFilter();
+      const legendMes = $('cal-grid').previousElementSibling;
+      const esCarga = calViewMode === 'carga';
+      $('cal-grid').style.display = esCarga ? 'none' : '';
+      if (legendMes && legendMes.classList.contains('cal-legend')) legendMes.style.display = esCarga ? 'none' : '';
+      $('cal-carga-wrap').style.display = esCarga ? '' : 'none';
+      if (esCarga) { renderCalCarga(); return; }
 
       const hoy = todayKey();
       const firstDayOfMonth = new Date(calYear, calMonth, 1);
@@ -12842,7 +13034,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
 
       for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = dateKey(calYear, calMonth, day);
-        const opsDia = getOPsByDate(dateStr);
+        const opsDia = getOPsByDateFiltrado(dateStr);
         const opsActivasDia = opsDia.filter(o => !ESTADOS_CERRADOS.includes(String(o.estadoOp || 'EN CURSO').trim().toUpperCase()));
         // Días 5 y 6 del arreglo (0=lunes) corresponden a sábado y domingo.
         const dowIndex = (startOffset + day - 1) % 7;
@@ -12873,7 +13065,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         container.innerHTML = `<div class="stat-empty">Selecciona un día del calendario para ver el detalle de sus entregas.</div>`;
         return;
       }
-      const opsDia = getOPsByDate(calSelectedDate);
+      const opsDia = getOPsByDateFiltrado(calSelectedDate);
       const nombreFeriadoSel = getFeriadoCL(calSelectedDate);
       const avisoFeriado = nombreFeriadoSel
         ? `<div style="background:#ede9fe; border:1px solid #c4b5fd; color:#5b21b6; border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:0.82rem; font-weight:700;">🇨🇱 Feriado en Chile: ${esc(nombreFeriadoSel)}</div>`
