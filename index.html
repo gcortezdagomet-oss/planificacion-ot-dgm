@@ -11268,9 +11268,14 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     function normalizarCD(cd) {
       return normalizeStr(cd).replace(/\s+/g, '');
     }
+    // Material propio de Dagomet (ej. "MAT DAGOMET"): el CD se puede repetir y no cuenta para el correlativo.
+    function esCDMaterialDagomet(cd) {
+      return normalizeStr(cd).includes('dagomet');
+    }
     function getNextCD() {
       const partes = [];
       (db.guias || []).forEach(g => {
+        if (esCDMaterialDagomet(g.cd)) return; // no mueve ni cambia el prefijo del correlativo
         const m = String(g.cd || '').trim().match(/^(.*?)(\d+)\s*$/);
         if (!m || !isFinite(Number(m[2]))) return;
         partes.push({ prefijo: m[1], num: Number(m[2]), ancho: m[2].length, creada: Number(g.createdAt) || 0 });
@@ -11350,7 +11355,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const editId = $('guia-edit-id').value;
 
       // No permitir el mismo CD dos veces (ignora mayúsculas, tildes y espacios).
-      const repetida = buscarGuiaPorCD(cd, editId || null);
+      // Excepción: el material de Dagomet ("MAT DAGOMET") sí puede repetirse.
+      const repetida = esCDMaterialDagomet(cd) ? null : buscarGuiaPorCD(cd, editId || null);
       if (repetida) {
         const eraSugerido = !editId && $('guia-cd').dataset.auto === '1';
         let msg = `⚠️ El CD "${repetida.cd}" ya está registrado (${repetida.cliente || 'sin cliente'}, llegada ${repetida.fecha || '-'}, ${repetida.estado || 'PENDIENTE'}).\n\nLa guía NO se guardó para no repetirla.`;
