@@ -5818,19 +5818,27 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       </label>
       <button type="button" onclick="confirmarReporteSoldadura('falta_soldar')" style="display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--border-strong); border-left:5px solid #dc2626; border-radius:8px; padding:11px 14px; margin-bottom:10px; cursor:pointer;">
         <div style="font-weight:800; font-size:0.92rem; color:var(--text);">1 · Trabajos que faltan por soldar</div>
-        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Para cotizar con el proveedor (desmarca Cliente arriba).</div>
+        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">OP con soldadura que aún no tienen ticket en el área Soldadura. Para cotizar con el proveedor (desmarca Cliente arriba).</div>
       </button>
       <button type="button" onclick="confirmarReporteSoldadura('con_ensayo')" style="display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--border-strong); border-left:5px solid #2563eb; border-radius:8px; padding:11px 14px; margin-bottom:10px; cursor:pointer;">
         <div style="font-weight:800; font-size:0.92rem; color:var(--text);">2 · Trabajos que llevan ensayo</div>
-        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Todos los que llevan ensayos de soldadura.</div>
+        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Los que llevan ensayos de soldadura, con su ticket de soldadura y la etapa en que van.</div>
       </button>
+      <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; font-weight:600; text-transform:none; letter-spacing:0; margin:-4px 0 10px 0; padding:7px 12px; background:var(--bg); border-radius:8px; border-left:5px solid #2563eb;">
+        Filtro de la lista 2:
+        <select id="report-sold-filtro-ensayo" style="flex:1; padding:5px 8px; font-size:0.82rem;">
+          <option value="todos">Todos</option>
+          <option value="soldados">Solo los que ya están soldados</option>
+          <option value="sin_soldar">Los que aún no se sueldan</option>
+        </select>
+      </label>
       <button type="button" onclick="confirmarReporteSoldadura('falta_inspeccion')" style="display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--border-strong); border-left:5px solid #d97706; border-radius:8px; padding:11px 14px; margin-bottom:10px; cursor:pointer;">
         <div style="font-weight:800; font-size:0.92rem; color:var(--text);">3 · Faltan por inspeccionar</div>
-        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Para el inspector: llevan ensayo y aún no tienen fecha de ensayo realizado.</div>
+        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Para el inspector: llevan ensayo y ya están soldados (ticket de soldadura finalizado). Antes de eso no se pueden inspeccionar.</div>
       </button>
       <button type="button" onclick="confirmarReporteSoldadura('falta_informe')" style="display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--border-strong); border-left:5px solid #7c3aed; border-radius:8px; padding:11px 14px; margin-bottom:10px; cursor:pointer;">
         <div style="font-weight:800; font-size:0.92rem; color:var(--text);">4 · Falta el informe del ensayo</div>
-        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Para el inspector: ensayo ya realizado, informe aún no recibido.</div>
+        <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Ticket de ensayo ya finalizado, informe aún no recibido.</div>
       </button>
     </div>
   </div>
@@ -6258,7 +6266,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         'FABRICACIÓN DE PIEZAS',
         'MECANIZADO',
         'REPARACIÓN DE PIEZAS',
-        'SOLDADURA'
+        'SOLDADURA',
+        'ENSAYOS'
       ],
       machines: [
         'CILINDRADORA N° 1', 'CILINDRADORA N° 2', 'CILINDRADORA N° 3', 'CILINDRADORA N° 4', 'CILINDRADORA N° 5', 'CILINDRADORA N° 6',
@@ -6309,6 +6318,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     if (!Array.isArray(db.pasadores)) db.pasadores = ['Genesis Cortez', 'Bastian Zelada', 'Julian Neira'];
     // Área SOLDADURA: se agrega a las bases ya guardadas para poder crear OP de soldadura.
     if (Array.isArray(db.areas) && !db.areas.includes('SOLDADURA')) { db.areas.push('SOLDADURA'); saveDB(); }
+    // Área ENSAYOS: el "ticket de ensayo" (OP del mismo N°) que usa el Reporte de soldadura.
+    if (Array.isArray(db.areas) && !db.areas.some(a => String(a).toUpperCase().includes('ENSAYO'))) { db.areas.push('ENSAYOS'); saveDB(); }
 
     if (db.clients && db.clients.length > 0 && typeof db.clients[0] === 'string') {
       db.clients = db.clients.map(c => ({ rut: 'S/RUT', name: c }));
@@ -13647,7 +13658,9 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       { key: 'kilos',         label: 'Kilos',                  shortLabel: 'Kilos',       align: 'right',  weight: 6,  get: o => Math.round((o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0)).toLocaleString('es-CL') },
       { key: 'comentarios',   label: 'Comentarios',            shortLabel: 'Comentarios', align: 'left',   weight: 20, get: o => esc(o.comentarios || '-').replace(/\r?\n/g, '<br>') },
       { key: 'soldadura',     label: 'Estado de soldadura',     shortLabel: 'Estado',   align: 'left',   weight: 20, get: o => getReportSoldaduraBadge(o) },
-      { key: 'ensayo',        label: 'Ensayo',                 shortLabel: 'Ensayo',      align: 'center', weight: 12, get: o => getReportEnsayoBadge(o) },
+      { key: 'ensayo',        label: 'Ensayo',                 shortLabel: 'Ensayo',      align: 'center', weight: 14, get: o => getReportEnsayoBadge(o) },
+      { key: 'ticketSold',    label: 'Ticket de soldadura',    shortLabel: 'Ticket sold.', align: 'left',  weight: 13, get: o => getReportTicketsHtml(o, 'soldadura') },
+      { key: 'ticketEns',     label: 'Ticket de ensayo',       shortLabel: 'Ticket ensayo', align: 'left', weight: 13, get: o => getReportTicketsHtml(o, 'ensayo') },
       { key: 'trabajo',       label: 'Trabajo / Instrucciones',shortLabel: 'Trabajo',     align: 'left',   weight: 42, get: o => esc(o.instrucciones || '-').replace(/\r?\n/g, '<br>') },
     ];
     // Columnas exclusivas del reporte de guías pendientes (el objeto del reporte lleva la guía en o._guia).
@@ -14166,8 +14179,10 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         case 'piezas': return o.piezas || '-';
         case 'kilos': return Math.round((o.materiales || []).reduce((a, m) => a + (Number(m.kilos) || 0), 0));
         case 'trabajo': return o.instrucciones || '-';
-        case 'ensayo': return getReportEnsayoTexto(o) + (getReportEnsayoFecha(o) ? ` (ensayo realizado: ${getReportEnsayoFecha(o)})` : '');
+        case 'ensayo': return getReportEnsayoTexto(o) + (getReportEnsayoFecha(o) ? ` (ensayo realizado: ${getReportEnsayoFecha(o)})` : '') + (getReportEtapaEnsayo(o) ? '\n' + getReportEtapaEnsayo(o) : '');
         case 'soldadura': return getReportSoldaduraEstadoTexto(o);
+        case 'ticketSold': return getReportTicketsTexto(o, 'soldadura');
+        case 'ticketEns': return getReportTicketsTexto(o, 'ensayo');
         case 'guiaCd': return o._guia ? (o._guia.cd || '-') : '-';
         case 'guiaLlegada': return o._guia ? formatDateWithDayUpper(o._guia.fecha) : '-';
         case 'guiaCot': return o._guia ? (o._guia.cotizacionNumero || '-') : '-';
@@ -14456,34 +14471,85 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       }
       return fmtFechaCorta(f);
     }
+    // ---- TICKETS = OP derivadas del mismo N° ----
+    // Ticket de soldadura: OP del mismo N° en el área SOLDADURA.
+    // Ticket de ensayo:    OP del mismo N° en un área ENSAYOS (cualquier área cuyo nombre contenga "ENSAYO").
+    // "Finalizado" = estado TERMINADA o DESPACHADA. Las ANULADAS no cuentan.
+    const _up = v => String(v || '').trim().toUpperCase();
+    const ticketFinalizado = t => ['TERMINADA', 'DESPACHADA'].includes(_up(t.estadoOp));
+    function getTicketsOP(o, tipo) {
+      const esTipo = x => tipo === 'soldadura' ? _up(x.area) === 'SOLDADURA' : _up(x.area).includes('ENSAYO');
+      if (esTipo(o)) return _up(o.estadoOp) === 'ANULADA' ? [] : [o]; // la OP ya es el ticket
+      const num = _up(o.numero);
+      if (!num) return [];
+      return db.ots.filter(x => x.id !== o.id && _up(x.numero) === num && _up(x.estadoOp) !== 'ANULADA' && esTipo(x));
+    }
+    // Soldada = hay un ticket de soldadura finalizado (o el paso "Soldada" marcado a mano en la OP).
+    function opEstaSoldada(o) {
+      const seg = o.soldaduraSeguimiento || {};
+      return getTicketsOP(o, 'soldadura').some(ticketFinalizado) || !!(seg.lista && seg.lista.check);
+    }
+    function opTieneTicketSoldadura(o) { return getTicketsOP(o, 'soldadura').length > 0; }
+    // Ensayo realizado = ticket de ensayo finalizado (o fecha de ensayo cargada a mano en la OP).
+    function opEnsayoRealizado(o) {
+      return getTicketsOP(o, 'ensayo').some(ticketFinalizado) || !!getReportEnsayoFecha(o);
+    }
+    function getTicketLinea(t) {
+      const parte = String(t.parteOp || '').trim() || 'Ticket';
+      const est = ticketFinalizado(t) ? 'Finalizado' : (_up(t.estadoOp) === 'EN PAUSA' ? 'En pausa' : 'En curso');
+      const f = ticketFinalizado(t) && t.fechaTermino ? ' (' + fmtFechaCorta(String(t.fechaTermino).slice(0, 10)) + ')' : '';
+      return `${parte} · ${est}${f}`;
+    }
+    function getReportTicketsTexto(o, tipo) {
+      const tk = getTicketsOP(o, tipo);
+      return tk.length ? tk.map(getTicketLinea).join('\n') : 'Sin ticket';
+    }
+    function getReportTicketsHtml(o, tipo) {
+      const tk = getTicketsOP(o, tipo);
+      if (!tk.length) return '<span style="color:#94a3b8;">Sin ticket</span>';
+      return tk.map(t => `<span style="font-weight:700; color:${ticketFinalizado(t) ? '#166534' : '#b45309'};">${esc(getTicketLinea(t))}</span>`).join('<br>');
+    }
+    // Etapa del trabajo con ensayo: Sin soldar → Soldada (falta inspeccionar) → Ensayo hecho (falta informe) → Informe recibido.
+    function getReportEtapaEnsayo(o) {
+      if (getReportEnsayoEstado(o) === 'sin') return '';
+      if (getReportEnsayoEstado(o) === 'recibido') return 'Informe recibido';
+      if (opEnsayoRealizado(o)) return 'Ensayo hecho · falta informe';
+      if (opEstaSoldada(o)) return 'Soldada · falta inspeccionar';
+      return 'Aún sin soldar';
+    }
     function getReportEnsayoBadge(o) {
       const e = getReportEnsayoEstado(o);
       const st = { sin: 'color:#64748b;', pendiente: 'color:#1e40af;', recibido: 'color:#166534;' }[e];
       const f = getReportEnsayoFecha(o);
       const fHtml = f ? `<br><span style="font-weight:500; font-size:10px; color:#475569;">Ensayo realizado: ${f}</span>` : '';
-      return `<span style="font-weight:700; ${st}">${e === 'sin' ? '' : '🧪 '}${esc(getReportEnsayoTexto(o))}</span>${fHtml}`;
+      const et = getReportEtapaEnsayo(o);
+      const etHtml = et ? `<br><span style="font-weight:600; font-size:10px; color:#475569;">${esc(et)}</span>` : '';
+      return `<span style="font-weight:700; ${st}">${e === 'sin' ? '' : '🧪 '}${esc(getReportEnsayoTexto(o))}</span>${etHtml}${fHtml}`;
     }
     function imprimirReporteSoldadura() {
       $('report-sold-con-cliente').checked = true;
+      if ($('report-sold-filtro-ensayo')) $('report-sold-filtro-ensayo').value = 'todos';
       $('report-soldadura-modal').style.display = 'flex';
     }
     function cerrarModalReporteSoldadura() {
       $('report-soldadura-modal').style.display = 'none';
     }
     // 4 listas directas:
-    //  falta_soldar     -> OP con soldadura aún no soldada (cotizar con proveedor, sin Cliente)
-    //  con_ensayo       -> OP que llevan ensayo de soldadura
-    //  falta_inspeccion -> llevan ensayo y todavía no tienen fecha de ensayo realizado
-    //  falta_informe    -> ensayo realizado, informe aún no recibido
+    //  falta_soldar     -> OP con soldadura que NO tienen ticket (OP) en el área SOLDADURA (cotizar con proveedor, sin Cliente)
+    //  con_ensayo       -> OP que llevan ensayo; filtro opcional: todos / ya soldados / aún sin soldar
+    //  falta_inspeccion -> llevan ensayo, YA están soldadas (ticket de soldadura finalizado) y el ensayo aún no se realiza.
+    //                      Antes de estar soldadas no se pueden inspeccionar, por eso no aparecen.
+    //  falta_informe    -> llevan ensayo, el ticket de ensayo está finalizado y el informe aún no se recibe
     const REPORTES_SOLDADURA = {
-      falta_soldar:     { titulo: 'Faltan por soldar',            cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo'] },
-      con_ensayo:       { titulo: 'Trabajos que llevan ensayo',   cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ensayo'] },
-      falta_inspeccion: { titulo: 'Faltan por inspeccionar',      cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ensayo'] },
-      falta_informe:    { titulo: 'Falta informe del ensayo',     cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ensayo'] }
+      falta_soldar:     { titulo: 'Faltan por soldar (OP sin ticket en soldadura)', cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo'] },
+      con_ensayo:       { titulo: 'Trabajos que llevan ensayo',   cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ticketSold', 'ensayo'] },
+      falta_inspeccion: { titulo: 'Faltan por inspeccionar (ya soldados)', cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ticketSold', 'ensayo'] },
+      falta_informe:    { titulo: 'Falta informe del ensayo (ticket de ensayo finalizado)', cols: ['numero', 'cliente', 'cantidadTotal', 'trabajo', 'ticketEns', 'ensayo'] }
     };
     function confirmarReporteSoldadura(modo) {
       const cfg = REPORTES_SOLDADURA[modo];
       if (!cfg) return;
+      const filtroEns = ($('report-sold-filtro-ensayo') || {}).value || 'todos';
       const cerrada = o => ['TERMINADA', 'DESPACHADA', 'ANULADA'].includes(String(o.estadoOp || '').trim().toUpperCase());
       const anulada = o => String(o.estadoOp || '').trim().toUpperCase() === 'ANULADA';
       const list = db.ots.filter(o => {
@@ -14493,13 +14559,17 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         switch (modo) {
           case 'falta_soldar':
             if (cerrada(o)) return false;
-            return opTieneSoldadura(o) ? !(o.soldaduraSeguimiento && o.soldaduraSeguimiento.lista && o.soldaduraSeguimiento.lista.check) : true;
-          case 'con_ensayo':
-            return !anulada(o) && e !== 'sin';
+            return opTieneSoldadura(o) && !opTieneTicketSoldadura(o) && !opEstaSoldada(o);
+          case 'con_ensayo': {
+            if (anulada(o) || e === 'sin') return false;
+            if (filtroEns === 'soldados') return opEstaSoldada(o);
+            if (filtroEns === 'sin_soldar') return !opEstaSoldada(o);
+            return true;
+          }
           case 'falta_inspeccion':
-            return !anulada(o) && e === 'pendiente' && !getReportEnsayoFecha(o);
+            return !anulada(o) && e === 'pendiente' && opEstaSoldada(o) && !opEnsayoRealizado(o);
           case 'falta_informe':
-            return !anulada(o) && e === 'pendiente' && !!getReportEnsayoFecha(o);
+            return !anulada(o) && e === 'pendiente' && opEnsayoRealizado(o);
         }
         return false;
       }).map(o => {
@@ -14512,7 +14582,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const conCliente = $('report-sold-con-cliente').checked;
       const cols = cfg.cols.filter(c => conCliente || c !== 'cliente');
       if (conCliente && !cols.includes('cliente')) cols.splice(1, 0, 'cliente');
-      previewReport(list, 'Reporte de Soldadura', `${cfg.titulo} · ${list.length} OP`, cols);
+      const sufijoFiltro = modo === 'con_ensayo' && filtroEns !== 'todos' ? (filtroEns === 'soldados' ? ' · solo ya soldados' : ' · aún sin soldar') : '';
+      previewReport(list, 'Reporte de Soldadura', `${cfg.titulo}${sufijoFiltro} · ${list.length} OP`, cols);
     }
 
     // ---- Reporte de guías pendientes de hacer OP (con estado de cotización) ----
