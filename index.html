@@ -2145,6 +2145,15 @@ html.dagomet-dark [style*="color: #7c3aed"]:not(#modal-preview-container, #modal
 
 
   
+    .asig-resumen { display:flex; flex-wrap:wrap; gap:10px; margin:4px 0 14px; }
+    .asig-resumen .asig-kpi { flex:0 1 150px; min-width:120px; padding:8px 14px; background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--border-strong); border-radius:8px; line-height:1.15; }
+    .asig-resumen .asig-kpi b { display:block; font-size:1.5rem; font-weight:800; color:var(--text); }
+    .asig-resumen .asig-kpi span { font-size:.68rem; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--text-muted); }
+    .asig-resumen .asig-kpi.ok { border-left-color:#16a34a; }
+    .asig-resumen .asig-kpi.ok b { color:#16a34a; }
+    .asig-resumen .asig-kpi.pend { border-left-color:#f59e0b; }
+    .asig-resumen .asig-kpi.pend b { color:#d97706; }
+    @media print { .asig-resumen { display:none !important; } }
     .tabla-asignaciones select { min-width:150px; padding:7px 8px; }
     .tabla-asignaciones td { vertical-align:middle; }
     @media(max-width:900px){ .tabla-asignaciones{min-width:980px;} }
@@ -5365,6 +5374,11 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           <button class="btn btn-primary btn-sm" onclick="abrirModalOPEnCursoAreas()" title="Elige una o más áreas y proyecta las OP en curso">📽️ OP en curso por área</button>
         </div>
         <p style="color:var(--text-muted);margin-top:-10px">Asigna un trabajador y registra quién entregó/pasó la OP. Los cambios de esta hoja no modifican el resto de la orden.</p>
+        <div class="asig-resumen" id="asig-resumen" aria-label="Resumen de asignación de OP">
+          <div class="asig-kpi"><b id="asig-kpi-total">0</b><span>OP activas</span></div>
+          <div class="asig-kpi ok"><b id="asig-kpi-asig">0</b><span>Asignadas</span></div>
+          <div class="asig-kpi pend"><b id="asig-kpi-sin">0</b><span>Sin asignar</span></div>
+        </div>
         <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));align-items:end">
           <div class="field"><label for="asig-search">Buscar OP</label><input id="asig-search" type="search" placeholder="N° OP, cliente o parte" oninput="renderAsignacionesOP()"></div>
           <div class="field"><label for="asig-filter-worker">Trabajador asignado</label><select id="asig-filter-worker" onchange="renderAsignacionesOP()"><option value="">Todos</option></select></div>
@@ -7221,6 +7235,11 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         selectPas.innerHTML='<option value="">Todos</option>'+pas.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
         selectPas.value=pas.includes(prevPas)?prevPas:'';
       }
+      // Resumen superior: todas las OP activas, sin importar los filtros de la tabla.
+      const activas=(db.ots||[]).filter(estadoOPActiva);
+      const nAsig=activas.filter(o=>nombreSinCargo(o.asigTrabajador||'')).length;
+      const setKpi=(id,v)=>{const el=$(id); if(el) el.textContent=v;};
+      setKpi('asig-kpi-total',activas.length); setKpi('asig-kpi-asig',nAsig); setKpi('asig-kpi-sin',activas.length-nAsig);
       const worker=$('asig-filter-worker')?.value||'';
       const pasador=$('asig-filter-pasador')?.value||'';
       const estadoSel=$('asig-filter-estado')?.value||'';
