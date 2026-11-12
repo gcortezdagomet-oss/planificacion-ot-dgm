@@ -5063,6 +5063,10 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
               <input type="time" id="horaTermino">
             </div>
           </div>
+          <div class="field" id="terminadoPor-field" style="display:none;">
+            <label for="terminadoPor">Maestro que finalizó la OP *</label>
+            <select id="terminadoPor" onchange="markFormDirty()"></select>
+          </div>
           <div class="field" style="grid-column: span 2;">
             <label>Nota Importante</label>
             <input type="text" id="notaImportante" placeholder="Nota automática según área (si aplica)">
@@ -6728,6 +6732,78 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       input.dispatchEvent(new Event('change', { bubbles: true }));
     });
 
+    // ==========================================================================
+    // MAESTRO QUE FINALIZÓ LA OP: es obligatorio al marcar una OP como TERMINADA
+    // (formulario de la OP y botón "Terminar" de Asignación de OP).
+    // Se ofrecen las personas con cargo MAESTRO; si la lista no tiene ninguna,
+    // se ofrece la lista completa para no dejar la OP imposible de terminar.
+    // ==========================================================================
+    function getMaestrosLista() {
+      const todas = Array.isArray(db && db.people) ? db.people : [];
+      const maestros = todas.filter(p => /\(\s*maestro\s*\)/i.test(String(p)));
+      return maestros.length ? maestros : todas;
+    }
+
+    function opcionesMaestrosHTML(valorActual) {
+      const lista = getMaestrosLista().slice();
+      // Si la OP ya guardó un maestro que ya no está en la lista, se conserva como opción.
+      if (valorActual && !lista.includes(valorActual)) lista.push(valorActual);
+      return '<option value="">-- Seleccione al maestro --</option>' +
+        lista.map(p => `<option value="${esc(p)}"${p === valorActual ? ' selected' : ''}>${esc(nombreSinCargo(p))}</option>`).join('');
+    }
+
+    function poblarSelectTerminadoPor(valor) {
+      const sel = document.getElementById('terminadoPor');
+      if (!sel) return;
+      const actual = (valor !== undefined) ? valor : sel.value;
+      sel.innerHTML = opcionesMaestrosHTML(actual || '');
+      sel.value = actual || '';
+    }
+
+    function toggleTerminadoPorField() {
+      const campo = document.getElementById('terminadoPor-field');
+      if (!campo) return;
+      const est = String(document.getElementById('estadoOp')?.value || '');
+      const visible = est === 'TERMINADA';
+      campo.style.display = visible ? 'flex' : 'none';
+      // Al volver a un estado no terminado se limpia (solo aplica a OP terminadas).
+      if (!visible && est !== 'DESPACHADA') {
+        const sel = document.getElementById('terminadoPor');
+        if (sel) sel.value = '';
+      }
+    }
+
+    // Ventana para elegir al maestro. Devuelve el nombre elegido o null si se cancela.
+    function pedirMaestroFinaliza(opts) {
+      opts = opts || {};
+      return new Promise(resolve => {
+        const ov = document.createElement('div');
+        ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;';
+        ov.innerHTML = `
+          <div style="background:var(--surface,#fff);color:var(--text,#1e293b);border-radius:12px;padding:18px;max-width:440px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.35);">
+            <div style="font-weight:800;font-size:1rem;margin-bottom:6px;">✅ Terminar OP N° ${esc(opts.numero || '-')}</div>
+            <div style="font-size:.82rem;color:var(--text-muted,#64748b);margin-bottom:12px;">${esc(opts.detalle || 'Se cerrará en todo el sistema y saldrá de esta hoja.')}</div>
+            <label style="display:block;font-size:.75rem;font-weight:800;text-transform:uppercase;margin-bottom:4px;">Maestro que finalizó la OP *</label>
+            <select id="maestro-final-sel" style="width:100%;padding:8px;border:1px solid var(--border-strong,#c3cbd6);border-radius:6px;font-size:.9rem;">${opcionesMaestrosHTML('')}</select>
+            <div id="maestro-final-err" style="display:none;color:#b91c1c;font-size:.76rem;font-weight:700;margin-top:6px;">Debe indicar qué maestro finalizó la OP.</div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="maestro-final-cancel">Cancelar</button>
+              <button type="button" class="btn btn-success btn-sm" id="maestro-final-ok">Marcar como TERMINADA</button>
+            </div>
+          </div>`;
+        document.body.appendChild(ov);
+        const sel = ov.querySelector('#maestro-final-sel');
+        const cerrar = v => { ov.remove(); resolve(v); };
+        ov.querySelector('#maestro-final-cancel').onclick = () => cerrar(null);
+        ov.addEventListener('mousedown', e => { if (e.target === ov) cerrar(null); });
+        ov.querySelector('#maestro-final-ok').onclick = () => {
+          if (!sel.value) { ov.querySelector('#maestro-final-err').style.display = 'block'; sel.focus(); return; }
+          cerrar(sel.value);
+        };
+        sel.focus();
+      });
+    }
+
     // Muestra el nombre sin el cargo entre paréntesis: "JORGE NIÑO (MAESTRO)" -> "JORGE NIÑO".
     // Solo es visual: el valor guardado sigue siendo el nombre completo.
     function nombreSinCargo(n) {
@@ -7281,12 +7357,14 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     async function terminarOPDesdeAsignacion(id) {
       if(window.dagometCurrentProfile?.rol!=='admin'){alert('Solo el administrador puede terminar una OP.');return;}
       const op=(db.ots||[]).find(o=>String(o.id)===String(id)); if(!op) return;
-      if(!confirm(`¿Marcar la OP N° ${op.numero||'-'} (${op.cliente||'Sin cliente'}) como TERMINADA?\n\nSe cerrará en todo el sistema y saldrá de esta hoja.`)) return;
+      const maestro=await pedirMaestroFinaliza({numero:op.numero, detalle:`${op.cliente||'Sin cliente'} · Se cerrará en todo el sistema y saldrá de esta hoja.`});
+      if(!maestro) return;
       const now=new Date();
       op.estadoOp='TERMINADA';
+      op.terminadoPor=maestro;
       if(!op.fechaTermino) op.fechaTermino=todayKey();
       if(!op.horaTermino) op.horaTermino=`${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
-      try { registrarAuditoria('TERMINAR OP (Asignación)', `OP N° ${op.numero||'-'} · ${op.cliente||'Sin cliente'} marcada como TERMINADA`, op.numero||''); } catch(_) {}
+      try { registrarAuditoria('TERMINAR OP (Asignación)', `OP N° ${op.numero||'-'} · ${op.cliente||'Sin cliente'} marcada como TERMINADA · Maestro: ${nombreSinCargo(maestro)}`, op.numero||''); } catch(_) {}
       const ok=await saveDBAndWait();
       renderAsignacionesOP();
       try { if (typeof renderOPsTable==='function') renderOPsTable(); } catch(_) {}
@@ -7440,6 +7518,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       }
 
       $('responsableTrabajo').innerHTML = db.people.map(p => `<option value="${esc(p)}">${esc(nombreSinCargo(p))}</option>`).join('');
+      poblarSelectTerminadoPor();
       
       const peopleOptsRev = `<option value="">-- Sin Asignar (Dejar en Blanco) --</option>` + 
         db.people.map(p => `<option value="${esc(p)}">${esc(nombreSinCargo(p))}</option>`).join('');
@@ -8835,6 +8914,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
 
     $('estadoOp').addEventListener('change', function() {
       togglePausaFields();
+      toggleTerminadoPorField();
       markFormDirty();
       if (this.value !== 'TERMINADA') return;
       const now = new Date();
@@ -9081,6 +9161,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('motivoPausa').value = '';
       $('fechaReanudacionEstimada').value = '';
       togglePausaFields();
+      poblarSelectTerminadoPor('');
+      toggleTerminadoPorField();
       $('planificador').value = 'GCC';
       if(db.clients.length > 0) {
         $('cliente-input').value = `${db.clients[0].rut} - ${db.clients[0].name}`;
@@ -9178,6 +9260,14 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         return;
       }
 
+      const terminadoPorInput = String($('terminadoPor')?.value || '').trim();
+      if (estadoOpInput === 'TERMINADA' && !terminadoPorInput) {
+        alert('Para marcar la OP como TERMINADA debe indicar el maestro que la finalizó.');
+        toggleTerminadoPorField();
+        $('terminadoPor').focus();
+        return;
+      }
+
       const selectedResponsables = Array.from($('responsableTrabajo').selectedOptions).map(option => option.value);
 
       const opData = {
@@ -9186,6 +9276,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         numero: currentNum,
         parteOp: $('parteOp').value,
         estadoOp: estadoOpInput,
+        terminadoPor: (estadoOpInput === 'TERMINADA' || estadoOpInput === 'DESPACHADA') ? terminadoPorInput : '',
         motivoPausa: estadoOpInput === 'EN PAUSA' ? motivoPausa : '',
         fechaReanudacionEstimada: estadoOpInput === 'EN PAUSA' ? $('fechaReanudacionEstimada').value : '',
         planificador: $('planificador').value.toUpperCase(),
@@ -9349,6 +9440,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('horaInicio').value = o.horaInicio || '';
       $('fechaTermino').value = o.fechaTermino || '';
       $('horaTermino').value = o.horaTermino || '';
+      poblarSelectTerminadoPor(o.terminadoPor || '');
+      toggleTerminadoPorField();
       
       const respTrabSelect = $('responsableTrabajo');
       const savedResps = Array.isArray(o.responsableTrabajo) ? o.responsableTrabajo : (o.responsableTrabajo ? [o.responsableTrabajo] : []);
@@ -9393,6 +9486,8 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('motivoPausa').value = '';
       $('fechaReanudacionEstimada').value = '';
       togglePausaFields();
+      poblarSelectTerminadoPor('');
+      toggleTerminadoPorField();
       $('planificador').value = o.planificador || 'GCC';
       $('cliente-input').value = o.cliente || '';
       $('entrega').value = '';
