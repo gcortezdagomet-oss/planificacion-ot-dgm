@@ -5038,11 +5038,11 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           </div>
           <div class="field" style="grid-column: span 2;">
             <label style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
-              <span>Responsables del Trabajo</span>
+              <span>Responsables del Trabajo<span id="responsableTrabajo-req" style="display:none; color:#b91c1c;"> *</span></span>
               <button type="button" class="btn btn-secondary btn-sm" onclick="limpiarResponsablesTrabajo()" title="Dejar sin responsables">✖ Dejar vacío</button>
             </label>
             <select id="responsableTrabajo" multiple style="height: 100px;"></select>
-            <small class="field-hint">Mantén Ctrl/Cmd presionado para seleccionar varios.</small>
+            <small class="field-hint">Mantén Ctrl/Cmd presionado para seleccionar varios. <span id="responsableTrabajo-req-hint" style="display:none; font-weight:700; color:#b91c1c;">Obligatorio para marcar la OP como TERMINADA.</span></small>
           </div>
           <div class="field" style="grid-column: span 2;">
             <label>Responsable de Revisión</label>
@@ -5063,10 +5063,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
               <input type="date" id="fechaTermino">
               <input type="time" id="horaTermino">
             </div>
-          </div>
-          <div class="field" id="terminadoPor-field" style="display:none;">
-            <label for="terminadoPor">Maestro que finalizó la OP *</label>
-            <select id="terminadoPor" onchange="markFormDirty()"></select>
           </div>
           <div class="field" style="grid-column: span 2;">
             <label>Nota Importante</label>
@@ -6744,49 +6740,27 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     });
 
     // ==========================================================================
-    // MAESTRO QUE FINALIZÓ LA OP: es obligatorio al marcar una OP como TERMINADA
+    // RESPONSABLES DEL TRABAJO: son obligatorios al marcar una OP como TERMINADA
     // (formulario de la OP y botón "Terminar" de Asignación de OP).
-    // Se ofrecen las personas con cargo MAESTRO; si la lista no tiene ninguna,
-    // se ofrece la lista completa para no dejar la OP imposible de terminar.
+    // Ya no existe el campo aparte "Maestro que finalizó la OP".
     // ==========================================================================
-    function getMaestrosLista() {
-      const todas = Array.isArray(db && db.people) ? db.people : [];
-      const maestros = todas.filter(p => /\(\s*maestro\s*\)/i.test(String(p)));
-      return maestros.length ? maestros : todas;
-    }
-
-    function opcionesMaestrosHTML(valorActual) {
-      const lista = getMaestrosLista().slice();
-      // Si la OP ya guardó un maestro que ya no está en la lista, se conserva como opción.
-      if (valorActual && !lista.includes(valorActual)) lista.push(valorActual);
-      return '<option value="">-- Seleccione al maestro --</option>' +
-        lista.map(p => `<option value="${esc(p)}"${p === valorActual ? ' selected' : ''}>${esc(nombreSinCargo(p))}</option>`).join('');
-    }
-
-    function poblarSelectTerminadoPor(valor) {
-      const sel = document.getElementById('terminadoPor');
-      if (!sel) return;
-      const actual = (valor !== undefined) ? valor : sel.value;
-      sel.innerHTML = opcionesMaestrosHTML(actual || '');
-      sel.value = actual || '';
-    }
-
     function toggleTerminadoPorField() {
-      const campo = document.getElementById('terminadoPor-field');
-      if (!campo) return;
+      // Muestra/oculta el asterisco de obligatorio en "Responsables del Trabajo".
       const est = String(document.getElementById('estadoOp')?.value || '');
       const visible = est === 'TERMINADA';
-      campo.style.display = visible ? 'flex' : 'none';
-      // Al volver a un estado no terminado se limpia (solo aplica a OP terminadas).
-      if (!visible && est !== 'DESPACHADA') {
-        const sel = document.getElementById('terminadoPor');
-        if (sel) sel.value = '';
-      }
+      const a = document.getElementById('responsableTrabajo-req');
+      const b = document.getElementById('responsableTrabajo-req-hint');
+      if (a) a.style.display = visible ? 'inline' : 'none';
+      if (b) b.style.display = visible ? 'inline' : 'none';
     }
 
-    // Ventana para elegir al maestro. Devuelve el nombre elegido o null si se cancela.
-    function pedirMaestroFinaliza(opts) {
+    // Ventana para confirmar el término. Pide al menos un responsable del trabajo
+    // (viene preseleccionado con los de la OP). Devuelve el arreglo elegido o null si se cancela.
+    function pedirResponsablesFinaliza(opts) {
       opts = opts || {};
+      const previos = Array.isArray(opts.responsables) ? opts.responsables : [];
+      const personas = (Array.isArray(db && db.people) ? db.people : []).slice();
+      previos.forEach(p => { if (!personas.includes(p)) personas.push(p); });
       return new Promise(resolve => {
         const ov = document.createElement('div');
         ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;';
@@ -6794,22 +6768,24 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           <div style="background:var(--surface,#fff);color:var(--text,#1e293b);border-radius:12px;padding:18px;max-width:440px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.35);">
             <div style="font-weight:800;font-size:1rem;margin-bottom:6px;">✅ Terminar OP N° ${esc(opts.numero || '-')}</div>
             <div style="font-size:.82rem;color:var(--text-muted,#64748b);margin-bottom:12px;">${esc(opts.detalle || 'Se cerrará en todo el sistema y saldrá de esta hoja.')}</div>
-            <label style="display:block;font-size:.75rem;font-weight:800;text-transform:uppercase;margin-bottom:4px;">Maestro que finalizó la OP *</label>
-            <select id="maestro-final-sel" style="width:100%;padding:8px;border:1px solid var(--border-strong,#c3cbd6);border-radius:6px;font-size:.9rem;">${opcionesMaestrosHTML('')}</select>
-            <div id="maestro-final-err" style="display:none;color:#b91c1c;font-size:.76rem;font-weight:700;margin-top:6px;">Debe indicar qué maestro finalizó la OP.</div>
+            <label style="display:block;font-size:.75rem;font-weight:800;text-transform:uppercase;margin-bottom:4px;">Responsables del trabajo *</label>
+            <select id="resp-final-sel" multiple style="width:100%;height:160px;padding:6px;border:1px solid var(--border-strong,#c3cbd6);border-radius:6px;font-size:.9rem;">${personas.map(p => `<option value="${esc(p)}"${previos.includes(p) ? ' selected' : ''}>${esc(nombreSinCargo(p))}</option>`).join('')}</select>
+            <div style="font-size:.72rem;color:var(--text-muted,#64748b);margin-top:4px;">Mantén Ctrl/Cmd presionado para seleccionar varios.</div>
+            <div id="resp-final-err" style="display:none;color:#b91c1c;font-size:.76rem;font-weight:700;margin-top:6px;">Debe indicar al menos un responsable del trabajo.</div>
             <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
-              <button type="button" class="btn btn-secondary btn-sm" id="maestro-final-cancel">Cancelar</button>
-              <button type="button" class="btn btn-success btn-sm" id="maestro-final-ok">Marcar como TERMINADA</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="resp-final-cancel">Cancelar</button>
+              <button type="button" class="btn btn-success btn-sm" id="resp-final-ok">Marcar como TERMINADA</button>
             </div>
           </div>`;
         document.body.appendChild(ov);
-        const sel = ov.querySelector('#maestro-final-sel');
+        const sel = ov.querySelector('#resp-final-sel');
         const cerrar = v => { ov.remove(); resolve(v); };
-        ov.querySelector('#maestro-final-cancel').onclick = () => cerrar(null);
+        ov.querySelector('#resp-final-cancel').onclick = () => cerrar(null);
         ov.addEventListener('mousedown', e => { if (e.target === ov) cerrar(null); });
-        ov.querySelector('#maestro-final-ok').onclick = () => {
-          if (!sel.value) { ov.querySelector('#maestro-final-err').style.display = 'block'; sel.focus(); return; }
-          cerrar(sel.value);
+        ov.querySelector('#resp-final-ok').onclick = () => {
+          const elegidos = Array.from(sel.selectedOptions).map(o => o.value);
+          if (!elegidos.length) { ov.querySelector('#resp-final-err').style.display = 'block'; sel.focus(); return; }
+          cerrar(elegidos);
         };
         sel.focus();
       });
@@ -7368,14 +7344,15 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
     async function terminarOPDesdeAsignacion(id) {
       if(window.dagometCurrentProfile?.rol!=='admin'){alert('Solo el administrador puede terminar una OP.');return;}
       const op=(db.ots||[]).find(o=>String(o.id)===String(id)); if(!op) return;
-      const maestro=await pedirMaestroFinaliza({numero:op.numero, detalle:`${op.cliente||'Sin cliente'} · Se cerrará en todo el sistema y saldrá de esta hoja.`});
-      if(!maestro) return;
+      const previos=Array.isArray(op.responsableTrabajo)?op.responsableTrabajo:(op.responsableTrabajo?[op.responsableTrabajo]:[]);
+      const responsables=await pedirResponsablesFinaliza({numero:op.numero, responsables:previos, detalle:`${op.cliente||'Sin cliente'} · Se cerrará en todo el sistema y saldrá de esta hoja.`});
+      if(!responsables||!responsables.length) return;
       const now=new Date();
       op.estadoOp='TERMINADA';
-      op.terminadoPor=maestro;
+      op.responsableTrabajo=responsables;
       if(!op.fechaTermino) op.fechaTermino=todayKey();
       if(!op.horaTermino) op.horaTermino=`${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
-      try { registrarAuditoria('TERMINAR OP (Asignación)', `OP N° ${op.numero||'-'} · ${op.cliente||'Sin cliente'} marcada como TERMINADA · Maestro: ${nombreSinCargo(maestro)}`, op.numero||''); } catch(_) {}
+      try { registrarAuditoria('TERMINAR OP (Asignación)', `OP N° ${op.numero||'-'} · ${op.cliente||'Sin cliente'} marcada como TERMINADA · Responsables: ${responsables.map(nombreSinCargo).join(', ')}`, op.numero||''); } catch(_) {}
       const ok=await saveDBAndWait();
       renderAsignacionesOP();
       try { if (typeof renderOPsTable==='function') renderOPsTable(); } catch(_) {}
@@ -7551,7 +7528,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       }
 
       $('responsableTrabajo').innerHTML = db.people.map(p => `<option value="${esc(p)}">${esc(nombreSinCargo(p))}</option>`).join('');
-      poblarSelectTerminadoPor();
       
       const peopleOptsRev = `<option value="">-- Sin Asignar (Dejar en Blanco) --</option>` + 
         db.people.map(p => `<option value="${esc(p)}">${esc(nombreSinCargo(p))}</option>`).join('');
@@ -9194,7 +9170,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('motivoPausa').value = '';
       $('fechaReanudacionEstimada').value = '';
       togglePausaFields();
-      poblarSelectTerminadoPor('');
       toggleTerminadoPorField();
       $('planificador').value = 'GCC';
       if(db.clients.length > 0) {
@@ -9293,15 +9268,13 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         return;
       }
 
-      const terminadoPorInput = String($('terminadoPor')?.value || '').trim();
-      if (estadoOpInput === 'TERMINADA' && !terminadoPorInput) {
-        alert('Para marcar la OP como TERMINADA debe indicar el maestro que la finalizó.');
+      const selectedResponsables = Array.from($('responsableTrabajo').selectedOptions).map(option => option.value);
+      if (estadoOpInput === 'TERMINADA' && selectedResponsables.length === 0) {
+        alert('Para marcar la OP como TERMINADA debe seleccionar al menos un responsable del trabajo.');
         toggleTerminadoPorField();
-        $('terminadoPor').focus();
+        $('responsableTrabajo').focus();
         return;
       }
-
-      const selectedResponsables = Array.from($('responsableTrabajo').selectedOptions).map(option => option.value);
 
       const opData = {
         id: editId || Date.now().toString(),
@@ -9309,7 +9282,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
         numero: currentNum,
         parteOp: $('parteOp').value,
         estadoOp: estadoOpInput,
-        terminadoPor: (estadoOpInput === 'TERMINADA' || estadoOpInput === 'DESPACHADA') ? terminadoPorInput : '',
         motivoPausa: estadoOpInput === 'EN PAUSA' ? motivoPausa : '',
         fechaReanudacionEstimada: estadoOpInput === 'EN PAUSA' ? $('fechaReanudacionEstimada').value : '',
         planificador: $('planificador').value.toUpperCase(),
@@ -9473,7 +9445,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('horaInicio').value = o.horaInicio || '';
       $('fechaTermino').value = o.fechaTermino || '';
       $('horaTermino').value = o.horaTermino || '';
-      poblarSelectTerminadoPor(o.terminadoPor || '');
       toggleTerminadoPorField();
       
       const respTrabSelect = $('responsableTrabajo');
@@ -9519,7 +9490,6 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       $('motivoPausa').value = '';
       $('fechaReanudacionEstimada').value = '';
       togglePausaFields();
-      poblarSelectTerminadoPor('');
       toggleTerminadoPorField();
       $('planificador').value = o.planificador || 'GCC';
       $('cliente-input').value = o.cliente || '';
