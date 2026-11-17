@@ -9327,7 +9327,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           // saveOP reconstruye la OP desde el formulario: se conserva la marca de aviso de término.
           // También los datos y fotos de liberación (QR del trabajador y manuales).
           const prevOP = db.ots[idx] || {};
-          ['avisoTermino', 'liberadoPor', 'liberadoEn', 'fotosLiberacionPaths', 'fotoLiberacionPath', 'fotosLiberacionManual', 'entregaOriginal', 'historialEntrega', 'asigTrabajador', 'asigPor', 'asigFecha', 'asigHora']
+          ['avisoTermino', 'liberadoPor', 'liberadoEn', 'fotosLiberacionPaths', 'fotoLiberacionPath', 'fotosLiberacionManual', 'entregaOriginal', 'historialEntrega', 'asigTrabajador', 'asigPor', 'asigFecha', 'asigHora', 'iniciadaPor', 'iniciadaEn']
             .forEach(k => { if (prevOP[k] !== undefined) opData[k] = prevOP[k]; });
           db.ots[idx] = opData;
         }
@@ -15511,10 +15511,14 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       const qrDataUrl = buildLiberarQRDataUrl(o.id);
       if (!qrDataUrl) return '<span></span>';
       return `
-        <div style="display:flex; align-items:center; gap:7px; text-transform:none;">
-          <img src="${qrDataUrl}" style="width:52px; height:52px; image-rendering:pixelated; border:1px solid #e2e8f0; border-radius:4px; background:#fff;">
-          <div style="font-size:8px; color:#64748b; max-width:110px; line-height:1.25; text-transform:uppercase; font-weight:700;">
-            Escanea para liberar el trabajo y subir foto
+        <div style="display:flex; align-items:stretch; border:2.5px solid #263581; border-radius:9px; overflow:hidden; background:#fff; text-transform:none; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+          <div style="padding:5px; background:#fff; display:flex; align-items:center;">
+            <img src="${qrDataUrl}" style="width:82px; height:82px; image-rendering:pixelated; display:block;">
+          </div>
+          <div style="background:#263581; color:#fff; padding:6px 12px; display:flex; flex-direction:column; justify-content:center; gap:3px; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+            <div style="font-size:12px; font-weight:900; letter-spacing:.6px; text-transform:uppercase; color:#fbbf24;">📱 Escanea el QR</div>
+            <div style="font-size:10.5px; font-weight:800; line-height:1.3; text-transform:uppercase;">▶ Al empezar: inicia la OP<br>y marca tu máquina</div>
+            <div style="font-size:10.5px; font-weight:800; line-height:1.3; text-transform:uppercase;">✅ Al terminar: libera<br>el trabajo y sube fotos</div>
           </div>
         </div>
       `;
@@ -16409,7 +16413,7 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
       });
     }
 
-    async function init() {
+    async function init(saltarInicio) {
       let info;
       try {
         info = await llamarFuncion({ action: 'info', opId: liberarId });
@@ -16424,6 +16428,56 @@ html:root body #auth-card .dg-field input.dg-input::placeholder{color:#8b98ab !i
           <p class="liberar-sub">${info.area || ''}${info.parteOp ? ' · ' + info.parteOp : ''}</p>
           <div class="liberar-msg ok">✅ Este trabajo ya fue liberado${info.liberadoPor ? ' por ' + info.liberadoPor : ''}${info.liberadoEn ? ' el ' + new Date(info.liberadoEn).toLocaleString('es-CL') : ''}.</div>
         `;
+        return;
+      }
+
+      // ===== Paso 1: INICIAR la OP (elegir trabajador + máquina) =====
+      // Si la OP aún no fue iniciada, el mismo QR muestra primero esta pantalla.
+      // Quien ya tiene la OP en curso puede saltar directo a "Liberar".
+      if (!info.iniciadaEn && !saltarInicio) {
+        const resp0 = Array.isArray(info.responsableTrabajo) ? info.responsableTrabajo : [];
+        const nombres0 = resp0.length > 0 ? resp0 : (Array.isArray(info.trabajadoresDisponibles) ? info.trabajadoresDisponibles : []);
+        const maquinas0 = Array.isArray(info.maquinasDisponibles) ? info.maquinasDisponibles : [];
+        const q = s => String(s).replace(/"/g, '&quot;');
+        card.innerHTML = `
+          <h2>OP N° ${info.numero || ''}</h2>
+          <p class="liberar-sub">${info.area || ''}${info.parteOp ? ' · ' + info.parteOp : ''}</p>
+          <label for="iniciar-nombre">Tu nombre</label>
+          <select id="iniciar-nombre">
+            <option value="">Selecciona tu nombre…</option>
+            ${nombres0.map(n => `<option value="${q(n)}">${n}</option>`).join('')}
+          </select>
+          <label for="iniciar-maquina">Máquina en la que trabajarás</label>
+          <select id="iniciar-maquina">
+            <option value="">Selecciona la máquina…</option>
+            ${maquinas0.map(m => `<option value="${q(m)}">${m}</option>`).join('')}
+          </select>
+          <button type="button" class="liberar-btn" id="iniciar-btn" style="background:#2563eb;">▶ Iniciar OP</button>
+          <div id="iniciar-msg" class="liberar-msg"></div>
+          <p class="liberar-sub" style="margin:14px 0 0;text-align:center;"><a href="#" id="iniciar-saltar">Ya estaba en curso → ir a liberar el trabajo</a></p>
+        `;
+        document.getElementById('iniciar-saltar').addEventListener('click', (ev) => { ev.preventDefault(); init(true); });
+        const ib = document.getElementById('iniciar-btn');
+        const im = document.getElementById('iniciar-msg');
+        ib.addEventListener('click', async () => {
+          const trabajador = document.getElementById('iniciar-nombre').value;
+          const maquina = document.getElementById('iniciar-maquina').value;
+          im.className = 'liberar-msg';
+          if (!trabajador) { im.className = 'liberar-msg err'; im.textContent = 'Selecciona tu nombre.'; return; }
+          if (!maquina) { im.className = 'liberar-msg err'; im.textContent = 'Selecciona la máquina.'; return; }
+          ib.disabled = true; ib.textContent = 'Guardando…';
+          try {
+            await llamarFuncion({ action: 'iniciar', opId: liberarId, trabajador, maquina });
+            card.innerHTML = `
+              <h2>OP N° ${info.numero || ''}</h2>
+              <div class="liberar-msg ok">▶ OP iniciada en <b>${maquina}</b> por ${trabajador}.<br>Cuando termines, vuelve a escanear este mismo QR para liberar el trabajo.</div>
+            `;
+          } catch (e) {
+            im.className = 'liberar-msg err';
+            im.textContent = e.message || 'No se pudo iniciar la OP. Intenta de nuevo.';
+            ib.disabled = false; ib.textContent = '▶ Iniciar OP';
+          }
+        });
         return;
       }
 
