@@ -16594,6 +16594,11 @@ html.dagomet-dark .cal-op-chip.pausa { background: rgba(251,191,36,.14); }
     // Function dagomet-liberar-op en db.notificacionesLiberacion). Se
     // muestran como tarjetas descartables; al cerrarlas quedan marcadas
     // como leídas y no vuelven a aparecer.
+    const AVISO_LIBERACION_SEGUNDOS = 8; // tiempo en pantalla antes de desaparecer solo
+    const avisosLiberacionProgramados = new Set();
+    function claveAvisoLiberacion(a) {
+      return String(a.id || ((a.numero || '') + '|' + (a.trabajador || '') + '|' + (a.fecha || a.ts || a.creadaEn || '')));
+    }
     function mostrarAvisosLiberacionOP() {
       const avisos = Array.isArray(db.notificacionesLiberacion) ? db.notificacionesLiberacion.filter(a => !a.leida) : [];
       let cont = document.getElementById('avisos-liberacion-op');
@@ -16617,6 +16622,17 @@ html.dagomet-dark .cal-op-chip.pausa { background: rgba(251,191,36,.14); }
         box.appendChild(span);
         box.appendChild(closeBtn);
         cont.appendChild(box);
+        // Se oculta solo y queda marcado como leído (no vuelve a aparecer).
+        const clave = claveAvisoLiberacion(a);
+        if (!avisosLiberacionProgramados.has(clave)) {
+          avisosLiberacionProgramados.add(clave);
+          setTimeout(() => {
+            const vigentes = Array.isArray(db.notificacionesLiberacion) ? db.notificacionesLiberacion : [];
+            vigentes.forEach(x => { if (claveAvisoLiberacion(x) === clave) x.leida = true; });
+            try { saveDB(); } catch (_) {}
+            mostrarAvisosLiberacionOP();
+          }, AVISO_LIBERACION_SEGUNDOS * 1000);
+        }
       });
     }
 
@@ -16847,9 +16863,6 @@ html.dagomet-dark .cal-op-chip.pausa { background: rgba(251,191,36,.14); }
         return fotosAcumuladas;
       }
 
-      // Grupo de Teams donde hay que avisar el término de la OP.
-      const TEAMS_LIBERACION_URL = 'https://teams.microsoft.com/l/chat/19:b03bc6792ec64c39a142a3f32d8c9bb3@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D';
-
       const btn = document.getElementById('liberar-btn');
       btn.addEventListener('click', async () => {
         msgEl.className = 'liberar-msg';
@@ -16875,16 +16888,7 @@ html.dagomet-dark .cal-op-chip.pausa { background: rgba(251,191,36,.14); }
           card.innerHTML = `
             <h2>OP N° ${info.numero || ''}</h2>
             <div class="liberar-msg ok">✅ ¡Trabajo liberado con éxito! Planificación ya fue notificada. Gracias, ${trabajador}.</div>
-            <a id="liberar-teams-btn" href="${TEAMS_LIBERACION_URL}" target="_blank" rel="noopener"
-               style="display:block;margin-top:16px;padding:13px;border-radius:9px;text-align:center;text-decoration:none;background:#4b53bc;color:#fff;font-weight:800;font-size:15px;">💬 Avisar en Teams</a>
-            <p class="liberar-sub" style="margin:8px 0 0;text-align:center;">Se copia el mensaje; solo pégalo en el grupo.</p>
           `;
-          // Copia el texto del aviso (sin esperar) para que el navegador
-          // siga tratando el toque como un clic normal al enlace de Teams.
-          document.getElementById('liberar-teams-btn').addEventListener('click', () => {
-            const texto = `✅ OP N° ${info.numero || ''} terminada${info.area ? ' (' + info.area + (info.parteOp ? ' · ' + info.parteOp : '') + ')' : ''}. Liberada por ${trabajador}.`;
-            try { navigator.clipboard && navigator.clipboard.writeText(texto); } catch (_) {}
-          });
         } catch (e) {
           msgEl.className = 'liberar-msg err';
           msgEl.textContent = e.message || 'No se pudo liberar la OP. Intenta de nuevo.';
