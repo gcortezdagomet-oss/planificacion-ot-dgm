@@ -5397,6 +5397,7 @@ html.dagomet-dark .cal-op-chip.pausa { background: rgba(251,191,36,.14); }
               </select>
             </label>
             <label><input type="checkbox" id="cal-carga-cerradas" onchange="setCalCargaOpt()"> Incluir OP cerradas (terminadas / despachadas / anuladas)</label>
+            <button type="button" class="btn btn-success btn-sm" onclick="imprimirCalCarga()" title="Imprime la tabla tal como está en pantalla (según áreas y opciones elegidas)">🖨️ Imprimir</button>
           </div>
         </div>
 
@@ -13252,6 +13253,67 @@ html.dagomet-dark .cal-op-chip.pausa { background: rgba(251,191,36,.14); }
           <div class="cal-legend-item">◐ En curso · 🔎 Por inspeccionar${calCargaCerradas ? ' · ✓ Cerrada' : ''}</div>
           <div class="cal-legend-item">Toca un N° de OP para ver su ficha, o un día para ver el detalle abajo.</div>
         </div>`;
+    }
+
+    // Imprime la tabla "Carga por área" tal como se ve (respeta áreas, mes/pendientes
+    // y "incluir cerradas"). Usa un iframe oculto: sin popups y en hoja horizontal.
+    function imprimirCalCarga() {
+      const wrap = $('cal-carga-wrap');
+      const tabla = wrap && wrap.querySelector('table.cal-carga');
+      if (!tabla) { alert('No hay datos de carga para imprimir con el filtro actual.'); return; }
+      const clon = wrap.cloneNode(true);
+      clon.querySelectorAll('[onclick]').forEach(el => el.removeAttribute('onclick'));
+      clon.querySelectorAll('[title]').forEach(el => el.removeAttribute('title'));
+      clon.querySelectorAll('.cal-carga-sel').forEach(el => el.classList.remove('cal-carga-sel'));
+      clon.querySelectorAll('.cal-legend-item').forEach(el => { if (/Toca un N/.test(el.textContent)) el.remove(); });
+      const ahora = new Date();
+      const impreso = `${pad2(ahora.getDate())}/${pad2(ahora.getMonth() + 1)}/${ahora.getFullYear()} ${pad2(ahora.getHours())}:${pad2(ahora.getMinutes())}`;
+      const areasTxt = calAreaFilter.length ? ' · Áreas: ' + calAreaFilter.map(k => (calAreaList.find(a => a.key === k) || { label: k }).label).join(', ') : '';
+      const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Carga por área</title>
+<style>
+  @page { size: A4 landscape; margin: 10mm; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: Arial, Helvetica, sans-serif; color:#1e293b; margin:0; }
+  h1 { font-size:15px; margin:0 0 2px 0; }
+  .sub { font-size:10px; color:#64748b; margin:0 0 8px 0; }
+  .cal-carga-resumen { display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin:0 0 8px 0; font-size:12px; font-weight:700; }
+  .cal-carga-resumen b { font-size:14px; }
+  .cal-carga-scroll { overflow:visible; }
+  table.cal-carga { border-collapse:collapse; width:100%; }
+  table.cal-carga th, table.cal-carga td { padding:5px 6px; vertical-align:top; text-align:center; border:1px solid #cbd5e1; font-size:11px; }
+  table.cal-carga thead th { border-bottom:2px solid #16a34a; font-size:12px; background:#f1f5f9; }
+  table.cal-carga thead th small { display:block; font-size:9px; font-weight:700; color:#64748b; text-transform:uppercase; }
+  table.cal-carga .cal-carga-area { text-align:left; font-weight:800; white-space:nowrap; border-right:2px solid #16a34a; }
+  table.cal-carga .cal-carga-area span { display:block; font-size:9px; font-weight:700; color:#64748b; }
+  table.cal-carga .cal-carga-tot { font-weight:800; }
+  table.cal-carga tfoot td { font-weight:800; border-top:2px solid #16a34a; background:#f8fafc; }
+  table.cal-carga .cal-carga-hoy { background:#e8f0f8; }
+  table.cal-carga .cal-carga-fer small { color:#6d28d9; }
+  table.cal-carga tr { page-break-inside:avoid; }
+  .cal-op-list { display:flex; flex-direction:column; gap:2px; align-items:center; }
+  .cal-op-chip { font-size:11px; font-weight:800; white-space:nowrap; line-height:1.25; display:inline-block; }
+  .cal-op-chip.late { color:#dc2626; }
+  .cal-op-chip.ok { color:#15803d; }
+  .cal-op-chip.cerrada { color:#94a3b8; text-decoration:line-through; }
+  .cal-op-chip.pausa { color:#b45309; }
+  .cal-legend { display:flex; flex-wrap:wrap; gap:14px; margin:10px 0 0 0; font-size:10px; color:#64748b; font-weight:600; }
+  .pie { margin-top:8px; font-size:9px; color:#94a3b8; text-align:right; }
+</style></head><body>
+<h1>Carga por área · Planificación de OP</h1>
+<p class="sub">Entregas ${calCargaAlcance === 'mes' ? CAL_MESES[calMonth] + ' ' + calYear : 'Todas las pendientes'}${areasTxt}</p>
+${clon.innerHTML}
+<div class="pie">Impreso el ${impreso}</div>
+</body></html>`;
+      const f = document.createElement('iframe');
+      f.style.cssText = 'position:fixed; right:0; bottom:0; width:0; height:0; border:0; visibility:hidden;';
+      document.body.appendChild(f);
+      const doc = f.contentWindow.document;
+      doc.open(); doc.write(html); doc.close();
+      const lanzar = () => {
+        try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { alert('No se pudo abrir la impresión: ' + e.message); }
+        setTimeout(() => f.remove(), 60000);
+      };
+      setTimeout(lanzar, 300);
     }
 
     function renderCalendarTab() {
