@@ -13255,65 +13255,97 @@ html.dagomet-dark .cal-op-chip.pausa { background: rgba(251,191,36,.14); }
         </div>`;
     }
 
-    // Imprime la tabla "Carga por área" tal como se ve (respeta áreas, mes/pendientes
-    // y "incluir cerradas"). Usa un iframe oculto: sin popups y en hoja horizontal.
-    function imprimirCalCarga() {
+    // Imprime la tabla "Carga por área" con el mismo formato de los demás reportes
+    // (logo, título, vista previa con Imprimir / Descargar PDF). Respeta áreas,
+    // mes/pendientes e "incluir cerradas" tal como están en pantalla.
+    function buildCargaReportDOM(titulo, subtitulo) {
       const wrap = $('cal-carga-wrap');
       const tabla = wrap && wrap.querySelector('table.cal-carga');
-      if (!tabla) { alert('No hay datos de carga para imprimir con el filtro actual.'); return; }
+      if (!tabla) return null;
       const clon = wrap.cloneNode(true);
+      clon.removeAttribute('id'); clon.removeAttribute('style');
       clon.querySelectorAll('[onclick]').forEach(el => el.removeAttribute('onclick'));
       clon.querySelectorAll('[title]').forEach(el => el.removeAttribute('title'));
       clon.querySelectorAll('.cal-carga-sel').forEach(el => el.classList.remove('cal-carga-sel'));
       clon.querySelectorAll('.cal-legend-item').forEach(el => { if (/Toca un N/.test(el.textContent)) el.remove(); });
-      const ahora = new Date();
-      const impreso = `${pad2(ahora.getDate())}/${pad2(ahora.getMonth() + 1)}/${ahora.getFullYear()} ${pad2(ahora.getHours())}:${pad2(ahora.getMinutes())}`;
-      const areasTxt = calAreaFilter.length ? ' · Áreas: ' + calAreaFilter.map(k => (calAreaList.find(a => a.key === k) || { label: k }).label).join(', ') : '';
-      const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Carga por área</title>
-<style>
-  @page { size: A4 landscape; margin: 10mm; }
-  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { font-family: Arial, Helvetica, sans-serif; color:#1e293b; margin:0; }
-  h1 { font-size:15px; margin:0 0 2px 0; }
-  .sub { font-size:10px; color:#64748b; margin:0 0 8px 0; }
-  .cal-carga-resumen { display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin:0 0 8px 0; font-size:12px; font-weight:700; }
-  .cal-carga-resumen b { font-size:14px; }
-  .cal-carga-scroll { overflow:visible; }
-  table.cal-carga { border-collapse:collapse; width:100%; }
-  table.cal-carga th, table.cal-carga td { padding:5px 6px; vertical-align:top; text-align:center; border:1px solid #cbd5e1; font-size:11px; }
-  table.cal-carga thead th { border-bottom:2px solid #16a34a; font-size:12px; background:#f1f5f9; }
-  table.cal-carga thead th small { display:block; font-size:9px; font-weight:700; color:#64748b; text-transform:uppercase; }
-  table.cal-carga .cal-carga-area { text-align:left; font-weight:800; white-space:nowrap; border-right:2px solid #16a34a; }
-  table.cal-carga .cal-carga-area span { display:block; font-size:9px; font-weight:700; color:#64748b; }
-  table.cal-carga .cal-carga-tot { font-weight:800; }
-  table.cal-carga tfoot td { font-weight:800; border-top:2px solid #16a34a; background:#f8fafc; }
-  table.cal-carga .cal-carga-hoy { background:#e8f0f8; }
-  table.cal-carga .cal-carga-fer small { color:#6d28d9; }
-  table.cal-carga tr { page-break-inside:avoid; }
-  .cal-op-list { display:flex; flex-direction:column; gap:2px; align-items:center; }
-  .cal-op-chip { font-size:11px; font-weight:800; white-space:nowrap; line-height:1.25; display:inline-block; }
-  .cal-op-chip.late { color:#dc2626; }
-  .cal-op-chip.ok { color:#15803d; }
-  .cal-op-chip.cerrada { color:#94a3b8; text-decoration:line-through; }
-  .cal-op-chip.pausa { color:#b45309; }
-  .cal-legend { display:flex; flex-wrap:wrap; gap:14px; margin:10px 0 0 0; font-size:10px; color:#64748b; font-weight:600; }
-  .pie { margin-top:8px; font-size:9px; color:#94a3b8; text-align:right; }
-</style></head><body>
-<h1>Carga por área · Planificación de OP</h1>
-<p class="sub">Entregas ${calCargaAlcance === 'mes' ? CAL_MESES[calMonth] + ' ' + calYear : 'Todas las pendientes'}${areasTxt}</p>
-${clon.innerHTML}
-<div class="pie">Impreso el ${impreso}</div>
-</body></html>`;
-      const f = document.createElement('iframe');
-      f.style.cssText = 'position:fixed; right:0; bottom:0; width:0; height:0; border:0; visibility:hidden;';
-      document.body.appendChild(f);
-      const doc = f.contentWindow.document;
-      doc.open(); doc.write(html); doc.close();
-      const lanzar = () => {
-        try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { alert('No se pudo abrir la impresión: ' + e.message); }
-        setTimeout(() => f.remove(), 60000);
-      };
-      setTimeout(lanzar, 300);
+      const resumen = clon.querySelector('.cal-carga-resumen');
+      if (resumen && resumen.firstElementChild) resumen.firstElementChild.remove(); // "Carga · mes" ya va en el subtítulo
+      const totalOP = (clon.querySelector('tfoot td:last-child') || {}).textContent || '';
+
+      const container = document.createElement('div');
+      container.style.cssText = 'width: 1000px; margin: 0 auto; padding: 20px 26px; background: #ffffff; color: #1e293b; font-family: "Inter", sans-serif; font-size: 12px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box;';
+      container.innerHTML = `
+        <style>
+          .carga-rep .cal-carga-resumen { display:flex; flex-wrap:wrap; gap:18px; align-items:center; margin:0; font-size:12px; font-weight:700; }
+          .carga-rep .cal-carga-resumen b { font-size:15px; }
+          .carga-rep .cal-carga-scroll { overflow:visible !important; border:none !important; background:#fff !important; border-radius:0 !important; }
+          .carga-rep table.cal-carga { border-collapse:collapse !important; width:100% !important; min-width:0 !important; table-layout:auto; }
+          .carga-rep table.cal-carga th, .carga-rep table.cal-carga td { position:static !important; background:#fff !important; padding:7px 7px !important; border:none !important; border-bottom:1px solid #e2e8f0 !important; text-align:center; vertical-align:top; font-size:12px; color:#1e293b; outline:none !important; }
+          .carga-rep table.cal-carga thead th { background:#f8fafc !important; border-bottom:2px solid #cbd5e1 !important; color:#64748b !important; font-size:10px; text-transform:uppercase; min-width:0 !important; }
+          .carga-rep table.cal-carga thead th small { display:block; font-size:8.5px; color:#94a3b8 !important; }
+          .carga-rep table.cal-carga thead th.cal-carga-fer small { color:#6d28d9 !important; }
+          .carga-rep table.cal-carga .cal-carga-area { text-align:left; font-weight:800; white-space:nowrap; color:#263581 !important; border-right:1px solid #e2e8f0 !important; min-width:0 !important; font-size:11px; }
+          .carga-rep table.cal-carga .cal-carga-area span { display:block; font-size:9px; font-weight:700; color:#64748b !important; }
+          .carga-rep table.cal-carga .cal-carga-tot { font-weight:800; color:#263581 !important; min-width:0 !important; }
+          .carga-rep table.cal-carga .cal-carga-hoy { background:#eef2ff !important; }
+          .carga-rep table.cal-carga tfoot td { font-weight:800; border-top:2px solid #cbd5e1 !important; background:#f8fafc !important; }
+          .carga-rep table.cal-carga tr { page-break-inside:avoid; }
+          .carga-rep .cal-op-list { display:flex; flex-direction:column; gap:3px; align-items:center; }
+          .carga-rep .cal-op-chip { display:inline-block; font-size:11.5px; font-weight:800; white-space:nowrap; line-height:1.25; background:none !important; padding:0 !important; }
+          .carga-rep .cal-op-chip.ok { color:#15803d !important; }
+          .carga-rep .cal-op-chip.late { color:#dc2626 !important; }
+          .carga-rep .cal-op-chip.cerrada { color:#94a3b8 !important; text-decoration:line-through; }
+          .carga-rep .cal-op-chip.pausa { color:#b45309 !important; }
+          .carga-rep .cal-legend { display:flex; flex-wrap:wrap; gap:14px; margin:0 !important; font-size:10px; color:#64748b; font-weight:600; }
+          .carga-rep .cal-legend-item { display:flex; align-items:center; gap:6px; }
+        </style>
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #f1f5f9; padding-bottom:12px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <img src="${IMG_LOGO2}" onerror="this.style.display='none'" style="height:48px; width:auto; max-width:150px; object-fit:contain;">
+            <div>
+              <div style="font-size:16px; font-weight:800; color:#263581;">${esc(titulo)}</div>
+              <div style="font-size:11px; color:#64748b; font-weight:600;">${esc(subtitulo)}</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div style="background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; padding:8px 14px; text-align:center;">
+              <div style="font-size:9px; color:#4338ca; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">OPs en curso en planta</div>
+              <div style="font-size:18px; color:#263581; font-weight:800; line-height:1.2;">${getTotalOpsEnCursoPlanta()}</div>
+            </div>
+            <div style="text-align:right; font-size:10px; color:#94a3b8;">
+              Generado el ${formatDateWithDayUpper(todayKey())}
+            </div>
+          </div>
+        </div>
+        <div class="carga-rep">${clon.innerHTML}</div>
+        <div class="report-footer-summary" style="display:flex; justify-content:flex-end; gap:24px; padding-top:10px; border-top:1px solid #f1f5f9; font-size:11px; color:#334155; page-break-inside:avoid; break-inside:avoid;">
+          <div><b>${esc(totalOP)}</b> OP(s)</div>
+        </div>`;
+      return container;
+    }
+
+    function imprimirCalCarga() {
+      const areasTxt = calAreaFilter.length
+        ? ' · Áreas: ' + calAreaFilter.map(k => (calAreaList.find(a => a.key === k) || { label: k }).label).join(', ')
+        : '';
+      const titulo = 'Carga por área';
+      const subtitulo = (calCargaAlcance === 'mes' ? `${CAL_MESES[calMonth]} ${calYear}` : 'Todas las pendientes') + areasTxt;
+      const dom = buildCargaReportDOM(titulo, subtitulo);
+      if (!dom) { alert('No hay datos de carga para imprimir con el filtro actual.'); return; }
+      const nDias = document.querySelectorAll('#cal-carga-wrap table.cal-carga thead th').length - 2;
+      // Es un reporte, no la vista de una OP individual: no marca nada como impreso.
+      opIdEnPreview = null;
+      const cont = $('modal-preview-container');
+      cont.innerHTML = '';
+      dom.style.boxShadow = 'none';
+      cont.appendChild(dom);
+      $('modal-download-btn').style.display = '';
+      $('modal-print-btn').style.display = '';
+      $('modal-download-btn').onclick = () => generateReportPDF([], titulo, subtitulo, null, () => buildCargaReportDOM(titulo, subtitulo), nDias + 2);
+      $('modal-download-excel-btn').style.display = 'none';
+      $('preview-modal').classList.remove('is-chart');
+      $('preview-modal').classList.add('is-report');
+      $('preview-modal').style.display = 'flex';
     }
 
     function renderCalendarTab() {
@@ -14522,18 +14554,19 @@ ${clon.innerHTML}
       $('preview-modal').style.display = 'flex';
     }
 
-    async function generateReportPDF(list, titulo, subtitulo, columnKeys) {
+    async function generateReportPDF(list, titulo, subtitulo, columnKeys, domBuilder, nColsHint) {
       if (typeof html2pdf !== 'function') {
         alert('No se pudo cargar el generador de PDF. Compruebe su conexión a Internet y vuelva a intentarlo.');
         return;
       }
       const filename = `Reporte_${titulo.replace(/[^a-zA-Z0-9]+/g, '_')}.pdf`;
-      const container = buildReportDOM(list, titulo, subtitulo, columnKeys);
+      const container = domBuilder ? domBuilder() : buildReportDOM(list, titulo, subtitulo, columnKeys);
+      if (!container) { alert('No hay datos para generar el PDF.'); return; }
 
       // Con muchas columnas seleccionadas, se usa una hoja más ancha para
       // que el reporte no quede apretado (carta -> oficio -> A3, siempre
       // horizontal). El margen es de 8mm por lado.
-      const nCols = (columnKeys && columnKeys.length ? columnKeys : loadReportColumnsSelection()).length;
+      const nCols = nColsHint || (columnKeys && columnKeys.length ? columnKeys : loadReportColumnsSelection()).length;
       const pageFormat = nCols <= 9 ? 'letter' : nCols <= 12 ? 'legal' : 'a3';
       const pageWidthMM = { letter: 279.4, legal: 355.6, a3: 420 }[pageFormat];
       const contentWidthMM = Math.round((pageWidthMM - 16) * 100) / 100; // resta 8mm de margen por lado
