@@ -13271,12 +13271,21 @@ html.dagomet-dark .cal-op-chip.pausa { background: rgba(251,191,36,.14); }
       const resumen = clon.querySelector('.cal-carga-resumen');
       if (resumen && resumen.firstElementChild) resumen.firstElementChild.remove(); // "Carga · mes" ya va en el subtítulo
       const totalOP = (clon.querySelector('tfoot td:last-child') || {}).textContent || '';
+      // Al imprimir, un <tfoot> hace que el navegador parta la tabla y mande
+      // "Total por día" (y lo que sigue) a una segunda hoja. Se pasa a una fila normal.
+      const tfootEl = clon.querySelector('table.cal-carga tfoot');
+      const tbodyEl = clon.querySelector('table.cal-carga tbody');
+      if (tfootEl && tbodyEl) {
+        Array.from(tfootEl.rows).forEach(r => { r.classList.add('carga-total-dia'); tbodyEl.appendChild(r); });
+        tfootEl.remove();
+      }
 
       const container = document.createElement('div');
       container.style.cssText = 'width: 1000px; margin: 0 auto; padding: 20px 26px; background: #ffffff; color: #1e293b; font-family: "Inter", sans-serif; font-size: 12px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box;';
       container.innerHTML = `
         <style>
-          .carga-rep .cal-carga-resumen { display:flex; flex-wrap:wrap; gap:18px; align-items:center; margin:0; font-size:12px; font-weight:700; }
+          .carga-rep { display:block; }
+          .carga-rep .cal-carga-resumen { margin-bottom:12px !important; display:flex; flex-wrap:wrap; gap:18px; align-items:center; margin:0; font-size:12px; font-weight:700; }
           .carga-rep .cal-carga-resumen b { font-size:15px; }
           .carga-rep .cal-carga-scroll { overflow:visible !important; border:none !important; background:#fff !important; border-radius:0 !important; }
           .carga-rep table.cal-carga { border-collapse:collapse !important; width:100% !important; min-width:0 !important; table-layout:auto; }
@@ -13288,7 +13297,7 @@ html.dagomet-dark .cal-op-chip.pausa { background: rgba(251,191,36,.14); }
           .carga-rep table.cal-carga .cal-carga-area span { display:block; font-size:9px; font-weight:700; color:#64748b !important; }
           .carga-rep table.cal-carga .cal-carga-tot { font-weight:800; color:#263581 !important; min-width:0 !important; }
           .carga-rep table.cal-carga .cal-carga-hoy { background:#eef2ff !important; }
-          .carga-rep table.cal-carga tfoot td { font-weight:800; border-top:2px solid #cbd5e1 !important; background:#f8fafc !important; }
+          .carga-rep table.cal-carga tr.carga-total-dia td { font-weight:800; border-top:2px solid #cbd5e1 !important; background:#f8fafc !important; }
           .carga-rep table.cal-carga tr { page-break-inside:avoid; }
           .carga-rep .cal-op-list { display:flex; flex-direction:column; gap:3px; align-items:center; }
           .carga-rep .cal-op-chip { display:inline-block; font-size:11.5px; font-weight:800; white-space:nowrap; line-height:1.25; background:none !important; padding:0 !important; }
@@ -13296,7 +13305,7 @@ html.dagomet-dark .cal-op-chip.pausa { background: rgba(251,191,36,.14); }
           .carga-rep .cal-op-chip.late { color:#dc2626 !important; }
           .carga-rep .cal-op-chip.cerrada { color:#94a3b8 !important; text-decoration:line-through; }
           .carga-rep .cal-op-chip.pausa { color:#b45309 !important; }
-          .carga-rep .cal-legend { display:flex; flex-wrap:wrap; gap:14px; margin:0 !important; font-size:10px; color:#64748b; font-weight:600; }
+          .carga-rep .cal-legend { display:flex; flex-wrap:wrap; gap:14px; margin:12px 0 0 0 !important; font-size:10px; color:#64748b; font-weight:600; }
           .carga-rep .cal-legend-item { display:flex; align-items:center; gap:6px; }
         </style>
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #f1f5f9; padding-bottom:12px;">
